@@ -30,7 +30,7 @@ This allows users to construct flexible, **multi-step analysis workflows**. For 
 
 The relationships and primary data flow between these core processors are visualized below:
 
-![Protos Processor Overview Diagram](protos/resources/protos_overview.png)
+![Protos Processor Overview Diagram](resources/protos_overview.png)
 *(Diagram showing connections between CP, SP, GRNP, LP, EMBP, and PP)*
 
 ## Current Status & Protos-MCP Context
