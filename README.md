@@ -1,3 +1,44 @@
+# Protos Overview
+
+## What is Protos?
+
+Protos is a Python library designed to streamline and standardize computational workflows for **comparative structural biology**. It originated from the need to manage, process, and analyze large datasets containing diverse protein information, including sequence, structure, alignments, properties, and standardized numbering systems.
+
+The primary goal of Protos is to provide a **reusable and interoperable framework** that handles common, often repetitive tasks associated with analyzing multiple protein entries simultaneously. This includes:
+
+*   Consistent data loading and saving routines.
+*   Standardized handling of common bioinformatics file formats.
+*   Management of file paths and datasets across different analyses.
+*   Integration of various data representations (e.g., linking structural features to sequence positions).
+
+## Core Architecture: Processors
+
+Protos is built upon a modular architecture using distinct Python components called **'Processors'**. Each Processor is specialized for handling a specific type of data or performing a particular set of analysis tasks. Key Processors include:
+
+*   **`CifProcessor (CP)`**: Manages 3D structural data (PDB/mmCIF files, coordinates, selections).
+*   **`SeqProcessor (SP)`**: Handles protein sequence data (FASTA files, alignments, conservation, mutations).
+*   **`GRNProcessor (GRNP)`**: Implements Generic Residue Numbering systems for consistent cross-structure comparison.
+*   **`LigProcessor (LP)`**: Focuses on handling ligand data and analyzing protein-ligand interactions.
+*   **`EMBProcessor (EMBP)`**: Deals with generating and analyzing protein embeddings.
+*   **`PropertyProcessor (PP)`**: Manages associated metadata and calculated properties for proteins.
+
+## Key Feature: Interoperability
+
+A central design philosophy of Protos is **interoperability** between these Processors. Data is handled consistently (using standard identifiers and formats internally) so that the output from one Processor can seamlessly serve as the input for another.
+
+This allows users to construct flexible, **multi-step analysis workflows**. For example, one can identify residues in a binding pocket using `CifProcessor`, map these residues to a standard numbering scheme with `GRNProcessor`, analyze their conservation across an alignment using `SeqProcessor`, and store associated properties with `PropertyProcessor`.
+
+The relationships and primary data flow between these core processors are visualized below:
+
+![Protos Processor Overview Diagram](protos/resources/protos_overview.png)
+*(Diagram showing connections between CP, SP, GRNP, LP, EMBP, and PP)*
+
+## Current Status & Protos-MCP Context
+
+Protos provides a functional foundation for performing these complex analyses programmatically using Python. However, its direct use requires scripting skills. The **Protos-MCP project** (described elsewhere in this application/documentation) aims to build upon this existing Protos foundation by creating an interface layer using Large Language Models (LLMs) and the Model Context Protocol (MCP). This will make the powerful, interoperable capabilities of Protos accessible to a broader range of researchers through natural language interaction, without requiring direct Python programming.
+
+
+
 # Protos-MCP Example Workflows
 
 Computational analysis is increasingly vital for structural biology, enabling insights from large datasets. The Protos Python library provides a foundational framework for these analyses, integrating data handling (sequences, structures, alignments) and core processing steps through interoperable modules ('Processors'). Protos allows complex, multi-step workflows to be constructed programmatically. However, this requires Python scripting and familiarity with the library, limiting its direct use by many researchers.
