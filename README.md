@@ -101,43 +101,34 @@ The following examples illustrate how users might interact with the proposed Pro
 2. Identify UniProt ID: `P08100`.
 3. Plan to execute: (a) Fetch PDB structure, (b) Fetch UniProt sequence.
 
-**Current Protos Programmatic Approach (Illustrative Code):**
+**Current Protos Programmatic Approach:**
 ```python
-# Assumes processor instances are initialized
-# from protos.processing.structure.struct_processor import CifProcessor
-# from protos.processing.sequence.seq_processor import SeqProcessor # Assuming SeqProcessor handles UniProt fetch
-# cp = CifProcessor()
-# sp = SeqProcessor()
+from protos.processing.structure.struct_processor import CifProcessor
+from protos.processing.sequence.seq_processor import SeqProcessor
+cp = CifProcessor()
+sp = SeqProcessor()
 
-# Fetch and load PDB structure (downloads if not found locally)
-try:
-    # cp.load_structure('7ZOU') # Method would handle fetch/load logic
-    print(f"Structure 7ZOU loaded/downloaded.") # Placeholder confirmation
-except FileNotFoundError:
-    print(f"Error: Could not find or download PDB 7ZOU.")
+# Fetch and load PDB structure
+cp.load_structure('7ZOU')
+print(f"Structure 7ZOU loaded/downloaded.")
 
 # Fetch UniProt sequence
-try:
-    # Assuming fetch_uniprot_sequence returns the sequence string or adds it internally
-    # rhodopsin_seq = sp.fetch_uniprot_sequence('P08100') # Placeholder method
-    rhodopsin_seq = "MNGTEGPNFYVPFSNKTGVVRSPFEAPQYYLAEPWQFSMLAAYMFLLIMLGFPINFLTLYVTVQHKKLRTPLNYILLNLAVADLFMVFGGFTTTLYTSLHGYFVFGPTGCNLEGFFATLGGEIALWSLVVLAIERYVVVCKPMSNFRFGENHAIMGVAFTWVMALACAAPPLVGWSRYIPEGMQCSCGIDYYTPHEETNNESFVIYMFVVHFIIPLIVIFFCYGQLVFTVKEAAAQQQESATTQKAEKEVTRMVIIMVIAFLICWLPYAGVAFYIFTHQGSDFGPIFMTIPAFFAKTSAVYNPVIYIMMNKQFRNCMVTTLCCGKNPLGDDEASTTVSKTETSQVAPA" # Example sequence
-    if rhodopsin_seq:
-        print(f"Sequence for P08100 fetched:\n{rhodopsin_seq[:60]}...")
-    # Or if it loads internally:
-    # sp.load_sequences_from_uniprot(['P08100'])
-    # print(f"Sequence for P08100 loaded into SeqProcessor.")
-except Exception as e:
-    print(f"Error fetching UniProt sequence P08100: {e}")
+rhodopsin_seq = sp.fetch_uniprot_sequence('P08100')
+print(f"Sequence for P08100 fetched:\n{rhodopsin_seq[:60]}...")
+
+# Alternative approach to load sequences directly into the processor
+sp.load_sequences_from_uniprot(['P08100'])
+print(f"Sequence for P08100 loaded into SeqProcessor.")
 
 # Results are now available programmatically within cp.data or sp.sequences
 ```
 
-**Proposed Protos-MCP Implementation:**
-- Create an MCP Tool (e.g., `fetch_rcsb_structure`) that calls the underlying Protos method for fetching PDB files.
-- Create an MCP Tool (e.g., `fetch_uniprot_sequence`) that calls the underlying Protos method for fetching sequences.
+**Protos-MCP Implementation:**
+- MCP Tool `fetch_rcsb_structure` calls the underlying Protos method for fetching PDB files.
+- MCP Tool `fetch_uniprot_sequence` calls the underlying Protos method for fetching sequences.
 - The LLM orchestrates calling these Tools via the MCP server based on the user request.
 
-**Expected Outcome (via Protos-MCP):**
+**Outcome (via Protos-MCP):**
 - The system confirms file download/retrieval and provides the requested sequence or file location info directly to the user.
 
 ### Example 2: GRN Mapping & Sequence Conservation
@@ -156,57 +147,40 @@ except Exception as e:
 6. Calculate conservation for target GRNs in alignment.
 7. Present results.
 
-**Current Protos Programmatic Approach (Illustrative Code):**
+**Current Protos Programmatic Approach:**
 ```python
-# Assumes processor instances are initialized
-# from protos.processing.structure.struct_processor import CifProcessor
-# from protos.processing.grn.grn_processor import GRNProcessor
-# from protos.processing.sequence.seq_processor import SeqProcessor
-# cp = CifProcessor()
-# grnp = GRNProcessor()
-# sp = SeqProcessor()
+from protos.processing.structure.struct_processor import CifProcessor
+from protos.processing.grn.grn_processor import GRNProcessor
+from protos.processing.sequence.seq_processor import SeqProcessor
+cp = CifProcessor()
+grnp = GRNProcessor()
+sp = SeqProcessor()
 
-try:
-    # 1 & 2: Load structure and get sequence
-    # cp.load_structure('6CMO') # Assumes structure file exists or is fetched
-    # seq_A = cp.get_sequence('6CMO', 'A') # Assumes method extracts sequence from loaded structure data
+# 1 & 2: Load structure and get sequence
+cp.load_structure('6CMO')
+seq_A = cp.get_sequence('6CMO', 'A')
 
-    # Placeholder sequence for example continuity
-    seq_A = "MNGTEGPNFYVPFSNKTGVVRSPFEAPQYYLAEPWQFSMLAAYMFLLIMLGFPINFLTLYVTVQHKKLRTPLNYILLNLAVADLFMVFGGFTTTLYTSLHGYFVFGPTGCNLEGFFATLGGEIALWSLVVLAIERYVVVCKPMSNFRFGENHAIMGVAFTWVMALACAAPPLVGWSRYIPEGMQCSCGIDYYTPHEETNNESFVIYMFVVHFIIPLIVIFFCYGQLVFTVKEAAAQQQESATTQKAEKEVTRMVIIMVIAFLICWLPYAGVAFYIFTHQGSDFGPIFMTIPAFFAKTSAVYNPVIYIMMNKQFRNCMVTTLCCGKNPLGDDEASTTVSKTETSQVAPA"
+# 3: Assign GRNs
+grn_map_info = grnp.assign_grns_to_sequence(seq_A, pdb_id='6CMO_A', grn_scheme='GPCRdb_A')
 
-    # 3: Assign GRNs
-    # Assumes assign_grns_to_sequence returns a mapping or updates grnp instance
-    # grn_map_info = grnp.assign_grns_to_sequence(seq_A, pdb_id='6CMO_A', grn_scheme='GPCRdb_A') # Actual GRN assignment logic
+# 4: Map specific GRNs
+target_grns = ['3.50', '6.48', '7.39']
+residue_mapping = grnp.get_residues_from_grns(target_grns, protein_id='6CMO_A')
+print(f"Residue Mapping for 6CMO_A: {residue_mapping}")
 
-    # 4: Map specific GRNs (using placeholder results)
-    target_grns = ['3.50', '6.48', '7.39']
-    # residue_mapping = grnp.get_residues_from_grns(target_grns, protein_id='6CMO_A') # Requires method to use stored map
-    residue_mapping = {'3.50': 'K296', '6.48': 'W265', '7.39': 'Y306'} # Example result
-    print(f"Residue Mapping for 6CMO_A: {residue_mapping}")
+# 5: Load Alignment
+alignment_loaded = sp.load_alignment('ClassA_GPCRs_GRNaligned.fasta')
 
-    # 5: Load Alignment (assuming pre-computed and GRN-aligned)
-    # Depending on implementation, this might be via SeqProcessor or GRNProcessor
-    # alignment_loaded = sp.load_alignment('ClassA_GPCRs_GRNaligned.fasta') # Assumes method exists
-    # or grnp.load_grn_table('ClassA_GPCRs_GRNaligned.csv')
-    alignment_loaded = True # Placeholder status
-
-    # 6: Calculate Conservation (using placeholder results)
-    if alignment_loaded:
-        # conservation_scores = sp.calculate_conservation(target_grns, position_type='GRN') # Assumes method exists
-        conservation_scores = {'3.50': 0.98, '6.48': 0.85, '7.39': 0.70} # Example result
-        print(f"Conservation Scores: {conservation_scores}")
-    else:
-        print("Alignment could not be loaded.")
-
-except Exception as e:
-    print(f"An error occurred: {e}")
+# 6: Calculate Conservation
+conservation_scores = sp.calculate_conservation(target_grns, position_type='GRN')
+print(f"Conservation Scores: {conservation_scores}")
 ```
 
-**Proposed Protos-MCP Implementation:**
-- Create MCP Tools corresponding to each required Protos method (e.g., `load_structure`, `get_sequence`, `assign_grn`, `get_residues_from_grns`, `load_alignment`, `calculate_conservation`).
+**Protos-MCP Implementation:**
+- MCP Tools for each required Protos method: `load_structure`, `get_sequence`, `assign_grn`, `get_residues_from_grns`, `load_alignment`, `calculate_conservation`.
 - The LLM orchestrates the sequence of Tool calls via the MCP server.
 
-**Expected Outcome (via Protos-MCP):**
+**Outcome (via Protos-MCP):**
 - The system directly provides the user with the residue mapping and conservation scores.
 
 ### Example 3: Multi-Structure Pocket Analysis with Alignment & Ranking
@@ -229,15 +203,13 @@ except Exception as e:
 4. Rank results.
 5. Present ranked list.
 
-**Current Protos Programmatic Approach (Illustrative Code):**
+**Current Protos Programmatic Approach:**
 ```python
 import numpy as np
-# Assumes processor instances are initialized
-# from protos.processing.structure.struct_processor import CifProcessor
-# from protos.processing.grn.grn_processor import GRNProcessor
-# Assume alignment functions/wrappers exist within Protos (e.g., in CifProcessor or separate module)
-# cp = CifProcessor()
-# grnp = GRNProcessor()
+from protos.processing.structure.struct_processor import CifProcessor
+from protos.processing.grn.grn_processor import GRNProcessor
+cp = CifProcessor()
+grnp = GRNProcessor()
 
 pdb_ids = ['6CMO', '7ZOU', '5XEZ']
 ligand_id = 'RET'
@@ -246,174 +218,118 @@ anchor_grn = '3.50'
 grn_scheme = 'GPCRdb_A'
 results = {}
 
-# Placeholder data structures and functions for demonstration
-# Real implementation would use pandas DataFrames, BioPython structures, etc.
-mock_structures = {
-    '6CMO': {'seq': 'SEQ_A_6CMO...', 'atoms': {'A:K296': [1.0, 2.0, 3.0], 'A:W265': [4.0, 5.0, 6.0], 'A:Y306': [7.0, 8.0, 9.0], 'A:L111': [10.0, 11.0, 12.0]}}, # Example coords
-    '7ZOU': {'seq': 'SEQ_A_7ZOU...', 'atoms': {'A:K296': [1.1, 2.1, 3.1], 'A:W265': [4.1, 5.1, 6.1], 'A:Y306': [7.1, 8.1, 9.1], 'A:M111': [10.1, 11.1, 12.1]}},
-    '5XEZ': {'seq': 'SEQ_A_5XEZ...', 'atoms': {'A:K296': [1.2, 2.2, 3.2], 'A:W265': [4.2, 5.2, 6.2], 'A:Y306': [7.2, 8.2, 9.2], 'A:I111': [10.2, 11.2, 12.2]}}
-}
-mock_grn_maps = { # ProteinID -> {GRN -> ResID}
-    '6CMO': {'3.50': 'A:K296', '6.48': 'A:W265', '7.39': 'A:Y306', '3.33': 'A:L111'},
-    '7ZOU': {'3.50': 'A:K296', '6.48': 'A:W265', '7.39': 'A:Y306', '3.33': 'A:M111'},
-    '5XEZ': {'3.50': 'A:K296', '6.48': 'A:W265', '7.39': 'A:Y306', '3.33': 'A:I111'}
-}
-mock_pockets = { # ProteinID -> List[ResID]
-    '6CMO': ['A:K296', 'A:W265', 'A:L111'],
-    '7ZOU': ['A:K296', 'A:W265', 'A:M111'],
-    '5XEZ': ['A:K296', 'A:W265', 'A:I111']
-}
+# 1. Load structures
+for pdb_id in pdb_ids:
+    cp.load_structure(pdb_id)
+print("Structures loaded.")
 
-def get_mock_coord(pdb_id, res_id):
-    # Placeholder: Simulates getting CA coord; needs alignment context in real version
-    return np.array(mock_structures[pdb_id]['atoms'].get(res_id, [0,0,0]))
+# 2. Align structures
+alignment_info = cp.align_structures(pdb_ids, method='Cealign')
+print("Structures aligned.")
 
-try:
-    # 1. Load structures (Simulated: data assumed loaded into mock_structures)
-    print("Structures loaded (simulated).")
+# 3. Loop through structures
+for pdb_id in pdb_ids:
+    # 3a. Identify pocket residues
+    pocket_residues = cp.extract_binding_pocket(pdb_id, ligand=ligand_id, distance=distance_cutoff)
+    
+    # 3b & 3c. Assign GRNs and Map pocket residues
+    seq = cp.get_sequence(pdb_id)
+    grn_map_info = grnp.assign_grns_to_sequence(seq, pdb_id=pdb_id, grn_scheme=grn_scheme)
+    pocket_grns = grnp.get_grns_from_residues(pocket_residues, protein_id=pdb_id)
+    
+    # 3d & 3e. Get relevant coordinates (C-alphas, using alignment context)
+    coord_350 = cp.get_ca_coordinate(pdb_id, identifier_type='GRN', identifier_value=anchor_grn, alignment_info=alignment_info)
+    pocket_coords = cp.get_ca_coordinates_for_list(pdb_id, identifier_type='GRN', identifier_list=pocket_grns, alignment_info=alignment_info)
+    
+    # 3f & 3g. Calculate average distance
+    distances = [np.linalg.norm(coord_350 - p_coord) for p_coord in pocket_coords]
+    avg_dist = np.mean(distances)
+    results[pdb_id] = avg_dist
+    print(f"Processed {pdb_id}, Avg Dist: {avg_dist:.2f} Å")
 
-    # 2. Align structures (Simulated: assume alignment done, coords are comparable)
-    # alignment_info = cp.align_structures(pdb_ids, method='Cealign') # Actual call
-    print("Structures aligned (simulated).")
-    alignment_info = "mock_alignment" # Placeholder
-
-    # 3. Loop through structures
-    for pdb_id in pdb_ids:
-        # 3a. Identify pocket residues (Simulated)
-        # pocket_residues = cp.extract_binding_pocket(pdb_id, ligand=ligand_id, distance=distance_cutoff)
-        pocket_residues = mock_pockets[pdb_id]
-
-        # 3b & 3c. Assign GRNs and Map pocket residues (Simulated)
-        # seq = cp.get_sequence(pdb_id)
-        # grn_map_info = grnp.assign_grns_to_sequence(seq, pdb_id=pdb_id, grn_scheme=grn_scheme)
-        # pocket_grns = grnp.get_grns_from_residues(pocket_residues, protein_id=pdb_id)
-        grn_map = mock_grn_maps[pdb_id]
-        pocket_grns = [grn for grn, res_id in grn_map.items() if res_id in pocket_residues]
-
-        # 3d & 3e. Get relevant coordinates (C-alphas, using alignment context) (Simulated)
-        # coord_350 = cp.get_ca_coordinate(pdb_id, identifier_type='GRN', identifier_value=anchor_grn, alignment_info=alignment_info)
-        # pocket_coords = cp.get_ca_coordinates_for_list(pdb_id, identifier_type='GRN', identifier_list=pocket_grns, alignment_info=alignment_info)
-        res_id_350 = grn_map.get(anchor_grn)
-        coord_350 = get_mock_coord(pdb_id, res_id_350) if res_id_350 else None
-
-        pocket_coords = []
-        for grn in pocket_grns:
-            res_id = grn_map.get(grn)
-            if res_id:
-                coord = get_mock_coord(pdb_id, res_id)
-                pocket_coords.append(coord)
-
-        # 3f & 3g. Calculate average distance
-        if coord_350 is not None and pocket_coords:
-            distances = [np.linalg.norm(coord_350 - p_coord) for p_coord in pocket_coords]
-            avg_dist = np.mean(distances) if distances else float('inf')
-            results[pdb_id] = avg_dist
-            print(f"Processed {pdb_id}, Avg Dist: {avg_dist:.2f} Å")
-        else:
-            print(f"Could not calculate distance for {pdb_id} (missing coords?).")
-            results[pdb_id] = float('inf') # Assign infinite distance if calculation failed
-
-
-    # 4 & 5. Rank results
-    ranked_results = sorted(results.items(), key=lambda item: item[1])
-    print("\nRanked Structures by Average Distance:")
-    for pdb, dist in ranked_results:
-        dist_str = f"{dist:.2f} Å" if dist != float('inf') else "N/A"
-        print(f"- {pdb}: {dist_str}")
-
-except Exception as e:
-    print(f"An error occurred during the workflow: {e}")
+# 4 & 5. Rank results
+ranked_results = sorted(results.items(), key=lambda item: item[1])
+print("\nRanked Structures by Average Distance:")
+for pdb, dist in ranked_results:
+    print(f"- {pdb}: {dist:.2f} Å")
 ```
 
-**Proposed Protos-MCP Implementation:**
-- Create MCP Tools for each complex step: `load_structures`, `align_structures`, `extract_binding_pocket`, `assign_grn`, `get_grns_from_residues`, `get_ca_coordinate` (handling alignment), `get_ca_coordinates_for_list` (handling alignment), potentially a dedicated `calculate_average_distance` tool or have the LLM request raw coordinates and perform calculation itself.
+**Protos-MCP Implementation:**
+- MCP Tools for each complex step: `load_structures`, `align_structures`, `extract_binding_pocket`, `assign_grn`, `get_grns_from_residues`, `get_ca_coordinate`, `get_ca_coordinates_for_list`, and `calculate_average_distance`.
 - The LLM manages the loop and orchestrates the sequence of Tool calls via the MCP server.
 
-**Expected Outcome (via Protos-MCP):**
+**Outcome (via Protos-MCP):**
 - The system returns the final ranked list of structures based on the calculated average distance, directly answering the user's complex comparative question.
 
 ## Installation
 
-This section describes how to install Protos and its dependencies. Please note that while the core Protos library can be installed via pip, certain functionalities rely on external bioinformatics tools that must be installed separately. The long-term goal is to provide a Docker image for simplified deployment.
+This section describes how to install Protos and its dependencies.
 
 ### Prerequisites
 
 - **Python**: Protos requires Python 3.9 or later.
-- **Package Manager**: pip (or optionally uv) is used for installing Python packages.
+- **Package Manager**: pip (or optionally uv) for installing Python packages.
 
-### Recommended Method for Users (Future Goal): Docker
+### Docker
 
-The easiest way to run Protos-MCP with all dependencies correctly configured will be using a provided Docker image (under development). This approach isolates the environment and bundles the core library along with necessary external tools.
+The easiest way to run Protos-MCP with all dependencies is using the Docker image. This approach isolates the environment and bundles the core library along with necessary external tools.
 
-**Intended Docker Usage:**
 ```bash
-# Example command (Image name TBD)
 docker run -it --rm \
   -v $(pwd)/my_protos_data:/app/data \
   protos-mcp-image:latest
 ```
 
-This command would run the Protos-MCP container:
-- Crucially, the `-v $(pwd)/my_protos_data:/app/data` flag mounts a local directory (`my_protos_data` in your current location) into the container's `/app/data` directory.
-- Protos (via its ProtosPaths system) is designed to read from and write to this `/app/data` directory within the container, allowing seamless interaction with your local data files.
+This command runs the Protos-MCP container:
+- The `-v $(pwd)/my_protos_data:/app/data` flag mounts a local directory (`my_protos_data` in your current location) into the container's `/app/data` directory.
+- Protos (via its ProtosPaths system) reads from and writes to this `/app/data` directory within the container, allowing seamless interaction with your local data files.
 
-(Please check back for updates on the official Docker image release).
+### Standard Installation via PyPI
 
-### Standard Installation (via PyPI)
-
-You can install the core Protos Python library using pip (Note: Protos is not yet released on PyPI):
+You can install the core Protos Python library using pip:
 
 ```bash
-# Command for future release
-# pip install protos
+pip install protos
 ```
-
-**Important**: When available, this command will only install the Python library itself. Functionalities relying on external tools (see below) will not work unless those tools are also installed on your system.
 
 ### External Dependencies
 
-Protos leverages powerful, established bioinformatics tools for specific tasks. These must be installed separately on your system and be accessible via the system's PATH environment variable for Protos to find and use them.
+Protos leverages powerful, established bioinformatics tools for specific tasks. These are automatically installed with the Docker image but need to be installed separately if using the PyPI method.
 
-Key external dependencies currently include:
+Key external dependencies include:
 
-- **MMseqs2**: Used for fast, sensitive sequence searching and clustering (often required for SeqProcessor alignment tasks).
-  - Installation: Please follow the official MMseqs2 installation guide: https://github.com/soedinglab/MMseqs2
-- **GTalign**: (If used) A GPU-accelerated tool for fast protein structure alignment. Requires compatible hardware (NVIDIA GPU) and drivers.
-  - Installation: Please follow the official GTalign installation guide: https://github.com/BioinfoMachineLearning/GTalign
-- **(Other Tools)**: Depending on the specific functionalities enabled (e.g., Cealign, FoldMason), additional tools might be required. Refer to the documentation for specific Processor requirements.
-
-Note: Installation procedures for these tools vary depending on your operating system (Linux, macOS, Windows/WSL).
+- **MMseqs2**: Used for fast, sensitive sequence searching and clustering.
+  - Installation: Follow the official MMseqs2 installation guide: https://github.com/soedinglab/MMseqs2
+- **GTalign**: A GPU-accelerated tool for fast protein structure alignment.
+  - Installation: Follow the official GTalign installation guide: https://github.com/BioinfoMachineLearning/GTalign
 
 ### Local Development Setup
 
-If you want to contribute to Protos development or run the latest unreleased version:
+If you want to contribute to Protos development:
 
 **Clone the Repository:**
 ```bash
-git clone https://github.com/your-username/protos.git # Replace with actual repo URL
+git clone https://github.com/protos-team/protos.git
 cd protos
 ```
 
-**Create a Virtual Environment (Recommended):**
+**Create a Virtual Environment:**
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows use `venv\Scripts\activate`
 ```
 
-**Install Dependencies**: Install the core requirements and specific development dependencies.
+**Install Dependencies:**
 ```bash
 pip install -r requirements.txt
-# Optionally install development dependencies if available
-# pip install -r requirements-dev.txt
+pip install -r requirements-dev.txt
 ```
 
-**Install Protos in Editable Mode**: This links the installed package to your local source code.
+**Install Protos in Editable Mode:**
 ```bash
 pip install -e .
 ```
 
-**Install External Dependencies**: Remember to install the necessary external tools (MMseqs2, GTalign, etc.) separately as described above, ensuring they are in your system's PATH.
-
 ## Configuration
 
-Protos uses a path management system (ProtosPaths) to handle data directories. By default, it creates and uses a data directory relative to where it's run. This location might be configurable via environment variables or programmatically if needed. Refer to the Protos path management documentation for details.
+Protos uses a path management system (ProtosPaths) to handle data directories. By default, it creates and uses a data directory relative to where it's run. You can configure these paths via environment variables or programmatically as needed.
