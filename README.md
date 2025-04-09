@@ -2,85 +2,75 @@
 
 ## What is Protos?
 
-Protos is a Python library designed to streamline and standardize computational workflows for **comparative structural biology**. It originated from the need to manage, process, and analyze large datasets containing diverse protein information, including sequence, structure, alignments, properties, and standardized numbering systems.
+Protos is a Python library designed to **standardize and execute complex computational workflows** essential for structural biology research. It provides integrated capabilities for handling diverse biological data types – including sequences, 3D structures, alignments, and associated properties – through a unified framework.
 
-The primary goal of Protos is to provide a **reusable and interoperable framework** that handles common, often repetitive tasks associated with analyzing multiple protein entries simultaneously. This includes:
+The core function of Protos is to manage multi-step analyses by breaking them down into defined tasks handled by modular components.
 
-*   Consistent data loading and saving routines.
-*   Standardized handling of common bioinformatics file formats.
-*   Management of file paths and datasets across different analyses.
-*   Integration of various data representations (e.g., linking structural features to sequence positions).
+## Core Architecture: Processors & Interoperability
 
-## Core Architecture: Processors
+Protos utilizes a modular architecture built upon distinct Python components called **'Processors'**. Each Processor is specialized for a specific domain, such as:
 
-Protos is built upon a modular architecture using distinct Python components called **'Processors'**. Each Processor is specialized for handling a specific type of data or performing a particular set of analysis tasks. Key Processors include:
+*   **`CifProcessor`**: Manages 3D structure data.
+*   **`SeqProcessor`**: Handles sequence data and alignments.
+*   **`GRNProcessor`**: Implements Generic Residue Numbering systems.
+*   **`LigProcessor`**: Deals with ligand information and interactions.
+*   **`EMBProcessor`**: Manages protein embeddings.
+*   **`PropertyProcessor`**: Integrates metadata and calculated properties.
 
-*   **`CifProcessor (CP)`**: Manages 3D structural data (PDB/mmCIF files, coordinates, selections).
-*   **`SeqProcessor (SP)`**: Handles protein sequence data (FASTA files, alignments, conservation, mutations).
-*   **`GRNProcessor (GRNP)`**: Implements Generic Residue Numbering systems for consistent cross-structure comparison.
-*   **`LigProcessor (LP)`**: Focuses on handling ligand data and analyzing protein-ligand interactions.
-*   **`EMBProcessor (EMBP)`**: Deals with generating and analyzing protein embeddings.
-*   **`PropertyProcessor (PP)`**: Manages associated metadata and calculated properties for proteins.
-
-## Key Feature: Interoperability
-
-A central design philosophy of Protos is **interoperability** between these Processors. Data is handled consistently (using standard identifiers and formats internally) so that the output from one Processor can seamlessly serve as the input for another.
-
-This allows users to construct flexible, **multi-step analysis workflows**. For example, one can identify residues in a binding pocket using `CifProcessor`, map these residues to a standard numbering scheme with `GRNProcessor`, analyze their conservation across an alignment using `SeqProcessor`, and store associated properties with `PropertyProcessor`.
+A key feature is the **interoperability** between these Processors. Outputs from one (e.g., selected residues from `CifProcessor`) can directly serve as inputs for another (e.g., for GRN mapping by `GRNProcessor`, followed by sequence analysis by `SeqProcessor`), enabling flexible construction of sophisticated analysis pipelines.
 
 The relationships and primary data flow between these core processors are visualized below:
 
 ![Protos Processor Overview Diagram](resources/protos_overview.png)
 *(Diagram showing connections between CP, SP, GRNP, LP, EMBP, and PP)*
 
-## Current Status & Protos-MCP Context
+---
 
-Protos provides a functional foundation for performing these complex analyses programmatically using Python. However, its direct use requires scripting skills. The **Protos-MCP project** (described elsewhere in this application/documentation) aims to build upon this existing Protos foundation by creating an interface layer using Large Language Models (LLMs) and the Model Context Protocol (MCP). This will make the powerful, interoperable capabilities of Protos accessible to a broader range of researchers through natural language interaction, without requiring direct Python programming.
+## Protos-MCP: The Vision & Approach
 
+**1. The Need: Simplifying Complex Bioinformatics Tasks**
 
-## Accessing Protos via Natural Language: The Protos-MCP Concept
+Computational analysis is fundamental to modern structural biology. Ideally, researchers should be able to ask complex questions directly:
 
-While Protos provides a powerful Python framework for structural bioinformatics (as described above), its practical origin and design lead to specific usability challenges.
+*   "Fetch PDB 7ZOU and align it to my AlphaFold model X."
+*   "Identify residues within 4Å of the ligand in these 5 structures."
+*   "How conserved are the residues corresponding to GRN 3.50 and 6.48 across these aligned sequences?"
 
-**1. Protos' Origin and the Accessibility Gap:**
+Currently, answering such questions involves multiple distinct steps: finding and downloading data, converting formats, running specific software tools, parsing results, and integrating information – a process requiring significant bioinformatics effort or programming skills.
 
-Protos wasn't designed top-down to solve a single problem; it emerged organically from repeatedly performing common structural bioinformatics workflows across different protein families. These workflows typically involved downloading data, creating datasets, loading structures/sequences, performing alignments, filtering data based on specific criteria, calculating properties, and visualizing results. Performing such multi-step processes once is manageable via custom scripts, but repetition demands efficiency. Protos was created by consolidating these recurring helper functions and processing steps into a reusable library.
+**2. Protos: A Functional Backend Lacking Accessibility**
 
-However, this origin also highlights its primary adoption barrier. Experienced bioinformaticians, faced with a specific task, might find it equally or more efficient to write a targeted script rather than learning and integrating the general Protos framework. Conversely, the researchers who could most benefit from automating these repetitive, multi-step analyses – bench biologists working directly with structural data – typically lack the required Python programming expertise to use Protos at all. Consequently, Protos, while functional, remains inaccessible to a large portion of its potential user base.
+The Protos library contains the programmatic building blocks to perform many of these underlying steps. It wasn't designed abstractly but **emerged organically** from consolidating helper functions and processing scripts developed while performing repetitive, complex workflows across different research projects (e.g., implementing a novel structure-based GRN system for opsins [manuscript in preparation], developing graph neural networks using GRNs and embeddings for property prediction).
 
-**2. The Vision: Conversational Structural Bioinformatics:**
+While functional and internally useful for streamlining these specific research tasks, Protos requires Python proficiency and familiarity with its specific framework. Experienced bioinformaticians might script these steps themselves for one-off tasks, while bench biologists typically cannot use the library directly. **This accessibility gap is the primary reason Protos remains an unreleased tool.**
 
-Computational analysis is fundamental to modern structural biology. Imagine the efficiency gains if routine (yet currently complex) computational tasks could be requested simply:
+**3. The Solution: Leveraging MCP for an AI Interface**
 
-*   "Can you get me the structure for PDB ID 7ZOU?"
-*   "Align this downloaded structure (7ZOU) to my AlphaFold prediction for protein X."
-*   "Which residues show the largest C-alpha deviation between these two aligned structures?"
-*   "Does the deviation in that loop correlate with the AlphaFold pLDDT confidence score?"
+Recent advances offer a path to make Protos broadly useful. We propose **Protos-MCP**, integrating Protos with Large Language Models (LLMs) using the **Model Context Protocol (MCP)**.
 
-These seem like straightforward questions, but answering them requires navigating data formats, running specific tools, parsing outputs, and integrating results – tasks that constitute the "pain" of bioinformatics data processing. Protos contains the logic to perform these underlying steps, but lacks an accessible interface.
+*   **What is MCP?** MCP is a **novel, standardized protocol** designed specifically for LLMs (like ChatGPT, Claude) to interact securely and reliably with external software. It allows applications like Protos to define their capabilities as discrete **'Tools'**. The LLM can then understand these Tools and request their execution to accomplish tasks. This standardization is poised to become a **major staple** for enabling AI to leverage specialized scientific software.
 
-**3. Protos-MCP: Connecting Protos to AI via MCP:**
-
-To bridge this gap and realize the vision of conversational bioinformatics, we propose **Protos-MCP**. This system integrates Protos with Artificial Intelligence (AI), specifically Large Language Models (LLMs), using the **Model Context Protocol (MCP)**.
-
-*   **What is MCP?** MCP is a standardized communication protocol designed specifically to allow LLMs (like ChatGPT, Claude) to securely and reliably interact with external software. It provides a defined way for an application (like Protos) to advertise its capabilities as specific **'Tools'** (functions the LLM can ask the application to run) and data access points as **'Resources'**. The LLM can understand these definitions and request their execution.
-
-*   **The Protos-MCP Workflow:** We will implement an **MCP Server** that acts as a controller wrapping the Protos library. Key Protos functions will be exposed as MCP 'Tools'. When a user asks the LLM a question:
-    1.  The LLM interprets the request and plans which Protos 'Tools' are needed.
-    2.  The LLM sends standardized instructions via MCP to the Protos MCP Server.
-    3.  The MCP Server securely executes the requested Protos functions using the underlying library.
-    4.  Protos returns the results to the MCP Server.
-    5.  The Server sends the results back to the LLM in a standard format.
-    6.  The LLM formulates a user-friendly answer.
-
-This allows users to leverage Protos' integrated capabilities for multi-step analyses simply by describing their goals in natural language. The interaction flow is visualized below:
+*   **The Protos-MCP Workflow:** We will implement an **MCP Server** acting as a controller that wraps the Protos library. Key Protos functions become MCP 'Tools'. Users interact with an LLM in natural language. The LLM plans the required analysis steps and instructs the MCP Server (via MCP) to execute the corresponding Protos Tools. Results are passed back to the LLM for interpretation and presentation to the user. This interaction is visualized below:
 
 ![Protos-MCP Interaction Flow](resources/MCP_integration.png)
 *(Diagram showing User -> LLM -> MCP Server -> Protos Library -> MCP Server -> LLM -> User)*
 
-By combining the existing analytical power of Protos with the accessibility offered by LLMs via the standardized MCP interface, Protos-MCP aims to make sophisticated structural bioinformatics workflows available to everyone. The following examples demonstrate the types of workflows this system could enable.
+*   **Implementation Path & Vision:** This approach leverages the existing, functional Protos backend. Development focuses on creating the MCP Tool interfaces. We will follow a **bottom-up strategy**, initially implementing MCP Tools for robust, simpler Protos functions and progressively adding more complex, multi-step workflow capabilities. The ultimate goal is a system where the broader structural biology community can effectively "talk" to Protos, using its power without needing to code, thereby transforming Protos into a widely accessible and valuable resource.
 
+---
 
+## Protos-MCP Example Workflows
+
+The following examples illustrate the **target functionality** of the proposed Protos-MCP system. They demonstrate how user requests in natural language could be translated by an LLM into a series of calls to Protos capabilities, orchestrated via the MCP server.
+
+For clarity, each example includes:
+1.  The user's natural language request.
+2.  A conceptual plan the LLM might formulate.
+3.  **Illustrative Python code snippets** demonstrating how the task *could currently be approached programmatically* using the underlying Protos library functions. This highlights the existing capabilities and the complexity abstracted by the Protos-MCP layer.
+4.  The **TODO**: Defining corresponding MCP Tools that wrap these Protos functions.
+5.  The expected user outcome via Protos-MCP.
+
+*(Note: The Python snippets are illustrative. Actual Protos methods and the implementation of robust MCP Tools are part of the proposed work).*
 
 # Protos-MCP Example Workflows
 
@@ -97,7 +87,7 @@ The following examples illustrate how users might interact with the proposed Pro
 
 *(Note: While Protos provides the foundation, some specific functions or integration points shown in the code snippets might require refinement or further implementation as part of creating robust MCP tools).*
 
----
+## Example Use Cases
 
 ### Example 1: Simple Data Fetching
 
@@ -107,9 +97,9 @@ The following examples illustrate how users might interact with the proposed Pro
 > "Get me the PDB structure for 7ZOU and the protein sequence for human Rhodopsin from UniProt (ID P08100)."
 
 **Conceptual LLM Plan:**
-1.  Identify PDB ID: `7ZOU`.
-2.  Identify UniProt ID: `P08100`.
-3.  Plan to execute: (a) Fetch PDB structure, (b) Fetch UniProt sequence.
+1. Identify PDB ID: `7ZOU`.
+2. Identify UniProt ID: `P08100`.
+3. Plan to execute: (a) Fetch PDB structure, (b) Fetch UniProt sequence.
 
 **Current Protos Programmatic Approach (Illustrative Code):**
 ```python
@@ -140,27 +130,34 @@ except Exception as e:
     print(f"Error fetching UniProt sequence P08100: {e}")
 
 # Results are now available programmatically within cp.data or sp.sequences
-Use code with caution.
-Markdown
-Proposed Protos-MCP Implementation (TODO):
-Create an MCP Tool (e.g., fetch_rcsb_structure) that calls the underlying Protos method for fetching PDB files.
-Create an MCP Tool (e.g., fetch_uniprot_sequence) that calls the underlying Protos method for fetching sequences.
-The LLM orchestrates calling these Tools via the MCP server based on the user request.
-Expected Outcome (via Protos-MCP):
-The system confirms file download/retrieval and provides the requested sequence or file location info directly to the user.
-Example 2: Medium - GRN Mapping & Sequence Conservation
-Goal: Link structural positions (via GRN) to sequence conservation using natural language.
-User Request (Natural Language):
-"For structure 6CMO chain A, which residues correspond to GPCRdb positions 3.50, 6.48, and 7.39? Also, how conserved are these positions in a Class A GPCR alignment?"
-Conceptual LLM Plan:
-Load structure 6CMO.
-Get sequence of chain A.
-Assign GPCRdb GRNs to sequence.
-Map specific GRNs to 6CMO_A residues.
-Load relevant Class A GPCR alignment.
-Calculate conservation for target GRNs in alignment.
-Present results.
-Current Protos Programmatic Approach (Illustrative Code):
+```
+
+**Proposed Protos-MCP Implementation:**
+- Create an MCP Tool (e.g., `fetch_rcsb_structure`) that calls the underlying Protos method for fetching PDB files.
+- Create an MCP Tool (e.g., `fetch_uniprot_sequence`) that calls the underlying Protos method for fetching sequences.
+- The LLM orchestrates calling these Tools via the MCP server based on the user request.
+
+**Expected Outcome (via Protos-MCP):**
+- The system confirms file download/retrieval and provides the requested sequence or file location info directly to the user.
+
+### Example 2: GRN Mapping & Sequence Conservation
+
+**Goal:** Link structural positions (via GRN) to sequence conservation using natural language.
+
+**User Request (Natural Language):**
+> "For structure 6CMO chain A, which residues correspond to GPCRdb positions 3.50, 6.48, and 7.39? Also, how conserved are these positions in a Class A GPCR alignment?"
+
+**Conceptual LLM Plan:**
+1. Load structure 6CMO.
+2. Get sequence of chain A.
+3. Assign GPCRdb GRNs to sequence.
+4. Map specific GRNs to 6CMO_A residues.
+5. Load relevant Class A GPCR alignment.
+6. Calculate conservation for target GRNs in alignment.
+7. Present results.
+
+**Current Protos Programmatic Approach (Illustrative Code):**
+```python
 # Assumes processor instances are initialized
 # from protos.processing.structure.struct_processor import CifProcessor
 # from protos.processing.grn.grn_processor import GRNProcessor
@@ -203,30 +200,37 @@ try:
 
 except Exception as e:
     print(f"An error occurred: {e}")
-Use code with caution.
-Python
-Proposed Protos-MCP Implementation (TODO):
-Create MCP Tools corresponding to each required Protos method (e.g., load_structure, get_sequence, assign_grn, get_residues_from_grns, load_alignment, calculate_conservation).
-The LLM orchestrates the sequence of Tool calls via the MCP server.
-Expected Outcome (via Protos-MCP):
-The system directly provides the user with the residue mapping and conservation scores.
-Example 3: Advanced - Multi-Structure Pocket Analysis with Alignment & Ranking
-Goal: Perform a complex, multi-step comparative analysis via natural language.
-User Request (Natural Language):
-"Align structures 6CMO, 7ZOU, and 5XEZ. For each, find residues within 4Å of the ligand RET. Map these pocket residues to GPCRdb GRNs. Then, in each aligned structure, calculate the average distance between the C-alpha of residue 3.50 and the C-alphas of all identified binding pocket residues. Rank the structures by this average distance."
-Conceptual LLM Plan:
-Load structures.
-Align structures.
-Loop through each structure:
-a. Identify pocket residues near RET.
-b. Assign GRNs.
-c. Map pocket residues to GRNs.
-d. Get coordinates for GRN 3.50 and pocket GRNs (using alignment context).
-e. Calculate average distance.
-f. Store result.
-Rank results.
-Present ranked list.
-Current Protos Programmatic Approach (Illustrative Code):
+```
+
+**Proposed Protos-MCP Implementation:**
+- Create MCP Tools corresponding to each required Protos method (e.g., `load_structure`, `get_sequence`, `assign_grn`, `get_residues_from_grns`, `load_alignment`, `calculate_conservation`).
+- The LLM orchestrates the sequence of Tool calls via the MCP server.
+
+**Expected Outcome (via Protos-MCP):**
+- The system directly provides the user with the residue mapping and conservation scores.
+
+### Example 3: Multi-Structure Pocket Analysis with Alignment & Ranking
+
+**Goal:** Perform a complex, multi-step comparative analysis via natural language.
+
+**User Request (Natural Language):**
+> "Align structures 6CMO, 7ZOU, and 5XEZ. For each, find residues within 4Å of the ligand RET. Map these pocket residues to GPCRdb GRNs. Then, in each aligned structure, calculate the average distance between the C-alpha of residue 3.50 and the C-alphas of all identified binding pocket residues. Rank the structures by this average distance."
+
+**Conceptual LLM Plan:**
+1. Load structures.
+2. Align structures.
+3. Loop through each structure:
+   a. Identify pocket residues near RET.
+   b. Assign GRNs.
+   c. Map pocket residues to GRNs.
+   d. Get coordinates for GRN 3.50 and pocket GRNs (using alignment context).
+   e. Calculate average distance.
+   f. Store result.
+4. Rank results.
+5. Present ranked list.
+
+**Current Protos Programmatic Approach (Illustrative Code):**
+```python
 import numpy as np
 # Assumes processor instances are initialized
 # from protos.processing.structure.struct_processor import CifProcessor
@@ -319,10 +323,97 @@ try:
 
 except Exception as e:
     print(f"An error occurred during the workflow: {e}")
-Use code with caution.
-Python
-Proposed Protos-MCP Implementation (TODO):
-Create MCP Tools for each complex step: load_structures, align_structures, extract_binding_pocket, assign_grn, get_grns_from_residues, get_ca_coordinate (handling alignment), get_ca_coordinates_for_list (handling alignment), potentially a dedicated calculate_average_distance tool or have the LLM request raw coordinates and perform calculation itself.
-The LLM manages the loop and orchestrates the sequence of Tool calls via the MCP server.
-Expected Outcome (via Protos-MCP):
-The system returns the final ranked list of structures based on the calculated average distance, directly answering the user's complex comparative question.
+```
+
+**Proposed Protos-MCP Implementation:**
+- Create MCP Tools for each complex step: `load_structures`, `align_structures`, `extract_binding_pocket`, `assign_grn`, `get_grns_from_residues`, `get_ca_coordinate` (handling alignment), `get_ca_coordinates_for_list` (handling alignment), potentially a dedicated `calculate_average_distance` tool or have the LLM request raw coordinates and perform calculation itself.
+- The LLM manages the loop and orchestrates the sequence of Tool calls via the MCP server.
+
+**Expected Outcome (via Protos-MCP):**
+- The system returns the final ranked list of structures based on the calculated average distance, directly answering the user's complex comparative question.
+
+## Installation
+
+This section describes how to install Protos and its dependencies. Please note that while the core Protos library can be installed via pip, certain functionalities rely on external bioinformatics tools that must be installed separately. The long-term goal is to provide a Docker image for simplified deployment.
+
+### Prerequisites
+
+- **Python**: Protos requires Python 3.9 or later.
+- **Package Manager**: pip (or optionally uv) is used for installing Python packages.
+
+### Recommended Method for Users (Future Goal): Docker
+
+The easiest way to run Protos-MCP with all dependencies correctly configured will be using a provided Docker image (under development). This approach isolates the environment and bundles the core library along with necessary external tools.
+
+**Intended Docker Usage:**
+```bash
+# Example command (Image name TBD)
+docker run -it --rm \
+  -v $(pwd)/my_protos_data:/app/data \
+  protos-mcp-image:latest
+```
+
+This command would run the Protos-MCP container:
+- Crucially, the `-v $(pwd)/my_protos_data:/app/data` flag mounts a local directory (`my_protos_data` in your current location) into the container's `/app/data` directory.
+- Protos (via its ProtosPaths system) is designed to read from and write to this `/app/data` directory within the container, allowing seamless interaction with your local data files.
+
+(Please check back for updates on the official Docker image release).
+
+### Standard Installation (via PyPI)
+
+You can install the core Protos Python library using pip (Note: Protos is not yet released on PyPI):
+
+```bash
+# Command for future release
+# pip install protos
+```
+
+**Important**: When available, this command will only install the Python library itself. Functionalities relying on external tools (see below) will not work unless those tools are also installed on your system.
+
+### External Dependencies
+
+Protos leverages powerful, established bioinformatics tools for specific tasks. These must be installed separately on your system and be accessible via the system's PATH environment variable for Protos to find and use them.
+
+Key external dependencies currently include:
+
+- **MMseqs2**: Used for fast, sensitive sequence searching and clustering (often required for SeqProcessor alignment tasks).
+  - Installation: Please follow the official MMseqs2 installation guide: https://github.com/soedinglab/MMseqs2
+- **GTalign**: (If used) A GPU-accelerated tool for fast protein structure alignment. Requires compatible hardware (NVIDIA GPU) and drivers.
+  - Installation: Please follow the official GTalign installation guide: https://github.com/BioinfoMachineLearning/GTalign
+- **(Other Tools)**: Depending on the specific functionalities enabled (e.g., Cealign, FoldMason), additional tools might be required. Refer to the documentation for specific Processor requirements.
+
+Note: Installation procedures for these tools vary depending on your operating system (Linux, macOS, Windows/WSL).
+
+### Local Development Setup
+
+If you want to contribute to Protos development or run the latest unreleased version:
+
+**Clone the Repository:**
+```bash
+git clone https://github.com/your-username/protos.git # Replace with actual repo URL
+cd protos
+```
+
+**Create a Virtual Environment (Recommended):**
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+```
+
+**Install Dependencies**: Install the core requirements and specific development dependencies.
+```bash
+pip install -r requirements.txt
+# Optionally install development dependencies if available
+# pip install -r requirements-dev.txt
+```
+
+**Install Protos in Editable Mode**: This links the installed package to your local source code.
+```bash
+pip install -e .
+```
+
+**Install External Dependencies**: Remember to install the necessary external tools (MMseqs2, GTalign, etc.) separately as described above, ensuring they are in your system's PATH.
+
+## Configuration
+
+Protos uses a path management system (ProtosPaths) to handle data directories. By default, it creates and uses a data directory relative to where it's run. This location might be configurable via environment variables or programmatically if needed. Refer to the Protos path management documentation for details.
