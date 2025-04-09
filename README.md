@@ -75,7 +75,7 @@ To bridge this gap and realize the vision of conversational bioinformatics, we p
 
 This allows users to leverage Protos' integrated capabilities for multi-step analyses simply by describing their goals in natural language. The interaction flow is visualized below:
 
-![Protos-MCP Interaction Flow](resources/protos_overview.png)
+![Protos-MCP Interaction Flow](resources/MCP_integration.png)
 *(Diagram showing User -> LLM -> MCP Server -> Protos Library -> MCP Server -> LLM -> User)*
 
 By combining the existing analytical power of Protos with the accessibility offered by LLMs via the standardized MCP interface, Protos-MCP aims to make sophisticated structural bioinformatics workflows available to everyone. The following examples demonstrate the types of workflows this system could enable.
