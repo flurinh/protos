@@ -38,6 +38,49 @@ The relationships and primary data flow between these core processors are visual
 Protos provides a functional foundation for performing these complex analyses programmatically using Python. However, its direct use requires scripting skills. The **Protos-MCP project** (described elsewhere in this application/documentation) aims to build upon this existing Protos foundation by creating an interface layer using Large Language Models (LLMs) and the Model Context Protocol (MCP). This will make the powerful, interoperable capabilities of Protos accessible to a broader range of researchers through natural language interaction, without requiring direct Python programming.
 
 
+## Accessing Protos via Natural Language: The Protos-MCP Concept
+
+While Protos provides a powerful Python framework for structural bioinformatics (as described above), its practical origin and design lead to specific usability challenges.
+
+**1. Protos' Origin and the Accessibility Gap:**
+
+Protos wasn't designed top-down to solve a single problem; it emerged organically from repeatedly performing common structural bioinformatics workflows across different protein families. These workflows typically involved downloading data, creating datasets, loading structures/sequences, performing alignments, filtering data based on specific criteria, calculating properties, and visualizing results. Performing such multi-step processes once is manageable via custom scripts, but repetition demands efficiency. Protos was created by consolidating these recurring helper functions and processing steps into a reusable library.
+
+However, this origin also highlights its primary adoption barrier. Experienced bioinformaticians, faced with a specific task, might find it equally or more efficient to write a targeted script rather than learning and integrating the general Protos framework. Conversely, the researchers who could most benefit from automating these repetitive, multi-step analyses – bench biologists working directly with structural data – typically lack the required Python programming expertise to use Protos at all. Consequently, Protos, while functional, remains inaccessible to a large portion of its potential user base.
+
+**2. The Vision: Conversational Structural Bioinformatics:**
+
+Computational analysis is fundamental to modern structural biology. Imagine the efficiency gains if routine (yet currently complex) computational tasks could be requested simply:
+
+*   "Can you get me the structure for PDB ID 7ZOU?"
+*   "Align this downloaded structure (7ZOU) to my AlphaFold prediction for protein X."
+*   "Which residues show the largest C-alpha deviation between these two aligned structures?"
+*   "Does the deviation in that loop correlate with the AlphaFold pLDDT confidence score?"
+
+These seem like straightforward questions, but answering them requires navigating data formats, running specific tools, parsing outputs, and integrating results – tasks that constitute the "pain" of bioinformatics data processing. Protos contains the logic to perform these underlying steps, but lacks an accessible interface.
+
+**3. Protos-MCP: Connecting Protos to AI via MCP:**
+
+To bridge this gap and realize the vision of conversational bioinformatics, we propose **Protos-MCP**. This system integrates Protos with Artificial Intelligence (AI), specifically Large Language Models (LLMs), using the **Model Context Protocol (MCP)**.
+
+*   **What is MCP?** MCP is a standardized communication protocol designed specifically to allow LLMs (like ChatGPT, Claude) to securely and reliably interact with external software. It provides a defined way for an application (like Protos) to advertise its capabilities as specific **'Tools'** (functions the LLM can ask the application to run) and data access points as **'Resources'**. The LLM can understand these definitions and request their execution.
+
+*   **The Protos-MCP Workflow:** We will implement an **MCP Server** that acts as a controller wrapping the Protos library. Key Protos functions will be exposed as MCP 'Tools'. When a user asks the LLM a question:
+    1.  The LLM interprets the request and plans which Protos 'Tools' are needed.
+    2.  The LLM sends standardized instructions via MCP to the Protos MCP Server.
+    3.  The MCP Server securely executes the requested Protos functions using the underlying library.
+    4.  Protos returns the results to the MCP Server.
+    5.  The Server sends the results back to the LLM in a standard format.
+    6.  The LLM formulates a user-friendly answer.
+
+This allows users to leverage Protos' integrated capabilities for multi-step analyses simply by describing their goals in natural language. The interaction flow is visualized below:
+
+![Protos-MCP Interaction Flow](resources/protos_overview.png)
+*(Diagram showing User -> LLM -> MCP Server -> Protos Library -> MCP Server -> LLM -> User)*
+
+By combining the existing analytical power of Protos with the accessibility offered by LLMs via the standardized MCP interface, Protos-MCP aims to make sophisticated structural bioinformatics workflows available to everyone. The following examples demonstrate the types of workflows this system could enable.
+
+
 
 # Protos-MCP Example Workflows
 
