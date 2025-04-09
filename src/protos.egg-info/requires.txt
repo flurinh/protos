@@ -1,0 +1,11 @@
+numpy
+pandas
+matplotlib
+scipy
+plotly
+biopython
+requests
+h5py
+
+[:python_version < "3.9"]
+importlib-resources

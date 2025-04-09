@@ -1,0 +1,45 @@
+data_EXAMPLE
+#
+_entry.id   EXAMPLE
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_formal_charge
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM   1    N  N   . GLY A 1 1  ? 13.602 45.768 30.728 1.00 13.33 ? 1  GLY A N   1
+ATOM   2    C  CA  . GLY A 1 1  ? 13.070 44.978 29.612 1.00 13.02 ? 1  GLY A CA  1
+ATOM   3    C  C   . GLY A 1 1  ? 11.710 44.351 29.983 1.00 12.12 ? 1  GLY A C   1
+ATOM   4    O  O   . GLY A 1 1  ? 11.646 43.142 30.358 1.00 12.52 ? 1  GLY A O   1
+ATOM   5    N  N   . SER A 1 2  ? 10.646 45.097 29.849 1.00 11.53 ? 2  SER A N   1
+ATOM   6    C  CA  . SER A 1 2  ?  9.294 44.551 30.063 1.00 11.33 ? 2  SER A CA  1
+ATOM   7    C  C   . SER A 1 2  ?  9.208 43.203 29.323 1.00 10.67 ? 2  SER A C   1
+ATOM   8    O  O   . SER A 1 2  ?  8.665 42.249 29.830 1.00 11.40 ? 2  SER A O   1
+ATOM   9    C  CB  . SER A 1 2  ?  8.316 45.554 29.506 1.00 11.95 ? 2  SER A CB  1
+ATOM   10   O  OG  . SER A 1 2  ?  8.560 46.810 30.120 1.00 14.29 ? 2  SER A OG  1
+ATOM   11   N  N   . ASP A 1 3  ?  9.778 43.130 28.125 1.00 10.38 ? 3  ASP A N   1
+ATOM   12   C  CA  . ASP A 1 3  ?  9.673 41.903 27.316 1.00 10.47 ? 3  ASP A CA  1
+ATOM   13   C  C   . ASP A 1 3  ? 10.382 40.752 27.993 1.00 10.60 ? 3  ASP A C   1
+ATOM   14   O  O   . ASP A 1 3  ?  9.906 39.623 27.871 1.00 10.32 ? 3  ASP A O   1
+ATOM   15   C  CB  . ASP A 1 3  ? 10.223 42.137 25.926 1.00 10.96 ? 3  ASP A CB  1
+ATOM   16   C  CG  . ASP A 1 3  ?  9.601 41.212 24.917 1.00 12.39 ? 3  ASP A CG  1
+ATOM   17   O  OD1 . ASP A 1 3  ?  8.375 41.068 24.979 1.00 14.37 ? 3  ASP A OD1 1
+ATOM   18   O  OD2 . ASP A 1 3  ? 10.325 40.676 24.051 1.00 14.91 ? 3  ASP A OD2 1
+#

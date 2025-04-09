@@ -1,0 +1,9 @@
+{
+  "id": "retinal_binders",
+  "name": "retinal_binders",
+  "description": "Dataset containing 1 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "af5tm"
+  ]
+}

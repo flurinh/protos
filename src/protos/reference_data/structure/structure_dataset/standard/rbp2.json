@@ -1,0 +1,9 @@
+{
+  "id": "rbp2",
+  "name": "rbp2",
+  "description": "Dataset containing 1 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "4EXZ"
+  ]
+}

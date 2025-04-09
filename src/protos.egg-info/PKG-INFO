@@ -1,0 +1,362 @@
+Metadata-Version: 2.4
+Name: protos
+Version: 0.1.0
+Summary: A protein data processing library
+Home-page: [Repository URL]
+Author: flurinh
+Author-email: hidberf@gmail.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: scipy
+Requires-Dist: plotly
+Requires-Dist: biopython
+Requires-Dist: requests
+Requires-Dist: h5py
+Requires-Dist: importlib-resources; python_version < "3.9"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Protos
+
+A comprehensive Python library for protein structure and sequence processing, with a focus on G protein-coupled receptors (GPCRs) and opsins.
+
+## Features
+
+- **Generic Residue Numbering (GRN)**: Standardized numbering system for GPCRs and opsins
+- **Structure Analysis**: Tools for processing, aligning, and analyzing protein structures
+- **Sequence Processing**: Utilities for sequence alignment, mutation analysis, and embedding
+- **Data Loading**: Interfaces to common bioinformatics databases (UniProt, GPCRDB, AlphaFold)
+- **Visualization**: Structure and graph visualization tools for protein analysis
+- **Structure Alignment**: Integration with FoldMason and GTalign for powerful structure alignment
+
+## Installation
+
+```bash
+# From PyPI (when available)
+pip install protos
+
+# For development
+git clone https://github.com/username/gpcr.git
+cd gpcr/protos
+pip install -e .
+```
+
+## Core Modules
+
+### Processing Modules
+
+Protos provides specialized processing modules for different aspects of protein analysis:
+
+```python
+# GRN (Generic Residue Numbering)
+from protos.processing.grn.grn_processor import GRNProcessor
+from protos.processing.grn.grn_assignment import assign_grn
+
+# Structure processing
+from protos.processing.structure.struct_processor import CifProcessor
+from protos.processing.structure.struct_alignment import align_structures
+
+# Sequence processing
+from protos.processing.sequence.seq_alignment import align_sequences
+from protos.processing.sequence.seq_mutation_utils import generate_mutations
+
+# GPCR-specific analysis
+from protos.processing.gpcr.gpcr_families_processing import classify_gpcr
+
+# Ligand analysis
+from protos.processing.ligand.ligand_processor import process_ligand_interactions
+```
+
+### Structure Alignment Tools
+
+Protos provides interfaces to powerful structural alignment tools:
+
+```python
+# FoldMason interface (structure-based MSA and analysis)
+from protos.processing.structure.foldmason import FoldMason
+
+# GTalign interface (fast GPU-accelerated structure alignment)
+from protos.processing.structure.gtalign import GTalign
+```
+
+### Embedding and Data Loading
+
+```python
+# Embedding proteins
+from protos.embedding.emb_processor import EMBProcessor
+
+# Loading data
+from protos.loaders.uniprot_loader import load_uniprot_data
+from protos.loaders.gpcrdb_loader import load_gpcrdb_data
+from protos.loaders.alphafold_utils import download_alphafold_structure
+```
+
+### Input/Output Utilities
+
+```python
+# File handling
+from protos.io.fasta_utils import read_fasta, write_fasta
+```
+
+### Path Management and Data Registry
+
+Protos provides a powerful path management system that handles both reference data (distributed with the package) and user data:
+
+```python
+# Path management with reference and user data
+from protos.io.paths import ProtosPaths, DataSource
+from protos.io.data_access import GlobalRegistry
+
+# Initialize with default paths
+paths = ProtosPaths()  # Automatically handles both reference and user data
+registry = GlobalRegistry(paths)
+
+# Access reference data that comes with the package
+ref_structure_path = paths.get_structure_subdir_path('structure_dir', DataSource.REFERENCE)
+user_structure_path = paths.get_structure_subdir_path('structure_dir', DataSource.USER)
+
+# Import reference data into registry
+registry.import_reference_data()
+
+# Get paths to datasets regardless of source (checks both reference and user data)
+structure_path = registry.get_dataset_path("example_structure")
+
+# Register a user dataset
+registry.register_dataset(
+    dataset_id="my_structure",
+    file_path="/path/to/my_structure.cif",
+    processor_type="structure",
+    dataset_type="cif",
+    source=DataSource.USER,
+    metadata={"description": "My custom structure"}
+)
+
+# List all datasets of a specific type
+cif_datasets = registry.get_datasets_by_type("cif")
+```
+
+### Visualization Tools
+
+```python
+# Structure visualization
+from protos.visualization.structure_vis import visualize_structure
+from protos.visualization.graph_vis import visualize_graph
+```
+
+## Command Line Interface
+
+Protos includes a command-line interface for common tasks:
+
+```bash
+# Embedding sequences
+python -m protos.cli.embedding.embed --input sequences.fasta --output embeddings.h5
+
+# Assigning GRNs
+python -m protos.cli.grn.assign_grns --input sequences.fasta --output grn_table.csv
+
+# Cleaning GRN tables
+python -m protos.cli.grn.clean_grn_table --input grn_table.csv --output clean_grn_table.csv
+```
+
+## Examples
+
+### GRN Processing
+
+```python
+from protos.processing.grn.grn_processor import GRNProcessor
+
+# Initialize GRN processor
+grn_processor = GRNProcessor()
+
+# Load default GRN table
+grn_processor.load_table('default')
+
+# Process a sequence
+seq = "MNGTEGPNFYVPFSNATGVVRSPFEYPQYYLAEPWQFSMLAAYMFLLIVLGFPINFLTLYVTVQHKKLRTPLNYILLNLAVADLFMVLGGFTSTLYTSLHGYFVFGPTGCNLEGFFATLGGEIALWSLVVLAIERYVVVCKPMSNFRFGENHAIMGVAFTWVMALACAAPPLAGWSRYIPEGLQCSCGIDYYTLKPEVNNESFVIYMFVVHFTIPMIIIFFCYGQLVFTVKEAAAQQQESATTQKAEKEVTRMVIIMVIAFLICWLPYAGVAFYIFTHQGSNFGPIFMTIPAFFAKSAAIYNPVIYIMMNKQFRNCMLTTICCGKNPLGDDEASATVSKTETSQVAPA"
+grn_data = grn_processor.process_sequence(seq)
+
+# Analyze GRN positions
+tm_regions = grn_processor.get_tm_regions(grn_data)
+binding_pocket = grn_processor.get_binding_pocket(grn_data)
+```
+
+### Structure Analysis with CifProcessor
+
+```python
+from protos.processing.structure.struct_processor import CifProcessor
+from protos.visualization.structure_vis import visualize_structure
+
+# Load PDB structure
+cp = CifProcessor(path='data', structure_dir='mmcif')
+cp.load_structure("6CMO")
+
+# Extract binding pocket
+binding_pocket = cp.extract_binding_pocket("6CMO", ligand="RET", distance=5.0)
+
+# Save temporary structure files for alignment
+temp_file1 = cp.save_temp_cif("6CMO", suffix="for_alignment")
+temp_file2 = cp.save_temp_cif("7ZOU", suffix="for_alignment")
+
+# Visualize
+cp.visualize_chain("6CMO_A", grns_to_visualize=["3.50", "6.48", "7.49"])
+```
+
+### Structure Alignment with FoldMason and GTalign
+
+```python
+from protos.processing.structure.struct_processor import CifProcessor
+from protos.processing.structure.foldmason import FoldMason
+from protos.processing.structure.gtalign import GTalign
+import tempfile
+from pathlib import Path
+
+# Load structures
+cp = CifProcessor(path='data', structure_dir='mmcif')
+cp.load_structures(["6CMO", "7ZOU"])
+
+# Create temporary directory
+tmp_dir = Path("temp_alignment")
+tmp_dir.mkdir(exist_ok=True)
+
+# Save temporary CIF files
+file1 = cp.save_temp_cif("6CMO", suffix="alignment", output_dir=tmp_dir)
+file2 = cp.save_temp_cif("7ZOU", suffix="alignment", output_dir=tmp_dir)
+
+# Using FoldMason for structure-based MSA
+# FoldMason parameters automatically handled for Windows/WSL environments
+foldmason = FoldMason(use_wsl=True)  # Set to False if running natively on Linux/Mac
+msa_result = foldmason.easy_msa(
+    input_files=[file1, file2],
+    output_prefix=tmp_dir / "msa_result",
+    tmp_folder=tmp_dir / "fm_tmp",
+    report_mode=1  # Generate HTML report
+)
+
+# Calculate LDDT structural similarity score
+lddt_result = foldmason.msa2lddt(
+    structure_db=tmp_dir / "msa_result.db",
+    input_fasta=tmp_dir / "msa_result_alignment.fasta"
+)
+print(f"LDDT score: {lddt_result.get('lddt_score')}")
+
+# Generate detailed LDDT report
+foldmason.msa2lddtreport(
+    structure_db=tmp_dir / "msa_result.db",
+    input_fasta=tmp_dir / "msa_result_alignment.fasta",
+    output_html=tmp_dir / "lddt_report.html"
+)
+
+# Using GTalign for fast GPU-accelerated alignment (if available)
+gtalign = GTalign()
+try:
+    alignment = gtalign.align(
+        query_structures=file1,
+        reference_structures=file2,
+        tm_score_threshold=0.5,
+        output_dir=tmp_dir / "gtalign_results"
+    )
+    
+    # Check alignment results
+    print(f"TM-score: {alignment['alignments'][0]['tm_score']}")
+    print(f"RMSD: {alignment['alignments'][0]['rmsd']}")
+except Exception as e:
+    print(f"GTalign not available or failed: {e}")
+```
+
+## Project Structure
+
+```
+protos/
+â”œâ”€â”€ src/
+â”‚   â””â”€â”€ protos/
+â”‚       â”œâ”€â”€ processing/          # Core processing modules
+â”‚       â”‚   â”œâ”€â”€ grn/             # GRN system
+â”‚       â”‚   â”œâ”€â”€ structure/       # Structure analysis
+â”‚       â”‚   â”‚   â”œâ”€â”€ cif_utils.py # CIF file utilities
+â”‚       â”‚   â”‚   â”œâ”€â”€ foldmason.py # FoldMason interface
+â”‚       â”‚   â”‚   â”œâ”€â”€ gtalign.py   # GTalign interface
+â”‚       â”‚   â”‚   â””â”€â”€ struct_processor.py # Main structure processor (CifProcessor)
+â”‚       â”‚   â”œâ”€â”€ sequence/        # Sequence analysis
+â”‚       â”‚   â”œâ”€â”€ gpcr/            # GPCR-specific tools
+â”‚       â”‚   â”œâ”€â”€ property/        # Property analysis
+â”‚       â”‚   â”œâ”€â”€ ligand/          # Ligand interaction
+â”‚       â”‚   â”œâ”€â”€ opsin/           # Opsin-specific tools
+â”‚       â”‚   â”œâ”€â”€ graph/           # Graph representations
+â”‚       â”‚   â””â”€â”€ tables/          # Table processing
+â”‚       â”œâ”€â”€ embedding/           # Embedding modules
+â”‚       â”œâ”€â”€ loaders/             # Data loaders
+â”‚       â”œâ”€â”€ io/                  # I/O utilities
+â”‚       â”‚   â”œâ”€â”€ paths/           # Path management system
+â”‚       â”‚   â”‚   â”œâ”€â”€ path_config.py  # Path configuration
+â”‚       â”‚   â”‚   â””â”€â”€ path_constants.py # Path constants
+â”‚       â”‚   â””â”€â”€ data_access.py    # Registry system
+â”‚       â”œâ”€â”€ reference_data/      # Reference data distributed with package
+â”‚       â””â”€â”€ visualization/       # Visualization tools
+â”œâ”€â”€ tests/                       # Unit tests
+â”œâ”€â”€ setup.py                     # Package setup
+â””â”€â”€ requirements.txt             # Dependencies
+```
+
+## Structure Alignment Tools
+
+### FoldMason
+
+FoldMason is a powerful tool for structure-based multiple sequence alignment and analysis. The `FoldMason` class provides:
+
+- Easy structure-based MSA generation (`easy_msa()`)
+- LDDT-based structure similarity scoring (`msa2lddt()`)
+- Detailed HTML and JSON reports (`msa2lddtreport()`, `msa2lddtjson()`)
+- Structure MSA clustering (`structuremsacluster()`)
+- MSA refinement (`refinemsa()`)
+- Support for WSL on Windows environments
+
+### GTalign
+
+GTalign is a fast GPU-accelerated protein structure alignment tool. The `GTalign` class provides:
+
+- Fast pairwise structure alignment (`align()`)
+- Structure clustering (`cluster()`)
+- TM-score and RMSD calculations
+- Transformation matrices for visualization
+
+Both tools are integrated with the `CifProcessor` for seamless structure analysis workflows.
+
+## Development
+
+### Running Tests
+
+```bash
+# Install test dependencies
+pip install pytest pytest-cov
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=protos
+
+# Test specific module
+pytest tests/test_processing/test_structure/test_foldmason.py
+```
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Write tests for new functionality
+2. Follow the existing code style
+3. Update documentation as needed
+4. Add docstrings to all functions and classes

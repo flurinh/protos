@@ -1,0 +1,113 @@
+{
+  "test_dataset": {
+    "type": "test",
+    "columns": [
+      "id",
+      "name",
+      "value"
+    ],
+    "last_updated": "2025-03-12T15:59:14.987715",
+    "directory": "test",
+    "filename": "test_dataset.csv"
+  },
+  "test_properties": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "id",
+      "name",
+      "value"
+    ],
+    "saved_at": "2025-03-12T15:59:15.018974",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.018974",
+    "directory": "properties",
+    "filename": "datasets\\test_properties.csv"
+  },
+  "test_embeddings": {
+    "format": "pkl",
+    "rows": 3,
+    "columns": null,
+    "saved_at": "2025-03-12T15:59:15.097499",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.097499",
+    "directory": "embeddings",
+    "filename": "datasets\\test_embeddings.pkl"
+  },
+  "test_grn_csv": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "id",
+      "name",
+      "value"
+    ],
+    "saved_at": "2025-03-12T15:59:15.276284",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.276284",
+    "directory": "grn",
+    "filename": "datasets\\test_grn_csv.csv"
+  },
+  "test_grn_json": {
+    "format": "json",
+    "rows": 2,
+    "columns": null,
+    "saved_at": "2025-03-12T15:59:15.276284",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.276284",
+    "directory": "grn",
+    "filename": "datasets\\test_grn_json.json"
+  },
+  "test_structure_info": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "id",
+      "name",
+      "value"
+    ],
+    "saved_at": "2025-03-12T15:59:15.395568",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.395568",
+    "directory": "structures",
+    "filename": "datasets\\test_structure_info.csv"
+  },
+  "embedding_dataset": {
+    "format": "pkl",
+    "rows": 1,
+    "columns": null,
+    "saved_at": "2025-03-12T15:59:15.458068",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.458068",
+    "directory": "embeddings",
+    "filename": "datasets\\embedding_dataset.pkl"
+  },
+  "property_to_delete": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "id",
+      "name",
+      "value"
+    ],
+    "saved_at": "2025-03-12T15:59:15.505342",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.505342",
+    "directory": "properties",
+    "filename": "datasets\\property_to_delete.csv"
+  },
+  "available_structure": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "id",
+      "name",
+      "value"
+    ],
+    "saved_at": "2025-03-12T15:59:15.567995",
+    "processor_type": "test",
+    "last_updated": "2025-03-12T15:59:15.567995",
+    "directory": "structures",
+    "filename": "datasets\\available_structure.csv"
+  }
+}

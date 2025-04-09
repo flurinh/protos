@@ -1,0 +1,99 @@
+{
+  "datasets": [
+    {
+      "id": "retinal_binders",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\retinal_binders.json",
+      "type": "json"
+    },
+    {
+      "id": "microbial_opsins",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\microbial_opsins.json",
+      "type": "json"
+    },
+    {
+      "id": "rho",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\rho.json",
+      "type": "json"
+    },
+    {
+      "id": "gpcr",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\gpcr.json",
+      "type": "json"
+    },
+    {
+      "id": "test_npxxy_ao",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\test_npxxy_ao.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_ref",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_ref.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_all_refs",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_all_refs.json",
+      "type": "json"
+    },
+    {
+      "id": "rbp2",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\rbp2.json",
+      "type": "json"
+    },
+    {
+      "id": "rho_ref",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\rho_ref.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_folded_refs",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_folded_refs.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_exp_refs",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_exp_refs.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_ref_exp",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_ref_exp.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_exp",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_exp.json",
+      "type": "json"
+    },
+    {
+      "id": "hideaki",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\hideaki.json",
+      "type": "json"
+    },
+    {
+      "id": "hideaki_exp",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\hideaki_exp.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_pred",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_pred.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_hide_pred",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_hide_pred.json",
+      "type": "json"
+    },
+    {
+      "id": "hideaki_pred",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\hideaki_pred.json",
+      "type": "json"
+    },
+    {
+      "id": "opsin_demo",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\opsin_demo.json",
+      "type": "json"
+    }
+  ]
+}

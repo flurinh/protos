@@ -1,0 +1,16 @@
+{
+  "id": "hideaki",
+  "name": "hideaki",
+  "description": "Dataset containing 8 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "A1ACR1_J318_refine3_model_0",
+    "bReaChES_J215_refine6_model_0",
+    "ChroME2s_J227_refine3_model_0",
+    "CnChR2_J230_refine9_model_0",
+    "CoChR_J248_refine7_model_0",
+    "KnChR_J444_refine5_model_0",
+    "R2ACR_J315_refine8_model_0",
+    "TsChR_J132_refine3_model_0"
+  ]
+}
