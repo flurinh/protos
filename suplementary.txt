@@ -1,0 +1,62 @@
+Supplementary Information: Protos-MCP Grant Application
+1. Introduction
+Purpose: State that this document provides supplementary details supporting the main grant proposal titled "[Your Grant Title]".
+Focus: Explain it elaborates on the Protos library's architecture and capabilities, provides concrete examples of its current programmatic use, and details the proposed integration with Large Language Models (LLMs) via the Model Context Protocol (MCP).
+Goal Refresher: Briefly reiterate the project's aim: to make complex structural bioinformatics workflows accessible to non-programmers through the AI-driven Protos-MCP interface.
+2. Protos Library: Overview and Architecture
+2.1. Motivation and Design Philosophy:
+Briefly recap Protos' origin: developed to standardize repetitive, multi-step computational workflows encountered in comparative structural biology research (mentioning GPCRs/Opsins context if desired).
+Emphasize the goal: provide a reusable, interoperable Python framework for handling diverse protein data types.
+2.2. Core Architecture: Processors:
+Introduce the modular design based on 'Processors'.
+Include Figure 1: The Mermaid diagram visualizing Processor interactions.
+![Figure 1: Protos Processor Architecture and Data Flow](protos/resources/protos_overview.png)
+**Figure 1:** Conceptual diagram illustrating the core Protos Processors and their primary interactions. Arrows indicate typical data flow directions, highlighting the library's interoperability. Processors handle distinct data types (Structures, Sequences, GRNs, Ligands, Embeddings, Properties) but are designed to work together.
+Use code with caution.
+Markdown
+Processor Descriptions: Provide a slightly more detailed "what is" description for each key processor than in the main grant, focusing on inputs, outputs, and core function:
+CifProcessor (CP): Manages 3D structure data (PDB/mmCIF). Capabilities include loading files, fetching from RCSB, selecting atoms/residues/chains based on various criteria (lists, proximity), calculating basic geometric properties, saving structures.
+SeqProcessor (SP): Handles protein sequence data (FASTA, raw sequences). Capabilities include reading/writing files, interfacing with external MSA tools (e.g., MMseqs2 wrappers), calculating sequence conservation, simulating mutations.
+GRNProcessor (GRNP): Implements Generic Residue Numbering schemes. Capabilities include loading GRN definition tables, assigning GRNs to sequences (often derived from structures via CP), mapping between sequence indices and GRN labels, facilitating structure-based alignment representation.
+LigProcessor (LP): Manages ligand information associated with structures. Capabilities include identifying ligands within structures, extracting residues interacting with ligands within a specified distance (using CP).
+EMBProcessor (EMBP): Handles protein embeddings. Capabilities include generating embeddings from sequences (provided by SP or GRNP) using external models (e.g., ESM), loading/saving embeddings, mapping embeddings to specific residues or GRNs.
+PropertyProcessor (PP): Acts as an integrator for metadata and calculated properties. Capabilities include loading/saving tabular data, associating properties with protein identifiers, filtering datasets based on properties, merging data from different sources.
+2.3. Interoperability:
+Explicitly state that consistent data handling (e.g., shared protein identifiers, defined data structures like Pandas DataFrames for certain outputs) allows seamless data flow between processors, enabling complex workflows. Reference Figure 1 again if helpful.
+2.4. Path Management (ProtosPaths):
+Briefly mention the built-in system for managing data file paths, distinguishing between reference data (distributed with the library) and user-generated data, ensuring organization and reproducibility.
+3. Current Protos Capabilities: Programmatic Workflow Examples
+Purpose: Demonstrate that Protos currently possesses the foundational capabilities to perform the target analyses programmatically. Show the complexity that Protos-MCP aims to simplify.
+Structure: Use the same 3 examples as in the README (Simple, Medium, Advanced).
+For each example:
+Goal: State the objective.
+Protos Workflow Description: Briefly describe the sequence of steps required using Protos Processors (e.g., "Requires CifProcessor to load structure, GRNProcessor to map GRNs...").
+Illustrative Python Code: Include the same code snippets used in the README. Ensure they are well-commented (as placeholders).
+Takeaway: Explicitly state that achieving this result currently requires Python scripting and multiple calls to Protos methods, highlighting the barrier Protos-MCP addresses.
+(Insert Example 1, Example 2, Example 3 content here, formatted similarly to the README but perhaps with slightly more explanatory text around the code snippets).
+4. Proposed Extension: Protos-MCP Integration
+4.1. Rationale: Briefly restate the accessibility problem Protos faces and why MCP+LLM is the proposed solution. Reference the "dual goal" (leverage existing Protos, focus on MCP interface).
+4.2. Model Context Protocol (MCP):
+Explain MCP as a standardized interface layer for LLM-tool interaction.
+Define MCP Tools: Explain these wrap specific Protos functions, providing clear descriptions, typed inputs/outputs for the LLM. Give a conceptual example:
+Example Tool Definition Concept: A Protos function like cp.extract_binding_pocket(pdb_id, ligand_id, distance) would be wrapped as an MCP Tool named extract_binding_pocket. Its definition would tell the LLM it needs a pdb_id (string), ligand_id (string), and distance (float), and that it returns a list of residue identifiers (strings).
+Define MCP Resources: Explain these allow the LLM to query non-actionable information (e.g., list available PDB files Protos knows about).
+Cite MCP primary sources (website, protocol doc).
+4.3. Protos-MCP Server Architecture:
+Describe the plan: implement a Python server using the mcp library. This server instantiates Protos Processors and exposes their relevant methods as MCP Tools.
+Mention that the server handles security and translates MCP requests into actual Protos Python calls.
+4.4. LLM Orchestration & User Interaction:
+Explain the workflow: User query -> LLM planning -> LLM calls MCP Tool(s) -> Server executes Protos -> Result -> LLM synthesizes answer.
+Include Figure 2: The user interaction diagram.
+![Figure 2: Protos-MCP User Interaction Workflow](resources/MCP_integration.png)
+**Figure 2:** Conceptual diagram showing the flow of information. The user interacts with the LLM in natural language. The LLM plans tasks and uses the MCP protocol to instruct the Protos MCP Server, which executes functions in the underlying Protos library and returns results.
+Use code with caution.
+Markdown
+4.5. Implementation Plan (Briefly):
+Mention the bottom-up approach: start with simple tools, validate, then build towards complex multi-step workflow orchestration. Reference the main proposal's timeline.
+5. Conclusion
+Summarize the proposal: Protos provides powerful, interoperable building blocks for structural bioinformatics, but requires coding.
+Protos-MCP leverages the novel MCP standard and LLMs to make these capabilities accessible via natural language.
+Reiterate the expected impact: Lowering barriers, empowering broader research, accelerating discovery.
+6. References
+List all publications and resources cited (PDB, UniProt, MMseqs2, Cealign/GTalign, MCP website/docs, key review articles).

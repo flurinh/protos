@@ -1,0 +1,231 @@
+"""
+Protos: Production-Grade Example for Structural Biology Research
+
+This example demonstrates how the Protos framework is used in real research workflows for the analysis of opsin proteins. It showcases the core design principles and production-grade practices implemented in the library.
+
+Key features demonstrated:
+1. Path management with explicit configurations
+2. Multi-stage caching for performance optimization
+3. Structure processing and filtering
+4. Data type enforcement for calculations
+5. Integration with structural analysis methods
+
+---------------------------------------------------
+import os
+import numpy as np
+import pandas as pd
+from pathlib import Path
+import pickle
+
+# Import Protos components
+from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.io.paths.path_config import ProtosPaths
+
+# Set up paths with proper configuration
+data_dir = Path("/path/to/data")
+output_dir = Path("/path/to/results")
+cache_dir = output_dir / "cache"
+os.makedirs(cache_dir, exist_ok=True)
+
+# Configure environment variables - CRITICAL for reliable path resolution
+os.environ["PROTOS_DATA_ROOT"] = str(data_dir.absolute())
+os.environ["PROTOS_REF_DATA_ROOT"] = str(data_dir.absolute())
+
+# Define cache file paths
+raw_cache_file = cache_dir / "raw_structures.pkl"
+processed_cache_file = cache_dir / f"processed_structures_A.pkl"
+
+# STEP 1: Load structure data (with caching)
+if os.path.exists(raw_cache_file):
+    # Load from cache if available
+    try:
+        print(f"Loading raw structure data from cache: {raw_cache_file}")
+        with open(raw_cache_file, 'rb') as f:
+            raw_data = pickle.load(f)
+            cp_mo_exp = raw_data.get('cp_mo_exp')
+            cp_mo_pred = raw_data.get('cp_mo_pred')
+            datasets = raw_data.get('datasets', {})
+    except Exception as e:
+        print(f"Cache loading failed: {str(e)}")
+        raw_data = None
+else:
+    raw_data = None
+
+# Load from scratch if cache failed or doesn't exist
+if raw_data is None:
+    print("Creating new processor instances and loading datasets")
+    
+    # Initialize paths handler with explicit paths
+    paths = ProtosPaths(
+        user_data_root=str(data_dir.absolute()),
+        ref_data_root=str(data_dir.absolute()),
+        create_dirs=True
+    )
+    
+    # Initialize processors with explicit paths
+    cp_mo_exp = CifBaseProcessor(
+        name="mo_exp_processor",
+        data_root=str(data_dir.absolute()),
+        processor_data_dir="structure"
+    )
+    
+    cp_mo_pred = CifBaseProcessor(
+        name="mo_pred_processor",
+        data_root=str(data_dir.absolute()),
+        processor_data_dir="structure"
+    )
+    
+    # Ensure critical directories exist
+    mmcif_dir = data_dir / "structure" / "mmcif"
+    dataset_dir = data_dir / "structure" / "structure_dataset"
+    os.makedirs(mmcif_dir, exist_ok=True)
+    os.makedirs(dataset_dir, exist_ok=True)
+    
+    # Override key paths to ensure consistency
+    for processor in [cp_mo_exp, cp_mo_pred]:
+        processor.path_structure_dir = os.path.join(str(data_dir.absolute()), "structure", "mmcif")
+        processor.path_dataset_dir = os.path.join(str(data_dir.absolute()), "structure", "structure_dataset")
+        processor.path_alignment_dir = os.path.join(str(data_dir.absolute()), "structure", "alignments")
+    
+    # Load datasets
+    try:
+        cp_mo_exp.load_dataset("mo_exp", apply_dtypes=True)
+        print(f"Loaded experimental dataset with {len(cp_mo_exp.pdb_ids)} structures")
+    except Exception as e:
+        print(f"Failed to load experimental dataset: {str(e)}")
+    
+    try:
+        cp_mo_pred.load_dataset("mo_pred", apply_dtypes=True)
+        print(f"Loaded predicted dataset with {len(cp_mo_pred.pdb_ids)} structures")
+    except Exception as e:
+        print(f"Failed to load predicted dataset: {str(e)}")
+    
+    # Ensure retinal ligand has consistent naming ('RET' vs 'LIG')
+    if hasattr(cp_mo_pred, 'data') and cp_mo_pred.data is not None:
+        cp_mo_pred.data.loc[cp_mo_pred.data['res_name3l'] == 'LIG', 'res_name3l'] = 'RET'
+        print("Renamed 'LIG' to 'RET' in predicted structures")
+    
+    # Cache raw data
+    raw_data_to_save = {
+        'cp_mo_exp': cp_mo_exp,
+        'cp_mo_pred': cp_mo_pred,
+        'datasets': {
+            "mo_exp": {"id": "mo_exp", "pdb_ids": cp_mo_exp.pdb_ids if hasattr(cp_mo_exp, 'pdb_ids') else []},
+            "mo_pred": {"id": "mo_pred", "pdb_ids": cp_mo_pred.pdb_ids if hasattr(cp_mo_pred, 'pdb_ids') else []}
+        }
+    }
+    
+    with open(raw_cache_file, 'wb') as f:
+        pickle.dump(raw_data_to_save, f)
+    print(f"Saved raw data to cache: {raw_cache_file}")
+
+# STEP 2: Filter structures by chain and process
+processed_structures = {}
+chain_id = 'A'
+
+# Define helper function to filter by chain and retinal
+def filter_structures_by_chain_and_retinal(processor, chain='A', retinal_name='RET', cutoff=6.0):
+    filtered_structures = {}
+    
+    for pdb_id in processor.pdb_ids:
+        df_pdb = processor.data[processor.data['pdb_id'] == pdb_id]
+        df_chain = df_pdb[df_pdb['auth_chain_id'] == chain].copy()
+        
+        if df_chain.empty:
+            continue
+        
+        # Select retinal atoms
+        df_ret = df_pdb[(df_pdb['res_name3l'] == retinal_name) & 
+                        (df_pdb['auth_chain_id'] == chain)].copy()
+        
+        # Ensure coordinates are numeric
+        for df in [df_chain, df_ret]:
+            for coord in ['x', 'y', 'z']:
+                if coord in df.columns:
+                    df[coord] = pd.to_numeric(df[coord], errors='coerce')
+        
+        filtered_structures[pdb_id] = {
+            'df': df_chain,
+            'df_ret': df_ret,
+            'chain_id': chain
+        }
+        
+        # Extract CA atoms
+        df_ca = df_chain[df_chain['atom_name'] == 'CA'].copy()
+        filtered_structures[pdb_id]['df_ca'] = df_ca
+    
+    return filtered_structures
+
+# Process both experimental and predicted structures
+exp_structures = filter_structures_by_chain_and_retinal(cp_mo_exp, chain=chain_id)
+pred_structures = filter_structures_by_chain_and_retinal(cp_mo_pred, chain=chain_id)
+
+# Combine all structures
+processed_structures.update(exp_structures)
+processed_structures.update(pred_structures)
+
+print(f"Processed {len(exp_structures)} experimental and {len(pred_structures)} predicted structures")
+
+# STEP 3: Create structure mapping (experimental to predicted)
+structure_mapping = {}
+for exp_id in exp_structures.keys():
+    # Create base name without suffixes
+    base_name = exp_id.split('_')[0] if '_' in exp_id else exp_id
+    
+    # Look for matching predicted structure
+    for pred_id in pred_structures.keys():
+        if base_name in pred_id:
+            structure_mapping[exp_id] = pred_id
+            break
+
+print(f"Created {len(structure_mapping)} experimental-predicted structure pairs")
+
+# STEP 4: Save processed results
+processed_data = {
+    'processed_structures': processed_structures,
+    'structure_mapping': structure_mapping
+}
+
+with open(processed_cache_file, 'wb') as f:
+    pickle.dump(processed_data, f)
+print(f"Saved {len(processed_structures)} processed structures to cache")
+
+# Example usage of processed data:
+# Calculate structure statistics
+stats = {}
+for pdb_id, data in processed_structures.items():
+    if 'df_ca' in data and not data['df_ca'].empty:
+        df_ca = data['df_ca']
+        
+        # Calculate center of mass
+        com = df_ca[['x', 'y', 'z']].mean().values
+        
+        # Calculate radius of gyration
+        distances = np.sqrt(np.sum((df_ca[['x', 'y', 'z']].values - com)**2, axis=1))
+        rg = np.mean(distances)
+        
+        stats[pdb_id] = {
+            'residue_count': len(df_ca),
+            'center_of_mass': com,
+            'radius_of_gyration': rg
+        }
+
+print(f"\nAnalyzed {len(stats)} structures")
+for pdb_id, stat in list(stats.items())[:3]:  # Show top 3 examples
+    print(f"{pdb_id}: {stat['residue_count']} residues, Rg = {stat['radius_of_gyration']:.2f}Å")
+
+# Final results
+results = {
+    'processed_structures': processed_structures,
+    'structure_mapping': structure_mapping,
+    'statistics': stats
+}
+
+# This workflow could continue with:
+# 1. GRN assignment for standardized residue numbering
+# 2. Structure alignment using ProtosPaths-managed methods
+# 3. Conservation analysis using GRN-aligned positions
+# 4. Binding pocket comparison between experimental and predicted structures
+# 5. Visualization of results
+
+"""

@@ -267,9 +267,11 @@ dataset = processor.create_standard_dataset(
 6. **Validate paths** periodically with `paths.validate_directory_structure()`.
 7. **Log resolved paths** at initialization time for debugging.
 
-## 10. Known Issues
+## 10. Known Issues and Roadmap for Improvement
 
-### Issue: AUTO Source Mode Uses ref_data_root Instead of user_data_root
+The current path handling system has several critical issues that need to be addressed for reliable operation, especially if Protos is to be used with the Model Context Protocol (MCP) for LLM integration.
+
+### Issue 1: AUTO Source Mode Uses ref_data_root Instead of user_data_root
 
 **Problem:**
 
@@ -295,7 +297,7 @@ This causes `DatasetManager` instances to incorrectly default to using paths wit
 * Registry files get created in the wrong directory
 * The DatasetManager's path differs from the processor's path
 
-**Workaround:**
+**Current Workarounds:**
 
 1. **Option 1: Subclass ProtosPaths**
 
@@ -328,13 +330,13 @@ processor.dataset_manager.dataset_dir = os.path.join(project_dir, "structure", "
 processor.dataset_manager.paths = your_correct_paths_instance
 ```
 
-### Issue: DatasetManager Creates New ProtosPaths Instance
+### Issue 2: DatasetManager Creates New ProtosPaths Instance
 
 **Problem:**
 
 When `BaseProcessor` initializes the `DatasetManager`, it correctly passes its `path_resolver`, but later in the chain, the `DatasetManager._get_dataset_dir()` method might still use its own path resolution logic, which can be affected by the AUTO source issue above.
 
-**Workaround:**
+**Current Workaround:**
 
 After initializing a processor, explicitly correct the `DatasetManager.dataset_dir` path:
 
@@ -349,3 +351,109 @@ processor = CifBaseProcessor(
 correct_dataset_dir = os.path.join(project_dir, "structure", "structure_dataset")
 processor.dataset_manager.dataset_dir = correct_dataset_dir
 ```
+
+## 11. Roadmap for Path System Improvements
+
+For Protos to become more robust and usable, especially via MCP for LLM integration, the following improvements to the path system are planned:
+
+### 1. Fix AUTO Source Mode
+
+The immediate priority is to fix the default behavior of `DataSource.AUTO`:
+
+```python
+def _resolve_data_root(self, source: DataSource) -> str:
+    if source == DataSource.USER:
+        return self.user_data_root
+    elif source == DataSource.REFERENCE:
+        return self.ref_data_root
+    else:  # AUTO
+        # Use a more intelligent strategy: check user_data_root first, 
+        # fall back to ref_data_root only for read operations if user path doesn't exist
+        operation_type = self.current_operation_type  # New context tracking
+        path_to_check = os.path.join(self.user_data_root, self.current_path_fragment)
+        
+        if operation_type == "write" or os.path.exists(path_to_check):
+            return self.user_data_root
+        else:
+            return self.ref_data_root
+```
+
+### 2. Simplified Initialization API
+
+Create a simplified initialization API that abstracts away the complexity of path handling:
+
+```python
+# Current verbose initialization
+paths = ProtosPaths(
+    user_data_root=str(data_dir.absolute()),
+    ref_data_root=str(data_dir.absolute()),
+    create_dirs=True
+)
+
+cp = CifBaseProcessor(
+    name="structure_processor",
+    data_root=str(data_dir.absolute()),
+    processor_data_dir="structure"
+)
+
+# Planned simplified API
+protos = ProtosAPI.init_project("/path/to/project")
+cp = protos.get_processor("structure")
+```
+
+### 3. Operation Context Tracking
+
+Add context tracking to make automatic source resolution more intelligent:
+
+```python
+# Internal implementation
+class ProtosPaths:
+    def __init__(self, ...):
+        self.current_operation_type = None  # 'read' or 'write'
+        self.current_path_fragment = None   # relative path being processed
+    
+    def with_operation_context(self, operation_type, path_fragment):
+        self.current_operation_type = operation_type
+        self.current_path_fragment = path_fragment
+        return self
+    
+    # Usage in function
+    def get_processor_path(self, processor_type, source=DataSource.AUTO):
+        with self.with_operation_context('read', f"{processor_type}"):
+            return self._resolve_path(...)
+```
+
+### 4. Stateless API Layer for MCP
+
+Develop a stateless API layer on top of the current processors for MCP integration:
+
+```python
+@mcp_tool
+def get_structure_sequence(pdb_id: str, chain_id: str, project_dir: str = None) -> str:
+    """Get the amino acid sequence from a structure."""
+    # Automatically handle path configuration
+    project_dir = project_dir or os.environ.get("PROTOS_DATA_ROOT") or os.getcwd()
+    protos = ProtosAPI.init_project(project_dir)
+    
+    # Use the processor through the API
+    return protos.get_sequence(pdb_id, chain_id)
+```
+
+### 5. Consistent Error Handling
+
+Standardize error handling for path-related operations:
+
+```python
+class ProtosPathError(Exception):
+    """Base exception for path-related errors."""
+    pass
+
+class PathNotFoundError(ProtosPathError):
+    """Raised when a path does not exist."""
+    def __init__(self, path, operation):
+        self.path = path
+        self.operation = operation
+        super().__init__(f"Path not found: {path} (during {operation})")
+```
+
+These improvements will significantly enhance the reliability and usability of the Protos path system, especially for integration with MCP and LLMs.
