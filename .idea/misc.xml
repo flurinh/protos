@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="protos" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="protos38" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="protos310" project-jdk-type="Python SDK" />
 </project>

@@ -1,0 +1,14 @@
+{
+  "id": "test_dataset",
+  "name": "Test Dataset",
+  "description": "Dataset for testing",
+  "type": "structure",
+  "content": [
+    "1ubq",
+    "1tqn",
+    "3nir"
+  ],
+  "metadata": {},
+  "creation_date": "2025-05-04T23:04:17.092790",
+  "last_modified": "2025-05-04T23:04:17.092790"
+}

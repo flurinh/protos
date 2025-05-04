@@ -8,8 +8,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
-# Import directly to avoid triggering problematic imports
-from protos.io.cif_utils import df_to_cif, write_cif_file
+# Import the CifHandler class
+from protos.io.cif_handler import CifHandler
 
 
 @pytest.fixture
@@ -38,13 +38,16 @@ def sample_cif_df():
 
 
 @pytest.fixture
-def temp_cif_file(sample_cif_df):
+def cif_handler():
+    """Create a CifHandler instance."""
+    return CifHandler()
+
+@pytest.fixture
+def temp_cif_file(sample_cif_df, cif_handler):
     """Create a temporary CIF file from sample data."""
     with tempfile.NamedTemporaryFile(suffix='.cif', delete=False) as tmp:
-        # Convert DataFrame to CIF format
-        cif_content = df_to_cif(sample_cif_df, pdb_id='test_cif')
-        tmp.write(cif_content.encode('utf-8'))
-        tmp_name = tmp.name
+        # Use the handler to write the file
+        tmp_name = cif_handler.write(tmp.name, sample_cif_df, force_overwrite=True)
     
     yield tmp_name
     
@@ -53,16 +56,21 @@ def temp_cif_file(sample_cif_df):
         os.unlink(tmp_name)
 
 
-def test_df_to_cif(sample_cif_df):
+def test_df_to_cif(sample_cif_df, cif_handler, tmp_path):
     """Test converting DataFrame to CIF format string."""
-    # Convert to CIF
-    cif_content = df_to_cif(sample_cif_df, pdb_id='test_cif')
+    # Use the handler to write to a temporary file
+    output_file = os.path.join(tmp_path, 'test_df_to_cif.cif')
+    cif_handler.write(output_file, sample_cif_df)
     
-    # Verify the result is a string
-    assert isinstance(cif_content, str)
+    # Verify file exists
+    assert os.path.exists(output_file)
+    
+    # Read the file content
+    with open(output_file, 'r') as f:
+        cif_content = f.read()
     
     # Check basic CIF format elements
-    assert cif_content.startswith('data_test_cif')
+    assert cif_content.startswith('data_')
     assert '_atom_site.group_PDB' in cif_content
     assert '_atom_site.Cartn_x' in cif_content
     
@@ -71,74 +79,79 @@ def test_df_to_cif(sample_cif_df):
         assert f"ATOM   {i}" in cif_content
 
 
-def test_write_cif_file(sample_cif_df, tmp_path):
+def test_write_cif_file(sample_cif_df, cif_handler, tmp_path):
     """Test writing DataFrame to CIF file."""
     # Define output path
     output_file = os.path.join(tmp_path, 'output.cif')
     
-    # Write the file
-    result_path = write_cif_file(
-        file_path=output_file,
-        df=sample_cif_df,
+    # Write the file using the handler
+    cif_handler.write(
+        output_file,
+        sample_cif_df,
         force_overwrite=True
     )
     
     # Check file was created
-    assert os.path.exists(result_path)
-    assert os.path.getsize(result_path) > 0
+    assert os.path.exists(output_file)
+    assert os.path.getsize(output_file) > 0
     
     # Read content and verify
-    with open(result_path, 'r') as f:
+    with open(output_file, 'r') as f:
         content = f.read()
-        assert 'data_test_cif' in content
+        assert 'data_' in content
         assert 'ATOM   1' in content
 
 
-def test_write_cif_file_versioned(sample_cif_df, tmp_path):
+def test_write_cif_file_versioned(sample_cif_df, cif_handler, tmp_path):
     """Test writing DataFrame to CIF file with versioning."""
     # Define output path
     output_file = os.path.join(tmp_path, 'versioned_output.cif')
     
-    # Write file with versioning
-    result_path = write_cif_file(
+    # Write file with versioning using the handler's write_with_versioning method
+    result_path = cif_handler.write_with_versioning(
         file_path=output_file,
-        df=sample_cif_df,
+        data=sample_cif_df,
         versioned=True
     )
     
     # Check file was created with version in filename
+    assert result_path is not None
     assert os.path.exists(result_path)
     assert result_path != output_file  # Should have version added
     assert '_v1' in os.path.basename(result_path)
     
     # Write another version
-    result_path_2 = write_cif_file(
+    result_path_2 = cif_handler.write_with_versioning(
         file_path=output_file,
-        df=sample_cif_df,
+        data=sample_cif_df,
         versioned=True
     )
     
     # Check new version was created
+    assert result_path_2 is not None
     assert os.path.exists(result_path_2)
     assert '_v2' in os.path.basename(result_path_2)
 
 
-def test_cif_file_overwrite_protection(sample_cif_df, tmp_path):
+def test_cif_file_overwrite_protection(sample_cif_df, cif_handler, tmp_path):
     """Test CIF file overwrite protection."""
     # Define output path
     output_file = os.path.join(tmp_path, 'protected.cif')
     
     # Write initial file
-    write_cif_file(
-        file_path=output_file,
-        df=sample_cif_df
+    cif_handler.write(
+        output_file,
+        sample_cif_df
     )
+    
+    # Verify file exists
+    assert os.path.exists(output_file)
     
     # Try to overwrite without force flag
     try:
-        write_cif_file(
-            file_path=output_file,
-            df=sample_cif_df,
+        cif_handler.write(
+            output_file,
+            sample_cif_df,
             force_overwrite=False
         )
         # If we get here, the test failed
@@ -149,12 +162,12 @@ def test_cif_file_overwrite_protection(sample_cif_df, tmp_path):
     
     # Now try with force_overwrite=True
     try:
-        write_cif_file(
-            file_path=output_file,
-            df=sample_cif_df,
+        cif_handler.write(
+            output_file,
+            sample_cif_df,
             force_overwrite=True
         )
         # Should succeed
-        pass
+        assert os.path.exists(output_file)
     except Exception as e:
         assert False, f"Should not have raised an error with force_overwrite=True: {str(e)}"

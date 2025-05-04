@@ -1,15 +1,15 @@
 {
   "test_dataset": {
-    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\src\\reference_data\\structure\\structure_dataset\\test_dataset.json",
+    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\src\\protos\\data\\structure\\structure_dataset\\test_dataset.json",
     "metadata": {
       "name": "Test Dataset",
       "description": "Dataset for testing",
       "items": 3,
-      "created_at": "2025-05-04T22:16:44.958738",
+      "created_at": "2025-05-04T23:04:17.092790",
       "processor_type": "structure",
       "dataset_type": "structure",
       "source": "user"
     },
-    "timestamp": "2025-05-04T22:16:44.958738"
+    "timestamp": "2025-05-04T23:04:17.092790"
   }
 }
