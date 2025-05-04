@@ -1,0 +1,29 @@
+{
+  "structure/1ubq": {
+    "type": "structure",
+    "atom_count": 660,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-05-04T22:16:45.257261",
+    "directory": "structures"
+  },
+  "structure/1tqn": {
+    "type": "structure",
+    "atom_count": 3999,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-05-04T22:16:45.367181",
+    "directory": "structures"
+  },
+  "structure/3nir": {
+    "type": "structure",
+    "atom_count": 1089,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-05-04T22:16:45.414643",
+    "directory": "structures"
+  }
+}

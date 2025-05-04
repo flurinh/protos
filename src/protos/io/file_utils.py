@@ -61,3 +61,16 @@ def validate_fasta_format(filepath):
                 has_sequence = True
                 
     return True
+
+def get_filenames(path):
+    """Get filenames in directory without extension.
+    
+    Args:
+        path (str): Directory path to search for files
+        
+    Returns:
+        list: List of filenames without extensions
+    """
+    if not os.path.exists(path):
+        return []
+    return [os.path.splitext(f)[0] for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]

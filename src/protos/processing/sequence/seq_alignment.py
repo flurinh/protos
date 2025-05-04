@@ -6,6 +6,7 @@ import pandas as pd
 import subprocess
 import os
 from dotenv import load_dotenv
+from typing import Dict
 
 # Load environment variables from .env file
 load_dotenv()
@@ -68,7 +69,7 @@ def contains_only_valid_residues(sequence):
     return all(residue in valid_residues for residue in sequence)
 
 
-def msa_blosum62(seqs_query: dict, seqs_ref: dict, aligner):
+def msa_blosum62(seqs_query: Dict[str, str], seqs_ref: Dict[str, str], aligner):
     # assign each query sequence to a reference
     best_alignments = {}
     for query in tqdm(seqs_query):
@@ -266,7 +267,7 @@ def mmseqs2_align(query_seq, seqs, temp_folder='temp'):
     return alignment_df
 
 
-def mmseqs2_align2(query_seqs: dict[str], ref_seqs: dict[str], temp_folder: str = 'temp'):
+def mmseqs2_align2(query_seqs: Dict[str, str], ref_seqs: Dict[str, str], temp_folder: str = 'temp'):
     def write_fasta_file(seqs, filename):
         with open(filename, 'w') as fasta_file:
             for key, value in seqs.items():

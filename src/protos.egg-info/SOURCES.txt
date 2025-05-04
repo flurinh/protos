@@ -27,9 +27,6 @@ src/protos/cli/training/train.py
 src/protos/core/__init__.py
 src/protos/core/base_processor.py
 src/protos/core/dataset_manager.py
-src/protos/embedding/__init__.py
-src/protos/embedding/emb_processor.py
-src/protos/embedding/embedding.py
 src/protos/io/__init__.py
 src/protos/io/cif_handler.py
 src/protos/io/cif_utils.py
@@ -51,6 +48,9 @@ src/protos/processing/__init__.py
 src/protos/processing/aa_dicts.py
 src/protos/processing/deprecated/__init__.py
 src/protos/processing/deprecated/deprecated_struct_assm.py
+src/protos/processing/embedding/__init__.py
+src/protos/processing/embedding/emb_processor.py
+src/protos/processing/embedding/embedding.py
 src/protos/processing/gpcr/__init__.py
 src/protos/processing/gpcr/gpcr_fam_tree.py
 src/protos/processing/gpcr/gpcr_families_processing.py
@@ -72,8 +72,6 @@ src/protos/processing/grn/run_grn_assignment.py
 src/protos/processing/ligand/__init__.py
 src/protos/processing/ligand/ligand_processor.py
 src/protos/processing/ligand/ligand_utils.py
-src/protos/processing/opsin/__init__.py
-src/protos/processing/opsin/retinal_utils.py
 src/protos/processing/property/__init__.py
 src/protos/processing/property/aff_processor.py
 src/protos/processing/property/function_processor.py

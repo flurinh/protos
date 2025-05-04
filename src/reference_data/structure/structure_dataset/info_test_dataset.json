@@ -1,0 +1,14 @@
+{
+  "id": "info_test_dataset",
+  "name": "Info Test Dataset",
+  "description": "Dataset for testing info retrieval",
+  "type": "structure",
+  "content": [
+    "1ABC",
+    "2DEF",
+    "3GHI"
+  ],
+  "metadata": {},
+  "creation_date": "2025-05-04T19:47:29.597007",
+  "last_modified": "2025-05-04T19:47:29.597007"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "test_dataset_2",
+  "name": "Test Dataset 2",
+  "description": "Dataset 2 for testing",
+  "type": "structure",
+  "content": [
+    "1ABC",
+    "2DEF",
+    "3GHI"
+  ],
+  "metadata": {},
+  "creation_date": "2025-05-04T19:47:29.628249",
+  "last_modified": "2025-05-04T19:47:29.628249"
+}

@@ -36,6 +36,13 @@ setup(
         "biopython",
         "requests", 
         "h5py",
+        "pytest",
+        "tqdm",
+        "scikit-learn",
+        "networkx",
+        "python-dotenv",
+        "gemmi",
+        "seaborn",
         "importlib-resources; python_version < '3.9'",  # For importlib.resources compatibility
     ],
 )

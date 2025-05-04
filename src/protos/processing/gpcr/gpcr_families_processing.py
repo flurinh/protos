@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from typing import List
 
 
 def get_indent(line_text: str):
@@ -29,23 +30,35 @@ def parse_line(line_text: str):
         return line_text.replace.replace('\n', '')
 
 
-def get_fam_identifier(prev_fam_identifier: list[int] = [-1, -1, -1, -1], new_index: int = 0):
-    fam_identifier = prev_fam_identifier
+# Use List[int] instead of list[int]
+def get_fam_identifier(prev_fam_identifier: List[int] = [-1, -1, -1, -1], new_index: int = 0):
+    # --- Potential Logic Issue ---
+    # This modifies the list passed in (or the default list) because lists are mutable!
+    # fam_identifier = prev_fam_identifier
+
+    # --- Corrected Logic: Create a copy ---
+    fam_identifier = prev_fam_identifier.copy() # Or list(prev_fam_identifier)
+
     reset = False
-    for j in range(len(prev_fam_identifier)):
+    # Ensure new_index is within bounds (optional but good practice)
+    if not (0 <= new_index < len(fam_identifier)):
+        raise IndexError(f"new_index {new_index} is out of range for identifier length {len(fam_identifier)}")
+
+    for j in range(len(fam_identifier)): # Use length of the copied list
         if reset:
             fam_identifier[j] = 0
         elif j == new_index:
-            # we are in the class of the new index
-            # go to next class
+            # Increment the value at the target index
+            # Use the value from the *original* list before modification
             fam_identifier[j] = prev_fam_identifier[j] + 1
-            # reset all sub-class indices
-            if j < len(prev_fam_identifier)-1:
-                reset=True
+            # Set reset flag *after* processing the current index
+            if j < len(fam_identifier) - 1:
+                reset = True
         else:
+            # Keep elements before new_index as they were (already handled by copy)
             continue
+            # Or explicitly: fam_identifier[j] = prev_fam_identifier[j] - but the copy does this.
     return fam_identifier
-
 
 def map_fam_ids(fam_df, id0, id1, id2):
     f1 = fam_df[(fam_df['L1']==id0) & (fam_df['L2']==0) & (fam_df['L3']==0)].iloc[0]['class']

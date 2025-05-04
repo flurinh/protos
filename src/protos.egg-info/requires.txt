@@ -6,6 +6,12 @@ plotly
 biopython
 requests
 h5py
+pytest
+tqdm
+scikit-learn
+networkx
+python-dotenv
+gemmi
 
 [:python_version < "3.9"]
 importlib-resources

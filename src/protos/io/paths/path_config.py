@@ -96,7 +96,7 @@ def is_package_resource(path: str) -> bool:
     ref_root = Path(get_reference_data_root()).resolve()
     path = Path(path).resolve()
     
-    # If the path contains '/ref/' or '\ref\' in tests, consider it a reference resource
+    # If the path contains '/ref/' or '\ref\' in old_tests, consider it a reference resource
     if '/ref/' in str(path) or '\\ref\\' in str(path):
         return True
         

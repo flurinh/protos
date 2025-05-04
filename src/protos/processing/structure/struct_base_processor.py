@@ -21,6 +21,7 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
+from protos.io import cif_utils
 from protos.core.base_processor import BaseProcessor
 from protos.processing.structure.struct_utils import (
     load_structure as load_structure_util,
@@ -1306,3 +1307,158 @@ class CifBaseProcessor(BaseProcessor):
         for pdb_id in tqdm(missing_pdb_ids, desc=f"Downloading CIF files for {dataset_name}"):
             self.download_cif(pdb_id, save_dir=self.path_structure_dir)
 
+    def to_cif(self, pdb_id: str) -> str:
+        """Converts structure data for a given PDB ID to CIF format text."""
+        if self.data is None or self.data.empty:
+            raise ValueError("No data loaded in the processor.")
+
+        # Filter data for the specific PDB ID
+        structure_df = self.data[self.data['pdb_id'] == pdb_id]
+        if structure_df.empty:
+            raise ValueError(f"No data found for PDB ID '{pdb_id}'.")
+
+        # Convert filtered DataFrame to CIF string
+        try:
+            cif_content = cif_utils.df_to_cif(structure_df, pdb_id=pdb_id)
+            return cif_content
+        except Exception as e:
+            self.logger.error(f"Error converting DataFrame to CIF for {pdb_id}: {e}")
+            raise
+
+    def save_cif(self, pdb_id: str, output_path: str, versioned: bool = False,
+                 force_overwrite: bool = False) -> str:
+        """Saves structure data for a given PDB ID to a CIF file."""
+        if self.data is None or self.data.empty:
+            raise ValueError("No data loaded in the processor.")
+
+        # Filter data for the specific PDB ID
+        structure_df = self.data[self.data['pdb_id'] == pdb_id]
+        if structure_df.empty:
+            raise ValueError(f"No data found for PDB ID '{pdb_id}'.")
+
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+
+        # Write DataFrame to CIF file using cif_utils
+        try:
+            final_path = cif_utils.write_cif_file(
+                file_path=output_path,
+                df=structure_df,
+                versioned=versioned,
+                force_overwrite=force_overwrite
+            )
+            self.logger.info(f"Saved structure for {pdb_id} to {final_path}")
+            return final_path
+        except Exception as e:
+            self.logger.error(f"Error writing CIF file for {pdb_id} to {output_path}: {e}")
+            raise
+
+    def save_temp_cif(self, pdb_id: str, suffix: Optional[str] = None) -> str:
+        """Creates a temporary CIF file for a given PDB ID."""
+        if self.data is None or self.data.empty:
+            raise ValueError("No data loaded in the processor.")
+
+        # Filter data for the specific PDB ID
+        structure_df = self.data[self.data['pdb_id'] == pdb_id]
+        if structure_df.empty:
+            raise ValueError(f"No data found for PDB ID '{pdb_id}'.")
+
+        # Ensure temp directory exists (should be created in __init__)
+        os.makedirs(self.temp_dir, exist_ok=True)
+
+        # Generate unique filename
+        timestamp = int(time.time() * 1000)
+        filename_suffix = f"_{suffix}" if suffix else ""
+        temp_filename = f"{pdb_id}{filename_suffix}_{timestamp}.cif"
+        temp_filepath = os.path.join(self.temp_dir, temp_filename)  # Use os.path.join for Path object
+
+        # Write DataFrame to temp CIF file using cif_utils
+        try:
+            final_path = cif_utils.write_cif_file(
+                file_path=str(temp_filepath),  # Convert Path to string if needed by write_cif_file
+                df=structure_df,
+                versioned=False,  # No versioning for temp files
+                force_overwrite=True  # Okay to overwrite temp files if collision (unlikely)
+            )
+            self.logger.info(f"Saved temporary structure for {pdb_id} to {final_path}")
+            return final_path
+        except Exception as e:
+            self.logger.error(f"Error writing temporary CIF file for {pdb_id}: {e}")
+            raise
+
+    def cleanup_temp_files(self, older_than_hours: int = 1) -> None:
+        """Removes temporary CIF files older than the specified hours."""
+        if not os.path.exists(self.temp_dir):
+            self.logger.debug(f"Temporary directory {self.temp_dir} does not exist. Skipping cleanup.")
+            return
+
+        now = time.time()
+        cutoff = now - (older_than_hours * 3600)
+        cleaned_count = 0
+
+        try:
+            for filename in os.listdir(self.temp_dir):
+                file_path = os.path.join(self.temp_dir, filename)
+                if os.path.isfile(file_path) and filename.lower().endswith('.cif'):
+                    try:
+                        file_mod_time = os.path.getmtime(file_path)
+                        if file_mod_time < cutoff:
+                            os.remove(file_path)
+                            self.logger.debug(f"Removed old temporary file: {file_path}")
+                            cleaned_count += 1
+                    except OSError as e:
+                        self.logger.warning(f"Could not remove temporary file {file_path}: {e}")
+        except OSError as e:
+            self.logger.error(f"Error listing temporary directory {self.temp_dir}: {e}")
+
+        self.logger.info(f"Cleaned up {cleaned_count} old temporary files from {self.temp_dir}")
+
+    def export_structures(self, pdb_ids: List[str], output_dir: str, validate: bool = False) -> List[str]:
+        """Exports multiple structures to CIF files in the specified directory."""
+        if self.data is None or self.data.empty:
+            raise ValueError("No data loaded in the processor.")
+
+        os.makedirs(output_dir, exist_ok=True)
+        exported_files = []
+        skipped_ids = []
+
+        for pdb_id in tqdm(pdb_ids, desc="Exporting Structures"):
+            try:
+                # Filter data for the specific PDB ID
+                structure_df = self.data[self.data['pdb_id'] == pdb_id]
+                if structure_df.empty:
+                    self.logger.warning(f"No data found for PDB ID '{pdb_id}'. Skipping export.")
+                    skipped_ids.append(pdb_id)
+                    continue
+
+                # Optional validation
+                if validate:
+                    validation_results = cif_utils.validate_cif_data(structure_df)
+                    if not validation_results["is_valid"]:
+                        self.logger.warning(
+                            f"Validation failed for {pdb_id}. Issues: {validation_results['issues']}. Skipping export.")
+                        skipped_ids.append(pdb_id)
+                        continue  # Or decide to export anyway
+
+                # Define output path
+                output_path = os.path.join(output_dir, f"{pdb_id}.cif")
+
+                # Write file using save_cif logic (or directly call write_cif_file)
+                # Using save_cif might be redundant, calling write_cif_file is more direct
+                final_path = cif_utils.write_cif_file(
+                    file_path=output_path,
+                    df=structure_df,
+                    versioned=False,  # Typically no versioning during bulk export
+                    force_overwrite=True  # Overwrite if file exists from previous run
+                )
+                exported_files.append(final_path)
+
+            except Exception as e:
+                self.logger.error(f"Failed to export structure {pdb_id}: {e}")
+                skipped_ids.append(pdb_id)
+
+        self.logger.info(f"Exported {len(exported_files)} structures to {output_dir}.")
+        if skipped_ids:
+            self.logger.warning(f"Skipped {len(skipped_ids)} structures: {skipped_ids}")
+
+        return exported_files

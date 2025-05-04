@@ -88,7 +88,7 @@ class BaseProcessor(ABC):
                         self.data_root = data_root
                         self.data_path = os.path.join(self.data_root, processor_data_dir or processor_type)
                     else:
-                        # Default simple path for standard tests
+                        # Default simple path for standard old_tests
                         self.data_root = "data"
                         self.data_path = os.path.join(self.data_root, processor_data_dir or processor_type)
                     
@@ -231,7 +231,7 @@ class BaseProcessor(ABC):
         """Load dataset registry from disk or create if not exists."""
         # For test classes, always use the direct data_path
         if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            # In tests, look for registry directly in the specified data path
+            # In old_tests, look for registry directly in the specified data path
             registry_path = os.path.join(self.data_path, 'registry.json')
         elif _HAS_PATH_MODULE:
             # Normal case - use path resolver
@@ -255,7 +255,7 @@ class BaseProcessor(ABC):
         """Save dataset registry to disk."""
         # For test classes, always use the direct data_path 
         if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            # In tests, save registry directly in the specified data path
+            # In old_tests, save registry directly in the specified data path
             # For directories - need to ensure dataset directories are created
             datasets_dir = os.path.join(self.data_path, 'datasets')
             os.makedirs(datasets_dir, exist_ok=True)
@@ -635,11 +635,11 @@ class BaseProcessor(ABC):
             FileNotFoundError: If dataset file doesn't exist
             ValueError: If format is unsupported
         """
-        # For test classes or integration tests - need to be careful about file paths
+        # For test classes or integration old_tests - need to be careful about file paths
         if "test_" in self.name.lower() or "integration" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
             # Special case - check if this is a subdirectory path
             if '/' in dataset_id:
-                # For integration tests - use direct path construction
+                # For integration old_tests - use direct path construction
                 subdir, real_id = dataset_id.split('/', 1)
                 if file_format:
                     # Try both the direct reference directory and the default subpath
@@ -721,7 +721,7 @@ class BaseProcessor(ABC):
             
         # Check if file exists
         if not os.path.exists(file_path):
-            # For test classes or integration tests, also check in the datasets/ subdirectory
+            # For test classes or integration old_tests, also check in the datasets/ subdirectory
             if "test_" in self.name.lower() or "integration" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
                 datasets_path = os.path.join(self.data_path, "datasets", f"{dataset_id}")
                 if file_format:
@@ -1123,7 +1123,7 @@ class BaseProcessor(ABC):
         
         # Special handling for test classes to ensure correct path
         if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            # For tests, the file is most likely in the datasets/ subdirectory
+            # For old_tests, the file is most likely in the datasets/ subdirectory
             if not os.path.exists(file_path):
                 datasets_path = os.path.join(self.data_path, "datasets", f"{dataset_id}")
                 

@@ -3,6 +3,7 @@ import os
 import json
 import pandas as pd
 from decimal import Decimal, getcontext
+from typing import List
 
 
 def parse_grn_str2float(grn: str = '1x13'):
@@ -148,7 +149,7 @@ def sort_iecls(grns):
     return grns_
 
 
-def sort_grns(grns: list[float]):
+def sort_grns(grns: List[float]):
     grns_iecls = sort_iecls([x for x in grns if (x > 10) & (x < 100)])
     grns_tm = sorted([x for x in grns if (x > 0) & (x < 10)])
     grns_ntail = sorted([x for x in grns if (x < 0)])
@@ -170,7 +171,7 @@ def sort_grns(grns: list[float]):
     result = grns_ntail + sorted_grns + grns_ctail
     return [round(x, 3) for x in result]
 
-def sort_grns_str(grns: list[str]):
+def sort_grns_str(grns: List[str]):
     grns_float = [parse_grn_str2float(x) for x in grns]
     sorted_grns = sort_grns(grns_float)
     return [parse_grn_float2str(x) for x in sorted_grns]
