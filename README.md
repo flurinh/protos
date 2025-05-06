@@ -1,7 +1,7 @@
 # Protos Overview
 
 <p align="center">
-  <img src="logo.png" alt="Protos Logo">
+  <img src="resources/logo.png" alt="Protos Logo">
 </p>
 
 
