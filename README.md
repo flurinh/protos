@@ -1,6 +1,9 @@
 # Protos Overview
 
-![Protos Logo](resources/logo.png)
+<p align="center">
+  <img src="logo.png" alt="Protos Logo">
+</p>
+
 
 ## What is Protos?
 
