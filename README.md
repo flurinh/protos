@@ -1,8 +1,7 @@
 # Protos Overview
 
-<p align="center">
-  <img src="resources/logo.png" alt="Protos Logo">
-</p>
+
+![Protos-MCP](resources/logo.png)
 
 
 ## What is Protos?
