@@ -1462,3 +1462,216 @@ class CifBaseProcessor(BaseProcessor):
             self.logger.warning(f"Skipped {len(skipped_ids)} structures: {skipped_ids}")
 
         return exported_files
+
+    def filter_data_flexibly(self, filters: Dict[str, Any], inplace: bool = True) -> Optional[pd.DataFrame]:
+        """
+        Filters the internal data DataFrame based on flexible criteria.
+
+        Args:
+            filters: A dictionary where keys are column names (optionally with operators)
+                     and values are the conditions.
+                     Supported operators (append to column name with __):
+                       - __eq: equals (default if no operator)
+                       - __ne: not equals
+                       - __gt: greater than
+                       - __lt: less than
+                       - __ge: greater than or equal to
+                       - __le: less than or equal to
+                       - __is_in: value must be in the provided list/set
+                       - __not_in: value must not be in the provided list/set
+                       - __startswith: string starts with value
+                       - __endswith: string ends with value
+                       - __contains: string contains value
+                       - __isna: value is NaN/None/NaT
+                       - __notna: value is not NaN/None/NaT
+            inplace: If True, modifies the internal self.data DataFrame.
+                     If False, returns a new filtered DataFrame without modifying internal state.
+
+        Returns:
+            If inplace=False, returns the filtered DataFrame.
+            If inplace=True, returns None.
+
+        Raises:
+            ValueError: If a filter column does not exist or an operator is invalid.
+            TypeError: If filter value type is incompatible with the operator/column.
+        """
+        if self.data is None or self.data.empty:
+            self.logger.warning("No data loaded to filter.")
+            return pd.DataFrame() if not inplace else None
+
+        current_df = self.data.copy() # Work on a copy initially
+
+        # Define operators and their corresponding pandas methods
+        operator_map = {
+            'eq': lambda series, val: series == val,
+            'ne': lambda series, val: series != val,
+            'gt': lambda series, val: pd.to_numeric(series, errors='coerce') > val,
+            'lt': lambda series, val: pd.to_numeric(series, errors='coerce') < val,
+            'ge': lambda series, val: pd.to_numeric(series, errors='coerce') >= val,
+            'le': lambda series, val: pd.to_numeric(series, errors='coerce') <= val,
+            'is_in': lambda series, val: series.isin(val),
+            'not_in': lambda series, val: ~series.isin(val),
+            'startswith': lambda series, val: series.astype(str).str.startswith(val, na=False),
+            'endswith': lambda series, val: series.astype(str).str.endswith(val, na=False),
+            'contains': lambda series, val: series.astype(str).str.contains(val, na=False, regex=False),
+            'isna': lambda series, val: series.isna(), # Value is ignored for isna/notna
+            'notna': lambda series, val: series.notna(), # Value is ignored for isna/notna
+        }
+
+        combined_mask = pd.Series(True, index=current_df.index) # Start with all True
+
+        for filter_key, filter_value in filters.items():
+            col_name = filter_key
+            operator = 'eq' # Default operator
+
+            # Parse column name and operator
+            if '__' in filter_key:
+                parts = filter_key.split('__', 1)
+                col_name = parts[0]
+                op_suffix = parts[1].lower()
+                if op_suffix in operator_map:
+                    operator = op_suffix
+                else:
+                    raise ValueError(f"Invalid filter operator: __{op_suffix}")
+
+            # Check if column exists
+            if col_name not in current_df.columns:
+                raise ValueError(f"Filter column '{col_name}' not found in data.")
+
+            # Get the pandas operation function
+            op_func = operator_map[operator]
+
+            # Apply the filter to create a mask for the current condition
+            try:
+                # Handle special cases for operators that don't use the value directly
+                if operator in ['isna', 'notna']:
+                    condition_mask = op_func(current_df[col_name], None)
+                else:
+                    condition_mask = op_func(current_df[col_name], filter_value)
+
+                # Combine with the overall mask using AND logic
+                combined_mask &= condition_mask
+
+            except TypeError as e:
+                raise TypeError(f"Type error applying filter '{filter_key}' with value '{filter_value}' "
+                                f"on column '{col_name}' (dtype: {current_df[col_name].dtype}): {e}")
+            except Exception as e:
+                # Catch other potential errors like regex errors for 'contains' if regex=True
+                 raise ValueError(f"Error applying filter '{filter_key}' with value '{filter_value}': {e}")
+
+        # Apply the final mask
+        filtered_df = current_df[combined_mask]
+
+        if inplace:
+            original_size = len(self.data)
+            self.data = filtered_df
+            # Important: Update other state if filtering occurred
+            self.update_pdb_ids() # Refresh the list of PDB IDs present
+            self.dfl = [self.data[self.data['pdb_id'] == pdb_id] for pdb_id in self.pdb_ids] # Rebuild dfl
+            # Consider if chain_dict etc. also need refreshing based on usage
+            self.update_chain_data()
+            self.logger.info(f"Filtered data inplace. Size changed from {original_size} to {len(self.data)} rows.")
+            return None
+        else:
+            return filtered_df
+
+    def add_ligand(self,
+                   target_pdb_id: str,
+                   ligand_df: pd.DataFrame,
+                   ligand_chain_id: str = 'L',
+                   ligand_res_seq_id: int = 9001):
+        """
+        Adds ligand atom data to a specific existing structure in self.data.
+
+        NOTE: This performs data merging, not geometric docking. The ligand_df
+              coordinates are assumed to be in the desired final position relative
+              to the target protein.
+
+        Args:
+            target_pdb_id: The PDB ID of the structure to add the ligand to.
+            ligand_df: A DataFrame containing the ligand atoms, formatted similarly
+                       to the main structure data (must include 'x', 'y', 'z',
+                       'atom_name', 'res_name'). Coordinates should be pre-positioned.
+            ligand_chain_id: The chain ID to assign to the ligand (default 'L').
+                             Ensure this doesn't clash with existing protein chains
+                             if separation is desired.
+            ligand_res_seq_id: The residue sequence number to assign to the ligand
+                               (default 9001). Ensure this is unique within the
+                               target structure's ligand chain.
+
+        Raises:
+            ValueError: If target PDB ID is not loaded, ligand DataFrame is invalid,
+                        or required columns are missing.
+        """
+        if self.data is None or self.data.empty:
+            raise ValueError("Processor data (self.data) is not loaded.")
+
+        if target_pdb_id not in self.pdb_ids:
+            raise ValueError(f"Target PDB ID '{target_pdb_id}' not found in loaded structures.")
+
+        # --- Validate Ligand DataFrame ---
+        required_ligand_cols = ['x', 'y', 'z', 'atom_name', 'res_name']
+        missing_cols = [col for col in required_ligand_cols if col not in ligand_df.columns]
+        if missing_cols:
+            raise ValueError(f"Ligand DataFrame is missing required columns: {missing_cols}")
+
+        if ligand_df.empty:
+             raise ValueError("Ligand DataFrame cannot be empty.")
+
+        # Make a copy to avoid modifying the original ligand DF
+        lig_df = ligand_df.copy()
+
+        # --- Prepare Ligand DataFrame for Merging ---
+        num_lig_atoms = len(lig_df)
+        lig_res_name = lig_df['res_name'].iloc[0] # Assume single residue name for ligand
+
+        # Assign standard columns
+        lig_df['pdb_id'] = target_pdb_id
+        lig_df['group'] = 'HETATM'
+        lig_df['auth_chain_id'] = ligand_chain_id
+        lig_df['auth_seq_id'] = ligand_res_seq_id
+        lig_df['res_id'] = f"{lig_res_name}_{ligand_res_seq_id}_{ligand_chain_id}"
+        lig_df['res_name3l'] = lig_res_name # Assume res_name is 3-letter code
+        # Handle optional columns with defaults if missing
+        if 'element' not in lig_df:
+             lig_df['element'] = lig_df['atom_name'].str[0].str.upper() # Basic guess
+        if 'occupancy' not in lig_df:
+             lig_df['occupancy'] = 1.0
+        if 'b_factor' not in lig_df:
+             lig_df['b_factor'] = 20.0 # Default B-factor
+        # Add other optional columns as needed with defaults (e.g., insertion=None)
+        for col in ['insertion', 'alt_id', 'charge', 'model_num', 'auth_comp_id', 'auth_atom_name']:
+             if col not in lig_df:
+                 lig_df[col] = None # Or appropriate default, e.g., model_num=1
+
+        # --- Renumber Atom IDs ---
+        # Find max atom_id in the target protein structure *before* adding ligand
+        target_protein_df = self.data[self.data['pdb_id'] == target_pdb_id]
+        max_atom_id = target_protein_df['atom_id'].max()
+        if pd.isna(max_atom_id): # Handle case where target might be empty initially
+            max_atom_id = 0
+
+        # Assign new sequential atom IDs to ligand atoms
+        lig_df['atom_id'] = range(int(max_atom_id) + 1, int(max_atom_id) + 1 + num_lig_atoms)
+        # Also add gen_seq_id if used (can just match atom_id here)
+        if 'gen_seq_id' in self.data.columns:
+             lig_df['gen_seq_id'] = lig_df['atom_id']
+
+        # --- Merge DataFrames ---
+        # Separate data for other PDB IDs
+        other_data = self.data[self.data['pdb_id'] != target_pdb_id]
+
+        # Concatenate the target protein and the prepared ligand data
+        updated_target_df = pd.concat([target_protein_df, lig_df], ignore_index=True)
+
+        # Combine with data from other PDB IDs
+        self.data = pd.concat([other_data, updated_target_df], ignore_index=True)
+
+        # --- Update Processor State ---
+        self.reset_index() # Important to fix multi-index after concatenation
+        self.dfl = [self.data[self.data['pdb_id'] == pdb_id] for pdb_id in self.pdb_ids] # Rebuild dfl
+        # Consider if other state like chain_dict needs update
+        self.update_chain_data()
+
+        self.logger.info(f"Added ligand '{lig_res_name}' (Chain: {ligand_chain_id}, ResID: {ligand_res_seq_id}) "
+                         f"with {num_lig_atoms} atoms to structure '{target_pdb_id}'.")

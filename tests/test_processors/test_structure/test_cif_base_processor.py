@@ -332,3 +332,197 @@ def test_find_binding_pocket(processor_with_structures):
         print(f"Note: Exception when finding binding pocket for {pdb_id}, chain {chain_id}: {e}")
         # We don't make this a test failure as some structures may not have ligands
         pass
+
+
+
+def test_filter_data_flexibly_inplace(processor_with_structures):
+    """Test flexible filtering modifying data inplace."""
+    processor = processor_with_structures
+    initial_row_count = len(processor.data)
+    initial_pdb_ids = set(processor.pdb_ids)
+
+    # Define filters: Select only chain A of the first PDB structure
+    first_pdb_id = processor.pdb_ids[0]
+    filters = {
+        'pdb_id': first_pdb_id, # Implicit __eq
+        'auth_chain_id': 'A'
+    }
+
+    # Apply filters inplace
+    result = processor.filter_data_flexibly(filters, inplace=True)
+
+    # Verify inplace modification
+    assert result is None # inplace returns None
+    assert len(processor.data) < initial_row_count
+    assert set(processor.pdb_ids) == {first_pdb_id} # Only one PDB ID should remain
+    assert processor.data['pdb_id'].unique()[0] == first_pdb_id
+    assert processor.data['auth_chain_id'].unique()[0] == 'A'
+
+def test_filter_data_flexibly_return(processor_with_structures):
+    """Test flexible filtering returning a new DataFrame."""
+    processor = processor_with_structures
+    initial_row_count = len(processor.data)
+    initial_data_id = id(processor.data) # Get memory ID to check if it changes
+
+    # Define filters: Select CA atoms with B-factor >= 20.0
+    filters = {
+        'atom_name__eq': 'CA', # Alpha Carbon
+        'b_factor__ge': 20.0
+    }
+
+    # Apply filters returning new DataFrame
+    filtered_df = processor.filter_data_flexibly(filters, inplace=False)
+
+    # Verify original data is unchanged
+    assert len(processor.data) == initial_row_count
+    assert id(processor.data) == initial_data_id # Should be the same object
+
+    # Verify filtered DataFrame
+    assert isinstance(filtered_df, pd.DataFrame)
+    assert len(filtered_df) < initial_row_count
+    assert len(filtered_df) > 0 # Assuming some CA atoms meet the criteria
+    assert all(filtered_df['atom_name'] == 'CA')
+    assert all(filtered_df['b_factor'] >= 20.0)
+
+def test_filter_data_flexibly_advanced_operators(processor_with_structures):
+    """Test various advanced filter operators."""
+    processor = processor_with_structures
+    first_pdb_id = processor.pdb_ids[0]
+
+    # Filter for specific residues in chain A of the first PDB
+    filters = {
+        'pdb_id': first_pdb_id,
+        'auth_chain_id': 'A',
+        'res_name3l__is_in': ['LEU', 'ALA', 'GLY'], # Use res_name3l
+        'auth_seq_id__gt': 5,
+        'auth_seq_id__le': 15
+    }
+    filtered_df = processor.filter_data_flexibly(filters, inplace=False)
+
+    assert not filtered_df.empty
+    assert all(filtered_df['pdb_id'] == first_pdb_id)
+    assert all(filtered_df['auth_chain_id'] == 'A')
+    assert all(filtered_df['res_name3l'].isin(['LEU', 'ALA', 'GLY']))
+    assert all(filtered_df['auth_seq_id'] > 5)
+    assert all(filtered_df['auth_seq_id'] <= 15)
+
+    # Test 'contains' (ensure element column exists and is string)
+    if 'element' not in processor.data.columns:
+         processor.data['element'] = processor.data['atom_name'].str[0].str.upper() # Add if missing
+
+    filters_contains = {'element__contains': 'C'}
+    filtered_contains = processor.filter_data_flexibly(filters_contains, inplace=False)
+    assert len(filtered_contains) > 0
+    assert len(filtered_contains) <= len(processor.data)
+
+    # Test isna/notna (example: alt_id is often NaN/None)
+    filters_alt_na = {'alt_id__isna': True}
+    filtered_alt_na = processor.filter_data_flexibly(filters_alt_na, inplace=False)
+
+    filters_alt_notna = {'alt_id__notna': True}
+    filtered_alt_notna = processor.filter_data_flexibly(filters_alt_notna, inplace=False)
+
+    assert len(filtered_alt_na) + len(filtered_alt_notna) == len(processor.data)
+
+
+def test_filter_data_flexibly_errors(processor_with_structures):
+    """Test error conditions for flexible filtering."""
+    processor = processor_with_structures
+
+    # Test invalid column
+    with pytest.raises(ValueError, match="Filter column 'invalid_column' not found"):
+        processor.filter_data_flexibly({'invalid_column': 10}, inplace=False)
+
+    # Test invalid operator
+    with pytest.raises(ValueError, match="Invalid filter operator: __invalidop"):
+        processor.filter_data_flexibly({'atom_id__invalidop': 10}, inplace=False)
+
+    # Test type error (e.g., greater than on string)
+    with pytest.raises(TypeError):
+        processor.filter_data_flexibly({'auth_chain_id__gt': 'A'}, inplace=False)
+
+
+def test_add_ligand(processor_with_structures):
+    """Test adding a ligand DataFrame to an existing structure."""
+    processor = processor_with_structures
+    target_pdb_id = processor.pdb_ids[0] # Add to the first loaded structure
+    initial_rows = len(processor.data[processor.data['pdb_id'] == target_pdb_id])
+    max_atom_id_before = processor.data[processor.data['pdb_id'] == target_pdb_id]['atom_id'].max()
+
+    # Create a dummy ligand DataFrame
+    # Coordinates should be chosen to be "docked" conceptually for this test
+    # Let's place it near the origin for simplicity
+    ligand_data = {
+        'atom_name': ['C1', 'C2', 'N1', 'O1'],
+        'res_name': ['LG1'] * 4, # Ligand residue name
+        'element': ['C', 'C', 'N', 'O'],
+        'x': [1.0, 2.0, 1.5, 0.5],
+        'y': [1.0, 1.0, 2.0, 0.0],
+        'z': [0.0, 0.0, 0.0, 0.5]
+    }
+    ligand_df = pd.DataFrame(ligand_data)
+    num_lig_atoms = len(ligand_df)
+
+    # Add the ligand
+    processor.add_ligand(
+        target_pdb_id=target_pdb_id,
+        ligand_df=ligand_df,
+        ligand_chain_id='Z',
+        ligand_res_seq_id=9001
+    )
+
+    # --- Verification ---
+    # 1. Check total row count increased correctly
+    assert len(processor.data) == initial_rows + num_lig_atoms
+
+    # 2. Check ligand atoms are present in the target PDB
+    target_df_after = processor.data[processor.data['pdb_id'] == target_pdb_id]
+    ligand_atoms_in_data = target_df_after[
+        (target_df_after['auth_chain_id'] == 'Z') &
+        (target_df_after['auth_seq_id'] == 9001) &
+        (target_df_after['res_name'] == 'LG1') &
+        (target_df_after['group'] == 'HETATM')
+    ]
+    assert len(ligand_atoms_in_data) == num_lig_atoms
+
+    # 3. Check atom IDs were renumbered correctly
+    min_lig_atom_id = ligand_atoms_in_data['atom_id'].min()
+    max_lig_atom_id = ligand_atoms_in_data['atom_id'].max()
+    assert min_lig_atom_id == max_atom_id_before + 1
+    assert max_lig_atom_id == max_atom_id_before + num_lig_atoms
+    assert len(ligand_atoms_in_data['atom_id'].unique()) == num_lig_atoms # Check uniqueness
+
+    # 4. Check coordinates were preserved
+    assert np.allclose(
+        ligand_atoms_in_data.sort_values('atom_name')[['x', 'y', 'z']].values,
+        ligand_df.sort_values('atom_name')[['x', 'y', 'z']].values
+    )
+
+    # 5. Check other structures were not affected
+    if len(processor.pdb_ids) > 1:
+        other_pdb_id = processor.pdb_ids[1]
+        other_df = processor.data[processor.data['pdb_id'] == other_pdb_id]
+        assert 'Z' not in other_df['auth_chain_id'].unique()
+
+def test_add_ligand_errors(processor_with_structures):
+    """Test error conditions for adding a ligand."""
+    processor = processor_with_structures
+    target_pdb_id = processor.pdb_ids[0]
+
+    # Create minimal valid ligand df
+    ligand_df = pd.DataFrame({'atom_name': ['C1'], 'res_name': ['LG1'], 'x':[0],'y':[0],'z':[0]})
+
+    # Error: Target PDB not loaded
+    with pytest.raises(ValueError, match="Target PDB ID 'invalid_pdb' not found"):
+        processor.add_ligand('invalid_pdb', ligand_df)
+
+    # Error: Missing required column in ligand_df
+    invalid_ligand_df = ligand_df.drop(columns=['x'])
+    with pytest.raises(ValueError, match="Ligand DataFrame is missing required columns: \['x'\]"):
+        processor.add_ligand(target_pdb_id, invalid_ligand_df)
+
+    # Error: Empty ligand_df
+    empty_ligand_df = pd.DataFrame(columns=ligand_df.columns)
+    with pytest.raises(ValueError, match="Ligand DataFrame cannot be empty"):
+        processor.add_ligand(target_pdb_id, empty_ligand_df)
+

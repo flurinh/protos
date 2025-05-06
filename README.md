@@ -1,5 +1,7 @@
 # Protos Overview
 
+![Protos Logo](resources/logo.png)
+
 ## What is Protos?
 
 Protos is a Python library designed to **standardize and execute complex computational workflows** essential for structural biology research. It provides integrated capabilities for handling diverse biological data types – including sequences, 3D structures, alignments, and associated properties – through a unified framework.
