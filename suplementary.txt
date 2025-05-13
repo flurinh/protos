@@ -1,4 +1,5 @@
 Supplementary Information: Protos-MCP Grant Application
+
 1. Introduction
 Purpose: State that this document provides supplementary details supporting the main grant proposal titled "[Your Grant Title]".
 Focus: Explain it elaborates on the Protos library's architecture and capabilities, provides concrete examples of its current programmatic use, and details the proposed integration with Large Language Models (LLMs) via the Model Context Protocol (MCP).
