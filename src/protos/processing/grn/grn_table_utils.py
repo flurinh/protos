@@ -7,7 +7,7 @@ from protos.processing.sequence.seq_alignment import *
 def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protein_family: str = 'gpcr_a',
                       verbose=0):
     # Create reference_grn_dict from the input row
-    aligned_grns = {v: k for (k, v) in new_row.to_dict().items() if (v != '-') & ('x' in k)}
+    aligned_grns = {v: k for (k, v) in new_row.to_dict().items() if (v != '-') & (('x' in k) or ('.' in k))}
     # Calculate the length of the query sequence
     query_gene_len = len(query_seq)
 
@@ -23,14 +23,27 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
     config = GRNConfigManager(protein_family=protein_family)
     grn_config_std = config.get_config(strict=False)
     grns_str_std = init_grn_intervals(grn_config_std)
-    grns_str_std = [grn for grn in grns_str_std if len(grn.split('x')[0]) < 2]
+    # Filter to single TM GRNs (exclude H8, etc.)
+    grns_str_std_filtered = []
+    for grn in grns_str_std:
+        if 'x' in grn:
+            tm_part = grn.split('x')[0]
+        elif '.' in grn:
+            tm_part = grn.split('.')[0]
+        else:
+            continue
+        if len(tm_part) < 2:
+            grns_str_std_filtered.append(grn)
+    grns_str_std = grns_str_std_filtered
     grns_float_std = sort_grns([round(parse_grn_str2float(x), len(x) - 2) for x in grns_str_std])
 
     if verbose > 0:
         print("aligned_grns allowed in grn configuration", aligned_grns)
 
     # annotate missing standard grns
-    aligned_grns = get_correctly_aligned_grns(all_query_gene_numbers, aligned_grns, alignment, max_alignment_gap)
+    # NOTE: get_correctly_aligned_grns is only needed when we have a new alignment
+    # In expand_annotation, aligned_grns already contains query->grn mapping which is what we need
+    # Skip get_correctly_aligned_grns since we already have the alignments from init_row_from_alignment
 
     if verbose > 0:
         print("extended aligned grns", aligned_grns)
@@ -171,7 +184,18 @@ def annotate_gpcr(grnp: GRNProcessor, query_name: str, query_seq: str,
     config = GRNConfigManager(protein_family=protein_family)
     grn_config_strict = config.get_config(strict=True)
     grns_str_strict = init_grn_intervals(grn_config_strict)
-    grns_str_strict = [grn for grn in grns_str_strict if (len(grn.split('x')[0]) < 2) & (grn in new_row.index.tolist())]
+    # Filter to single TM GRNs that are in new_row
+    grns_str_strict_filtered = []
+    for grn in grns_str_strict:
+        if 'x' in grn:
+            tm_part = grn.split('x')[0]
+        elif '.' in grn:
+            tm_part = grn.split('.')[0]
+        else:
+            continue
+        if len(tm_part) < 2 and grn in new_row.index.tolist():
+            grns_str_strict_filtered.append(grn)
+    grns_str_strict = grns_str_strict_filtered
     new_row = new_row[grns_str_strict]
 
     # Perform sequence expansion on our new row!

@@ -1675,3 +1675,377 @@ class CifBaseProcessor(BaseProcessor):
 
         self.logger.info(f"Added ligand '{lig_res_name}' (Chain: {ligand_chain_id}, ResID: {ligand_res_seq_id}) "
                          f"with {num_lig_atoms} atoms to structure '{target_pdb_id}'.")
+    
+    def get_seq_dict(self) -> Dict[str, str]:
+        """
+        Extract protein sequences from structure data.
+        
+        Returns:
+            Dictionary of {pdb_chain: sequence} where pdb_chain is formatted as "PDBID_CHAIN"
+        """
+        if self.data is None or self.data.empty:
+            self.logger.warning("No structure data loaded")
+            return {}
+        
+        sequences = {}
+        
+        # Three-letter to one-letter amino acid mapping
+        aa_map = {
+            'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F',
+            'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L',
+            'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R',
+            'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y',
+            'MSE': 'M',  # Selenomethionine
+            'SEC': 'U',  # Selenocysteine
+            'PYL': 'O',  # Pyrrolysine
+            'UNK': 'X'   # Unknown
+        }
+        
+        # Group by PDB ID and chain
+        for (pdb_id, chain_id), group in self.data.groupby(['pdb_id', 'auth_chain_id']):
+            # Skip if chain_id is empty or invalid
+            if not chain_id or pd.isna(chain_id):
+                continue
+                
+            # Sort by sequence ID
+            group = group.sort_values('auth_seq_id')
+            
+            # Remove non-standard residues
+            # Check which column exists for residue names
+            res_col = 'auth_comp_id' if 'auth_comp_id' in group.columns else 'res_name3l'
+            group = group[group[res_col].isin(aa_map.keys())]
+            
+            if group.empty:
+                continue
+            
+            # Get unique residues only (one per auth_seq_id)
+            unique_residues = group.drop_duplicates(subset=['auth_seq_id'], keep='first')
+            
+            sequence = []
+            prev_seq_id = None
+            
+            for _, residue in unique_residues.iterrows():
+                comp_id = residue[res_col].upper()
+                
+                # Get one-letter code
+                aa = aa_map.get(comp_id, 'X')
+                
+                # Check for gaps in sequence
+                seq_id = residue['auth_seq_id']
+                if prev_seq_id is not None and seq_id > prev_seq_id + 1:
+                    # Add X for missing residues (up to 10 gap maximum)
+                    gap_size = min(seq_id - prev_seq_id - 1, 10)
+                    sequence.extend(['X'] * gap_size)
+                
+                sequence.append(aa)
+                prev_seq_id = seq_id
+            
+            if sequence:
+                seq_key = f"{pdb_id}_{chain_id}"
+                sequences[seq_key] = ''.join(sequence)
+                
+                self.logger.debug(f"Extracted sequence for {seq_key}: length={len(sequences[seq_key])}")
+        
+        self.logger.info(f"Extracted {len(sequences)} sequences from structure data")
+        return sequences
+    
+    def get_grn_dict(self) -> Dict[str, Dict[str, Dict[str, str]]]:
+        """
+        Extract GRN annotations from structure data if present.
+        
+        Returns:
+            Nested dictionary: {pdb_id: {chain_id: {grn_position: "ResName1L+SeqPos"}}}
+            Example: {"1UAZ": {"A": {"7.50": "K296", "3.50": "D85"}}}
+        """
+        if self.data is None or self.data.empty:
+            self.logger.warning("No structure data loaded")
+            return {}
+        
+        # Check if GRN column exists
+        if 'grn' not in self.data.columns:
+            self.logger.info("No GRN annotations found in structure data")
+            return {}
+        
+        # Filter for rows with GRN annotations
+        grn_data = self.data[self.data['grn'].notna()].copy()
+        
+        if grn_data.empty:
+            self.logger.info("No GRN annotations found in structure data")
+            return {}
+        
+        # One-letter amino acid mapping
+        aa_1letter = {
+            'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F',
+            'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L',
+            'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R',
+            'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y'
+        }
+        
+        grn_dict = {}
+        
+        # Group by PDB ID, chain, and GRN position
+        for (pdb_id, chain_id, grn_pos), group in grn_data.groupby(['pdb_id', 'auth_chain_id', 'grn']):
+            # Initialize nested dictionaries
+            if pdb_id not in grn_dict:
+                grn_dict[pdb_id] = {}
+            if chain_id not in grn_dict[pdb_id]:
+                grn_dict[pdb_id][chain_id] = {}
+            
+            # Get the residue info (should be unique for each GRN position)
+            residue = group.iloc[0]
+            
+            # Format as "ResName1L+SeqPos"
+            # Check which column exists for residue names
+            res_col = 'auth_comp_id' if 'auth_comp_id' in residue.index else 'res_name3l'
+            res_3letter = residue[res_col].upper()
+            res_1letter = aa_1letter.get(res_3letter, 'X')
+            seq_pos = residue['auth_seq_id']
+            
+            grn_dict[pdb_id][chain_id][grn_pos] = f"{res_1letter}{seq_pos}"
+        
+        self.logger.info(f"Extracted GRN annotations for {len(grn_dict)} structures")
+        
+        # Log summary
+        total_grns = sum(
+            len(grn_positions)
+            for pdb_chains in grn_dict.values()
+            for grn_positions in pdb_chains.values()
+        )
+        self.logger.info(f"Total GRN positions annotated: {total_grns}")
+        
+        return grn_dict
+    
+    def assign_grns(self, protein_family: str = 'microbial_opsins', 
+                    similarity_threshold: float = 0.2,
+                    grn_table_name: Optional[str] = None,
+                    use_mmseqs: bool = True,
+                    save_results: bool = True) -> Dict[str, pd.Series]:
+        """
+        Assign GRN annotations to protein chains based on sequence similarity.
+        
+        Args:
+            protein_family: Protein family for GRN reference ('microbial_opsins', 'gpcr_a', etc.)
+            similarity_threshold: Minimum sequence identity to assign GRNs (default: 0.2 = 20%)
+            grn_table_name: Name of GRN reference table to use (auto-detected if None)
+            use_mmseqs: Whether to use MMseqs2 for fast similarity search
+            save_results: Whether to save GRN assignments to file
+            
+        Returns:
+            Dictionary of {pdb_chain: grn_series} with GRN assignments
+        """
+        # Import required modules
+        from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+        from protos.processing.grn.grn_table_utils import init_row_from_alignment, expand_annotation
+        from protos.processing.grn.grn_utils import get_seq
+        from protos.processing.sequence.seq_alignment import (
+            init_aligner, align_blosum62, format_alignment, mmseqs2_align2
+        )
+        from protos.io.fasta_utils import write_fasta
+        
+        # Extract sequences
+        sequences = self.get_seq_dict()
+        
+        if not sequences:
+            self.logger.warning("No sequences found in structure data")
+            return {}
+        
+        # Initialize GRN processor
+        grn_processor = GRNBaseProcessor(
+            name=f"{self.name}_grn",
+            data_root=self.data_root,
+            processor_data_dir=self.processor_data_dir.replace('structure', 'grn')
+        )
+        
+        # Determine GRN table name
+        if grn_table_name is None:
+            # Auto-detect based on protein family
+            table_map = {
+                'microbial_opsins': 'mo_ref',
+                'gpcr_a': 'gpcrdb_ref',
+                'gpcr': 'gpcrdb_ref'
+            }
+            grn_table_name = table_map.get(protein_family, 'ref')
+        
+        # Load GRN reference table from ref/ subdirectory
+        try:
+            # Use subdirectory path to load from ref/ instead of datasets/
+            ref_table_path = f"ref/{grn_table_name}"
+            grn_processor.load_grn_table(ref_table_path)
+            self.logger.info(f"Loaded GRN reference table '{grn_table_name}' with {len(grn_processor.data)} entries")
+        except Exception as e:
+            self.logger.error(f"Failed to load GRN reference table: {e}")
+            return {}
+        
+        # Extract reference sequences
+        ref_sequences = {}
+        for ref_id in grn_processor.data.index:
+            ref_seq = get_seq(ref_id, grn_processor.data)
+            if ref_seq:
+                ref_sequences[ref_id] = ref_seq
+        
+        if not ref_sequences:
+            self.logger.error("No reference sequences found in GRN table")
+            return {}
+        
+        # Step 1: Find similar sequences using MMseqs2
+        similar_chains = {}
+        
+        if use_mmseqs:
+            try:
+                self.logger.info("Running MMseqs2 similarity search...")
+                hits = mmseqs2_align2(sequences, ref_sequences)
+                
+                if hits is not None and not hits.empty:
+                    # Filter by similarity threshold
+                    similar_hits = hits[hits['sequence_identity'] >= similarity_threshold]
+                    
+                    # Get best hit for each query
+                    for query_id in similar_hits['query_id'].unique():
+                        query_hits = similar_hits[similar_hits['query_id'] == query_id]
+                        best_hit = query_hits.loc[query_hits['sequence_identity'].idxmax()]
+                        similar_chains[query_id] = {
+                            'ref_id': best_hit['target_id'],
+                            'identity': best_hit['sequence_identity']
+                        }
+                    
+                    self.logger.info(f"Found {len(similar_chains)} chains with >{similarity_threshold*100}% identity")
+                    
+            except Exception as e:
+                self.logger.warning(f"MMseqs2 search failed: {e}, falling back to pairwise alignment")
+                use_mmseqs = False
+        
+        # Fallback: pairwise alignment for all sequences
+        if not use_mmseqs:
+            self.logger.info("Running pairwise alignments...")
+            aligner = init_aligner()
+            
+            for seq_id, sequence in sequences.items():
+                best_ref = None
+                best_score = -float('inf')
+                
+                for ref_id, ref_seq in ref_sequences.items():
+                    try:
+                        alignment = align_blosum62(sequence, ref_seq, aligner)
+                        # Calculate sequence identity
+                        formatted = format_alignment(alignment)
+                        matches = sum(1 for i in range(len(formatted[1])) if formatted[1][i] == '|')
+                        identity = matches / max(len(sequence), len(ref_seq))
+                        
+                        if identity >= similarity_threshold and alignment.score > best_score:
+                            best_score = alignment.score
+                            best_ref = ref_id
+                            similar_chains[seq_id] = {
+                                'ref_id': best_ref,
+                                'identity': identity
+                            }
+                    except Exception as e:
+                        self.logger.debug(f"Failed to align {seq_id} with {ref_id}: {e}")
+        
+        # Step 2: Assign GRNs to similar chains
+        grn_assignments = {}
+        
+        self.logger.info(f"Assigning GRNs to {len(similar_chains)} similar chains...")
+        
+        # Initialize aligner for detailed alignments
+        aligner = init_aligner()
+        
+        for seq_id, match_info in similar_chains.items():
+            ref_id = match_info['ref_id']
+            identity = match_info['identity']
+            
+            self.logger.info(f"Assigning GRNs to {seq_id} based on {ref_id} ({identity*100:.1f}% identity)")
+            
+            try:
+                # Get sequences
+                query_seq = sequences[seq_id]
+                ref_seq = ref_sequences[ref_id]
+                
+                # Perform detailed alignment
+                alignment = align_blosum62(query_seq, ref_seq, aligner)
+                formatted = format_alignment(alignment)
+                
+                # Get reference GRN mapping
+                ref_row = grn_processor.data.loc[ref_id]
+                ref_dict = {grn: res for grn, res in ref_row.to_dict().items() if res != '-'}
+                seq_pos2grn = dict([(i + 1, grn) for i, grn in enumerate(list(ref_dict.keys()))])
+                
+                # Initialize GRN row from alignment
+                new_row = init_row_from_alignment(formatted, seq_pos2grn)
+                
+                # Try to expand annotation
+                try:
+                    grn_list, rn_list, missing = expand_annotation(
+                        new_row,
+                        query_seq,
+                        formatted,
+                        max_alignment_gap=1,
+                        protein_family=protein_family,
+                        verbose=0
+                    )
+                    
+                    # Create final GRN row
+                    final_row = pd.Series(dict(zip(grn_list, rn_list)))
+                    
+                    # Add missing columns
+                    for col in grn_processor.data.columns:
+                        if col not in final_row.index:
+                            final_row[col] = '-'
+                    
+                    # Reorder to match reference
+                    final_row = final_row[grn_processor.data.columns]
+                    
+                except Exception as e:
+                    self.logger.warning(f"Failed to expand annotation for {seq_id}: {e}")
+                    final_row = new_row
+                
+                grn_assignments[seq_id] = final_row
+                
+            except Exception as e:
+                self.logger.error(f"Failed to assign GRNs to {seq_id}: {e}")
+        
+        # Step 3: Add GRN annotations to structure data
+        if grn_assignments:
+            self.logger.info("Adding GRN annotations to structure data...")
+            
+            # Add GRN column if not exists
+            if 'grn' not in self.data.columns:
+                self.data['grn'] = None
+            
+            # Process each chain's GRN assignments
+            annotated_count = 0
+            
+            for chain_key, grn_series in grn_assignments.items():
+                pdb_id, chain_id = chain_key.split('_')
+                
+                for grn_pos, res_info in grn_series.items():
+                    if res_info and res_info != '-':
+                        try:
+                            # Extract residue number from format like 'K296'
+                            res_num = int(res_info[1:])
+                            
+                            # Find matching residues in structure
+                            mask = (
+                                (self.data['pdb_id'] == pdb_id) &
+                                (self.data['auth_chain_id'] == chain_id) &
+                                (self.data['auth_seq_id'] == res_num)
+                            )
+                            
+                            if mask.any():
+                                self.data.loc[mask, 'grn'] = grn_pos
+                                annotated_count += mask.sum()
+                                
+                        except (ValueError, IndexError) as e:
+                            self.logger.debug(f"Error parsing GRN assignment {res_info}: {e}")
+            
+            self.logger.info(f"Annotated {annotated_count} residues with GRN positions")
+            
+            # Save results if requested
+            if save_results and grn_assignments:
+                # Save GRN table
+                grn_table = pd.DataFrame(grn_assignments).T
+                grn_output = Path(self.data_path) / "tables" / f"{self.name}_grn_assignments.csv"
+                grn_output.parent.mkdir(parents=True, exist_ok=True)
+                grn_table.to_csv(grn_output)
+                self.logger.info(f"Saved GRN assignments to {grn_output}")
+        
+        return grn_assignments

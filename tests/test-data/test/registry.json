@@ -1,0 +1,129 @@
+{
+  "existing_dataset": {
+    "filename": "existing.csv",
+    "type": "test",
+    "last_updated": "2025-06-25T14:02:44.788229"
+  },
+  "test_csv": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "id",
+      "name",
+      "value"
+    ],
+    "saved_at": "2025-06-25T14:02:45.100439",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:45.130936",
+    "directory": "datasets",
+    "filename": "datasets/test_csv.csv",
+    "loaded_at": "2025-06-25T14:02:45.130908"
+  },
+  "test_json": {
+    "format": "json",
+    "rows": 2,
+    "columns": null,
+    "saved_at": "2025-06-25T14:02:45.255097",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:45.282201",
+    "directory": "datasets",
+    "filename": "datasets/test_json.json",
+    "loaded_at": "2025-06-25T14:02:45.282168"
+  },
+  "test_pickle": {
+    "format": "pkl",
+    "rows": 3,
+    "columns": null,
+    "saved_at": "2025-06-25T14:02:45.410540",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:45.439386",
+    "directory": "datasets",
+    "filename": "datasets/test_pickle.pkl",
+    "loaded_at": "2025-06-25T14:02:45.439343"
+  },
+  "test_infer_csv": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "Unnamed: 0",
+      "a"
+    ],
+    "saved_at": "2025-06-25T14:02:45.561345",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:45.685919",
+    "directory": "datasets",
+    "filename": "datasets/test_infer_csv.csv",
+    "loaded_at": "2025-06-25T14:02:45.685886"
+  },
+  "test_infer_json": {
+    "format": "json",
+    "rows": 1,
+    "columns": null,
+    "saved_at": "2025-06-25T14:02:45.593353",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:45.747310",
+    "directory": "datasets",
+    "filename": "datasets/test_infer_json.json",
+    "loaded_at": "2025-06-25T14:02:45.747278"
+  },
+  "test_infer_pkl": {
+    "format": "pkl",
+    "rows": 1,
+    "columns": null,
+    "saved_at": "2025-06-25T14:02:45.625901",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:45.808554",
+    "directory": "datasets",
+    "filename": "datasets/test_infer_pkl.pkl",
+    "loaded_at": "2025-06-25T14:02:45.808517"
+  },
+  "test_unsupported": {
+    "format": "xyz",
+    "rows": 1,
+    "columns": null,
+    "saved_at": "2025-06-25T14:02:46.291308",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:46.291377",
+    "directory": "datasets",
+    "filename": "datasets/test_unsupported.xyz"
+  },
+  "info_test": {
+    "format": "csv",
+    "rows": 3,
+    "columns": [
+      "id",
+      "value"
+    ],
+    "saved_at": "2025-06-25T14:02:46.530944",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:46.531003",
+    "directory": "datasets",
+    "filename": "datasets/info_test.csv"
+  },
+  "available": {
+    "format": "csv",
+    "rows": 1,
+    "columns": [
+      "a"
+    ],
+    "saved_at": "2025-06-25T14:02:46.916084",
+    "processor_type": "test",
+    "last_updated": "2025-06-25T14:02:46.916128",
+    "directory": "datasets",
+    "filename": "datasets/available.csv"
+  },
+  "grn_mapping": {
+    "format": "csv",
+    "rows": 2,
+    "columns": [
+      "pdb_id",
+      "grn",
+      "res_id"
+    ],
+    "saved_at": "2025-06-25T14:02:47.224254",
+    "processor_type": "grn",
+    "last_updated": "2025-06-25T14:02:47.224360",
+    "directory": "datasets",
+    "filename": "datasets/grn_mapping.csv"
+  }
+}

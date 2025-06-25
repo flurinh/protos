@@ -1,25 +1,20 @@
 """
-Path configuration for the Protos framework.
+Simplified path configuration for the Protos framework.
 
-This module provides the core functionality for path management,
-including environment variable handling, directory validation,
-and path normalization. It implements a clear separation between
-reference data distributed with the package and user data created
-at runtime.
+This module provides a simplified path management system using a single
+data directory for all Protos data, eliminating the complexity of
+separate reference and user data paths.
 """
 
 import os
 import logging
-import importlib.resources as pkg_resources
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Literal, Tuple
+from typing import Dict, List, Optional, Union, Tuple
 from enum import Enum
 
 from .path_constants import (
     ENV_DATA_ROOT,
     ENV_REF_DATA_ROOT,
-    DEFAULT_USER_DATA_ROOT,
-    DEFAULT_REF_DATA_ROOT,
     DEFAULT_PROCESSOR_DIRS,
     DEFAULT_STRUCTURE_SUBDIRS,
     DEFAULT_GRN_SUBDIRS,
@@ -35,115 +30,82 @@ logger = logging.getLogger(__name__)
 
 
 class DataSource(Enum):
-    """Defines the source of data (reference or user)."""
+    """Legacy enum for backward compatibility."""
     REFERENCE = "reference"
     USER = "user"
-    AUTO = "auto"  # Auto-detect based on access patterns (read-only = reference, write = user)
+    AUTO = "auto"
 
 
-def get_user_data_root() -> str:
+def get_default_data_root() -> str:
     """
-    Get the user data root directory from environment variable or default.
+    Get the default data root directory.
+    
+    Order of precedence:
+    1. PROTOS_DATA_ROOT environment variable
+    2. ~/protos_data/ (home directory)
     
     Returns:
-        User data root directory path as string
+        Default data root directory path
     """
-    return os.environ.get(ENV_DATA_ROOT, DEFAULT_USER_DATA_ROOT)
-
-
-def get_reference_data_root() -> str:
-    """
-    Get the reference data root directory from environment variable or default.
+    # Check environment variable first
+    env_root = os.environ.get(ENV_DATA_ROOT)
+    if env_root:
+        return os.path.expanduser(env_root)
     
-    Returns:
-        Reference data root directory path as string
-    """
-    return os.environ.get(ENV_REF_DATA_ROOT, DEFAULT_REF_DATA_ROOT)
-
-
-def ensure_directory(directory: Union[str, Path]) -> str:
-    """
-    Ensure a directory exists, creating it if necessary.
-    
-    Args:
-        directory: Directory path to ensure
-        
-    Returns:
-        Normalized absolute path to the directory
-    """
-    # Convert to Path object for reliable handling
-    dir_path = Path(directory).expanduser().resolve()
-    
-    # Create if it doesn't exist
-    os.makedirs(dir_path, exist_ok=True)
-    
-    # Return normalized string path
-    return str(dir_path)
-
-
-def is_package_resource(path: str) -> bool:
-    """
-    Check if a path is within the package resource directory.
-    
-    Args:
-        path: Path to check
-        
-    Returns:
-        True if path is a package resource, False otherwise
-    """
-    # For testing purposes, we'll do a simple check based on path names
-    # In a real implementation, this would need to be more robust
-    ref_root = Path(get_reference_data_root()).resolve()
-    path = Path(path).resolve()
-    
-    # If the path contains '/ref/' or '\ref\' in old_tests, consider it a reference resource
-    if '/ref/' in str(path) or '\\ref\\' in str(path):
-        return True
-        
-    return ref_root in path.parents or ref_root == path
+    # Default to home directory
+    return os.path.expanduser("~/protos_data")
 
 
 class ProtosPaths:
     """
-    Centralized path management for Protos.
+    Simplified path management for Protos using a single data directory.
     
     This class provides a standardized way to manage paths for different
-    data types, processor types, and datasets in the Protos framework.
-    It handles both reference data (read-only, distributed with the package)
-    and user data (read-write, created at runtime).
+    data types and processors in the Protos framework using a unified
+    data directory approach.
     """
     
     def __init__(self, 
-                 user_data_root: Optional[str] = None,
-                 ref_data_root: Optional[str] = None,
+                 data_root: Optional[str] = None,
+                 user_data_root: Optional[str] = None,  # For backward compatibility
+                 ref_data_root: Optional[str] = None,   # For backward compatibility
                  create_dirs: bool = True,
                  validate: bool = True):
         """
-        Initialize the path manager.
+        Initialize the path manager with a single data directory.
         
         Args:
-            user_data_root: Root directory for user data (default: from environment or 'data')
-            ref_data_root: Root directory for reference data (default: package resources)
-            create_dirs: Whether to create directories that don't exist (for user data only)
+            data_root: Root directory for all data (default: ~/protos_data/)
+            user_data_root: Deprecated - if provided, used as data_root
+            ref_data_root: Deprecated - ignored with warning
+            create_dirs: Whether to create directories that don't exist
             validate: Whether to validate path structure
         """
-        # Set data roots from parameters, environment, or default
-        self.user_data_root = user_data_root or get_user_data_root()
-        self.user_data_root = os.path.expanduser(self.user_data_root)
+        # Handle backward compatibility
+        if user_data_root or ref_data_root:
+            logger.warning(
+                "user_data_root and ref_data_root are deprecated. "
+                "Using a single data_root instead."
+            )
+            # Use user_data_root if provided, otherwise data_root
+            data_root = data_root or user_data_root
         
-        self.ref_data_root = ref_data_root or get_reference_data_root()
-        self.ref_data_root = os.path.expanduser(self.ref_data_root)
+        # Set data root from parameter or default
+        self.data_root = data_root or get_default_data_root()
+        self.data_root = os.path.expanduser(self.data_root)
         
-        # Make paths absolute if they're not already
-        if not os.path.isabs(self.user_data_root):
-            self.user_data_root = os.path.abspath(self.user_data_root)
+        # Make path absolute if it's not already
+        if not os.path.isabs(self.data_root):
+            self.data_root = os.path.abspath(self.data_root)
         
-        if not os.path.isabs(self.ref_data_root):
-            self.ref_data_root = os.path.abspath(self.ref_data_root)
+        # For backward compatibility, set both old attributes to the same value
+        self.user_data_root = self.data_root
+        self.ref_data_root = self.data_root
         
-        # Create user data root directory if requested
+        # Create data root directory if requested
         if create_dirs:
-            os.makedirs(self.user_data_root, exist_ok=True)
+            os.makedirs(self.data_root, exist_ok=True)
+            logger.info(f"Initialized Protos data directory at: {self.data_root}")
         
         # Initialize directory maps
         self.processor_dirs = DEFAULT_PROCESSOR_DIRS.copy()
@@ -152,9 +114,9 @@ class ProtosPaths:
         self.sequence_dirs = DEFAULT_SEQUENCE_SUBDIRS.copy()
         self.test_dirs = DEFAULT_TEST_SUBDIRS.copy()
         
-        # Create standard directories for user data if requested
+        # Create standard directories if requested
         if create_dirs:
-            self._create_standard_dirs(self.user_data_root)
+            self._create_standard_dirs(self.data_root)
             
         # Validate directory structure if requested
         if validate:
@@ -179,6 +141,8 @@ class ProtosPaths:
             elif processor_type == 'grn':
                 for subdir in self.grn_dirs.values():
                     os.makedirs(join_path(processor_path, subdir), exist_ok=True)
+                # Create ref subdirectory for reference tables
+                os.makedirs(join_path(processor_path, "ref"), exist_ok=True)
             elif processor_type == 'sequence':
                 for subdir in self.sequence_dirs.values():
                     os.makedirs(join_path(processor_path, subdir), exist_ok=True)
@@ -191,45 +155,17 @@ class ProtosPaths:
         Validate that the directory structure is as expected.
         
         Logs warnings if directories are missing but doesn't raise exceptions.
-        Only validates user data directories as reference data may not be available
-        until package installation.
         """
-        # Check user data root
-        if not os.path.exists(self.user_data_root):
-            logger.warning(f"User data root directory does not exist: {self.user_data_root}")
+        # Check data root
+        if not os.path.exists(self.data_root):
+            logger.warning(f"Data root directory does not exist: {self.data_root}")
             return
         
         # Check processor directories
         for processor_type, dir_name in self.processor_dirs.items():
-            processor_path = join_path(self.user_data_root, dir_name)
+            processor_path = join_path(self.data_root, dir_name)
             if not os.path.exists(processor_path):
-                logger.warning(f"Processor directory does not exist: {processor_path}")
-                continue
-                
-            # Check subdirectories for each processor type
-            if processor_type == 'structure':
-                for subdir_name, subdir in self.structure_dirs.items():
-                    subdir_path = join_path(processor_path, subdir)
-                    if not os.path.exists(subdir_path):
-                        logger.warning(f"Structure subdirectory does not exist: {subdir_path}")
-            
-            elif processor_type == 'grn':
-                for subdir_name, subdir in self.grn_dirs.items():
-                    subdir_path = join_path(processor_path, subdir)
-                    if not os.path.exists(subdir_path):
-                        logger.warning(f"GRN subdirectory does not exist: {subdir_path}")
-            
-            elif processor_type == 'sequence':
-                for subdir_name, subdir in self.sequence_dirs.items():
-                    subdir_path = join_path(processor_path, subdir)
-                    if not os.path.exists(subdir_path):
-                        logger.warning(f"Sequence subdirectory does not exist: {subdir_path}")
-            
-            elif processor_type in ['test', 'test_processor', 'simple']:
-                for subdir_name, subdir in self.test_dirs.items():
-                    subdir_path = join_path(processor_path, subdir)
-                    if not os.path.exists(subdir_path):
-                        logger.warning(f"Test subdirectory does not exist: {subdir_path}")
+                logger.debug(f"Processor directory does not exist: {processor_path}")
     
     def get_processor_path(self, 
                            processor_type: str, 
@@ -239,7 +175,7 @@ class ProtosPaths:
         
         Args:
             processor_type: Type of processor ('structure', 'grn', etc.)
-            source: Data source to use (reference, user, or auto-detect)
+            source: Ignored - kept for backward compatibility
             
         Returns:
             Full path to the processor directory
@@ -247,32 +183,27 @@ class ProtosPaths:
         Raises:
             ValueError: If processor type is not recognized
         """
+        if source != DataSource.AUTO:
+            logger.debug(f"DataSource parameter '{source}' is deprecated and ignored")
+            
         if processor_type not in self.processor_dirs:
             raise ValueError(f"Unknown processor type: {processor_type}")
-        
-        # Determine the data root to use
-        data_root = self._resolve_data_root(source)
             
-        return join_path(data_root, self.processor_dirs[processor_type])
+        return join_path(self.data_root, self.processor_dirs[processor_type])
     
     def _resolve_data_root(self, source: DataSource) -> str:
         """
-        Resolve which data root to use based on source preference.
+        Resolve data root - always returns the single data root.
         
         Args:
-            source: Data source preference
+            source: Ignored - kept for backward compatibility
             
         Returns:
-            Path to the appropriate data root
+            Path to the data root
         """
-        if source == DataSource.USER:
-            return self.user_data_root
-        elif source == DataSource.REFERENCE:
-            return self.ref_data_root
-        else:  # AUTO
-            # Default to reference data for reading, but this should be
-            # refined based on actual operation being performed
-            return self.ref_data_root
+        if source != DataSource.AUTO:
+            logger.debug(f"DataSource parameter '{source}' is deprecated")
+        return self.data_root
             
     def get_structure_subdir_path(self, 
                                   subdir_type: str, 
@@ -282,7 +213,7 @@ class ProtosPaths:
         
         Args:
             subdir_type: Type of subdirectory ('structure_dir', 'dataset_dir', etc.)
-            source: Data source to use (reference, user, or auto-detect)
+            source: Ignored - kept for backward compatibility
             
         Returns:
             Full path to the structure subdirectory
@@ -304,7 +235,7 @@ class ProtosPaths:
         
         Args:
             subdir_type: Type of subdirectory ('table_dir', 'configs_dir', etc.)
-            source: Data source to use (reference, user, or auto-detect)
+            source: Ignored - kept for backward compatibility
             
         Returns:
             Full path to the GRN subdirectory
@@ -312,6 +243,11 @@ class ProtosPaths:
         Raises:
             ValueError: If subdirectory type is not recognized
         """
+        # Handle special case for reference tables
+        if subdir_type == "ref" or subdir_type == "ref_dir":
+            grn_path = self.get_processor_path('grn', source)
+            return join_path(grn_path, "ref")
+            
         if subdir_type not in self.grn_dirs:
             raise ValueError(f"Unknown GRN subdirectory type: {subdir_type}")
             
@@ -326,7 +262,7 @@ class ProtosPaths:
         
         Args:
             subdir_type: Type of subdirectory ('fasta_dir', 'alignment_dir', etc.)
-            source: Data source to use (reference, user, or auto-detect)
+            source: Ignored - kept for backward compatibility
             
         Returns:
             Full path to the sequence subdirectory
@@ -348,7 +284,7 @@ class ProtosPaths:
         
         Args:
             processor_type: Type of processor ('structure', 'grn', etc.)
-            source: Data source (usually USER as registry is writeable)
+            source: Ignored - kept for backward compatibility
             
         Returns:
             Full path to the registry file
@@ -360,13 +296,10 @@ class ProtosPaths:
         """
         Get the path for the global registry file.
         
-        The global registry is always stored in the user data directory
-        as it needs to be writeable.
-        
         Returns:
             Full path to the global registry file
         """
-        return join_path(self.user_data_root, DEFAULT_GLOBAL_REGISTRY_FILENAME)
+        return join_path(self.data_root, DEFAULT_GLOBAL_REGISTRY_FILENAME)
     
     def get_dataset_path(self, 
                         processor_type: str, 
@@ -379,7 +312,7 @@ class ProtosPaths:
         Args:
             processor_type: Type of processor ('structure', 'grn', etc.)
             dataset_name: Name of the dataset
-            source: Data source to use (reference, user, or auto-detect)
+            source: Ignored - kept for backward compatibility
             file_extension: Optional file extension (with dot)
             
         Returns:
@@ -413,14 +346,14 @@ class ProtosPaths:
         
         Args:
             path: Path to resolve (absolute or relative)
-            source: Data source to use for relative paths
+            source: Ignored - kept for backward compatibility
             relative_to: Base directory for relative paths
             
         Returns:
             Resolved absolute path
         """
         if path is None:
-            return self._resolve_data_root(source) if relative_to is None else relative_to
+            return self.data_root if relative_to is None else relative_to
         
         path = os.path.expanduser(path)
         
@@ -430,43 +363,37 @@ class ProtosPaths:
         if relative_to is not None:
             return join_path(relative_to, path)
         
-        # Use appropriate data root for relative paths
-        return join_path(self._resolve_data_root(source), path)
+        # Use data root for relative paths
+        return join_path(self.data_root, path)
     
     def exists(self, 
               path: str, 
               check_both_sources: bool = True) -> Tuple[bool, Optional[DataSource]]:
         """
-        Check if a path exists in either data source.
+        Check if a path exists.
         
         Args:
             path: Path to check
-            check_both_sources: Whether to check both reference and user data
+            check_both_sources: Ignored - kept for backward compatibility
             
         Returns:
-            Tuple of (exists, source) where source is the data source where the path exists
+            Tuple of (exists, source) where source is always USER if exists
         """
         # First check if the path is absolute and exists
         if os.path.isabs(path) and os.path.exists(path):
-            source = DataSource.REFERENCE if is_package_resource(path) else DataSource.USER
-            return True, source
-        
-        # Check in user data
-        user_path = self.resolve_path(path, DataSource.USER)
-        if os.path.exists(user_path):
             return True, DataSource.USER
         
-        # Check in reference data if requested
-        if check_both_sources:
-            ref_path = self.resolve_path(path, DataSource.REFERENCE)
-            if os.path.exists(ref_path):
-                return True, DataSource.REFERENCE
+        # Check in data directory
+        full_path = self.resolve_path(path)
+        if os.path.exists(full_path):
+            return True, DataSource.USER
         
         return False, None
     
     def update_paths(self, 
                     user_data_root: Optional[str] = None, 
                     ref_data_root: Optional[str] = None,
+                    data_root: Optional[str] = None,
                     processor_dirs: Optional[Dict[str, str]] = None,
                     structure_dirs: Optional[Dict[str, str]] = None,
                     grn_dirs: Optional[Dict[str, str]] = None,
@@ -475,22 +402,28 @@ class ProtosPaths:
         Update path configurations.
         
         Args:
-            user_data_root: New user data root directory
-            ref_data_root: New reference data root directory
+            user_data_root: Deprecated - use data_root
+            ref_data_root: Deprecated - ignored
+            data_root: New data root directory
             processor_dirs: New processor directory mapping
             structure_dirs: New structure subdirectory mapping
             grn_dirs: New GRN subdirectory mapping
             sequence_dirs: New sequence subdirectory mapping
         """
-        if user_data_root is not None:
-            self.user_data_root = os.path.expanduser(user_data_root)
-            if not os.path.isabs(self.user_data_root):
-                self.user_data_root = os.path.abspath(self.user_data_root)
-        
-        if ref_data_root is not None:
-            self.ref_data_root = os.path.expanduser(ref_data_root)
-            if not os.path.isabs(self.ref_data_root):
-                self.ref_data_root = os.path.abspath(self.ref_data_root)
+        if user_data_root or ref_data_root:
+            logger.warning(
+                "user_data_root and ref_data_root are deprecated. "
+                "Use data_root parameter instead."
+            )
+            data_root = data_root or user_data_root
+            
+        if data_root is not None:
+            self.data_root = os.path.expanduser(data_root)
+            if not os.path.isabs(self.data_root):
+                self.data_root = os.path.abspath(self.data_root)
+            # Update backward compatibility attributes
+            self.user_data_root = self.data_root
+            self.ref_data_root = self.data_root
         
         if processor_dirs is not None:
             self.processor_dirs.update(processor_dirs)
@@ -507,7 +440,14 @@ class ProtosPaths:
 
 # Global helper functions that delegate to the default instance
 
-_DEFAULT_PATH_RESOLVER = ProtosPaths(create_dirs=True, validate=True)
+_DEFAULT_PATH_RESOLVER = None
+
+def get_default_resolver():
+    """Get or create the default path resolver."""
+    global _DEFAULT_PATH_RESOLVER
+    if _DEFAULT_PATH_RESOLVER is None:
+        _DEFAULT_PATH_RESOLVER = ProtosPaths(create_dirs=True, validate=True)
+    return _DEFAULT_PATH_RESOLVER
 
 def resolve_path(path: Optional[str], 
                 relative_to: Optional[str] = None,
@@ -518,12 +458,12 @@ def resolve_path(path: Optional[str],
     Args:
         path: Path to resolve (absolute or relative)
         relative_to: Base directory for relative paths
-        source: Data source to use for relative paths
+        source: Ignored - kept for backward compatibility
         
     Returns:
         Resolved absolute path
     """
-    return _DEFAULT_PATH_RESOLVER.resolve_path(path, source, relative_to)
+    return get_default_resolver().resolve_path(path, source, relative_to)
 
 def get_structure_path(pdb_id: str, 
                       structure_dir: Optional[str] = None,
@@ -535,7 +475,7 @@ def get_structure_path(pdb_id: str,
     Args:
         pdb_id: PDB identifier
         structure_dir: Optional custom directory for structure files
-        source: Data source to use
+        source: Ignored - kept for backward compatibility
         create_if_missing: Whether to create parent directories if they don't exist
         
     Returns:
@@ -544,18 +484,10 @@ def get_structure_path(pdb_id: str,
     # Preserve original PDB ID to avoid scientific notation issues
     original_pdb_id = str(pdb_id)
     
-    # Only lowercase for searching, but preserve original ID for filename
-    search_pdb_id = original_pdb_id.lower()
-    
-    # Special case handling for known scientific notation issues
-    if search_pdb_id == '1.00e+12' or search_pdb_id == '1.0e+12' or search_pdb_id == '1e+12':
-        search_pdb_id = '1e12'
-        logger.warning(f"Fixed scientific notation for PDB ID: {original_pdb_id} -> {search_pdb_id}")
-    
     if structure_dir is not None:
         path = join_path(structure_dir, f"{original_pdb_id}.cif")
     else:
-        structure_dir = _DEFAULT_PATH_RESOLVER.get_structure_subdir_path('structure_dir', source)
+        structure_dir = get_default_resolver().get_structure_subdir_path('structure_dir', source)
         path = join_path(structure_dir, f"{original_pdb_id}.cif")
     
     # Create parent directory if requested
@@ -573,7 +505,7 @@ def get_grn_path(table_name: str,
     Args:
         table_name: Name of the GRN table
         table_dir: Optional custom directory for GRN tables
-        source: Data source to use
+        source: Ignored - kept for backward compatibility
         
     Returns:
         Path to the GRN table file
@@ -581,7 +513,7 @@ def get_grn_path(table_name: str,
     if table_dir is not None:
         return join_path(table_dir, f"{table_name}.csv")
     
-    table_dir = _DEFAULT_PATH_RESOLVER.get_grn_subdir_path('table_dir', source)
+    table_dir = get_default_resolver().get_grn_subdir_path('table_dir', source)
     return join_path(table_dir, f"{table_name}.csv")
 
 def get_sequence_path(sequence_id: str, 
@@ -593,7 +525,7 @@ def get_sequence_path(sequence_id: str,
     Args:
         sequence_id: Sequence identifier
         fasta_dir: Optional custom directory for FASTA files
-        source: Data source to use
+        source: Ignored - kept for backward compatibility
         
     Returns:
         Path to the sequence file
@@ -601,7 +533,7 @@ def get_sequence_path(sequence_id: str,
     if fasta_dir is not None:
         return join_path(fasta_dir, f"{sequence_id}.fasta")
     
-    fasta_dir = _DEFAULT_PATH_RESOLVER.get_sequence_subdir_path('fasta_dir', source)
+    fasta_dir = get_default_resolver().get_sequence_subdir_path('fasta_dir', source)
     return join_path(fasta_dir, f"{sequence_id}.fasta")
 
 def get_dataset_path(dataset_name: str, 
@@ -616,13 +548,13 @@ def get_dataset_path(dataset_name: str,
         dataset_name: Name of the dataset
         processor_type: Type of processor ('structure', 'grn', etc.)
         file_extension: File extension with dot
-        source: Data source to use
+        source: Ignored - kept for backward compatibility
         create_if_missing: Whether to create parent directories if they don't exist
         
     Returns:
         Path to the dataset file
     """
-    path = _DEFAULT_PATH_RESOLVER.get_dataset_path(
+    path = get_default_resolver().get_dataset_path(
         processor_type, dataset_name, source, file_extension)
     
     # Create parent directory if requested
@@ -634,17 +566,71 @@ def get_dataset_path(dataset_name: str,
 
 def get_data_root(source: DataSource = DataSource.USER) -> str:
     """
-    Get the appropriate data root directory.
+    Get the data root directory.
     
     Args:
-        source: Which data source to get the root for
+        source: Ignored - kept for backward compatibility
         
     Returns:
-        Path to the requested data root
+        Path to the data root
     """
-    if source == DataSource.USER:
-        return _DEFAULT_PATH_RESOLVER.user_data_root
-    elif source == DataSource.REFERENCE:
-        return _DEFAULT_PATH_RESOLVER.ref_data_root
-    else:
-        return _DEFAULT_PATH_RESOLVER.user_data_root  # Default to user data for AUTO
+    return get_default_resolver().data_root
+
+
+# Functions for backward compatibility
+def get_user_data_root() -> str:
+    """
+    Get the user data root directory.
+    Deprecated - use get_data_root() instead.
+    
+    Returns:
+        Data root directory path
+    """
+    logger.warning("get_user_data_root() is deprecated. Use get_data_root() instead.")
+    return get_data_root()
+
+
+def get_reference_data_root() -> str:
+    """
+    Get the reference data root directory.
+    Deprecated - use get_data_root() instead.
+    
+    Returns:
+        Data root directory path
+    """
+    logger.warning("get_reference_data_root() is deprecated. Use get_data_root() instead.")
+    return get_data_root()
+
+
+def ensure_directory(directory: Union[str, Path]) -> str:
+    """
+    Ensure a directory exists, creating it if necessary.
+    
+    Args:
+        directory: Directory path to ensure
+        
+    Returns:
+        Normalized absolute path to the directory
+    """
+    # Convert to Path object for reliable handling
+    dir_path = Path(directory).expanduser().resolve()
+    
+    # Create if it doesn't exist
+    os.makedirs(dir_path, exist_ok=True)
+    
+    # Return normalized string path
+    return str(dir_path)
+
+
+def is_package_resource(path: str) -> bool:
+    """
+    Check if a path is within the package resource directory.
+    Deprecated - always returns False in simplified version.
+    
+    Args:
+        path: Path to check
+        
+    Returns:
+        False (no separate reference data in simplified version)
+    """
+    return False

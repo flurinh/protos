@@ -1,0 +1,408 @@
+"""Sequence processor for managing sequence data and alignments."""
+
+import os
+from pathlib import Path
+from typing import Dict, List, Optional, Union, Tuple
+import pandas as pd
+import logging
+
+from protos.core.base_processor import BaseProcessor
+from protos.io.fasta_utils import read_fasta, write_fasta
+from protos.io.file_utils import save_json, load_json
+from protos.io.formats import read_data, write_data
+from .seq_alignment import (
+    init_aligner, align_blosum62, format_alignment,
+    mmseqs2_align, mmseqs2_align2, msa_blosum62,
+    get_best_alignment, calc_alignment_score_restricted_area
+)
+from .seq_mutation_utils import (
+    parse_mutation_str, apply_mutations_to_seq,
+    generate_mutation_combinations, generate_rn_site_mutations
+)
+
+logger = logging.getLogger(__name__)
+
+
+class SeqProcessor(BaseProcessor):
+    """
+    Processor for handling sequence data, alignments, and mutations.
+    
+    This processor manages:
+    - Sequence loading from FASTA files
+    - Sequence alignments (BioPython and MMseqs2)
+    - Multiple sequence alignments
+    - Sequence mutations and variant generation
+    - Sequence metadata and annotations
+    """
+    
+    def __init__(self, name: str = "seq_processor", 
+                 data_root: Optional[str] = None,
+                 processor_data_dir: str = "sequence",
+                 **kwargs):
+        """
+        Initialize the sequence processor.
+        
+        Args:
+            name: Processor name
+            data_root: Root data directory
+            processor_data_dir: Subdirectory for sequence data
+            **kwargs: Additional arguments for BaseProcessor
+        """
+        super().__init__(
+            name=name,
+            data_root=data_root,
+            processor_data_dir=processor_data_dir,
+            **kwargs
+        )
+        
+        # Initialize aligner
+        self.aligner = None
+        self._init_aligner()
+        
+        # Cache for loaded sequences
+        self.sequences = {}
+        self.alignments = {}
+        self.metadata = {}
+        
+    def _init_aligner(self, open_gap_score: int = -10):
+        """Initialize BioPython aligner with BLOSUM62 matrix."""
+        try:
+            self.aligner = init_aligner(open_gap_score)
+            logger.info("Initialized BioPython aligner with BLOSUM62")
+        except Exception as e:
+            logger.warning(f"Failed to initialize aligner: {e}")
+            self.aligner = None
+    
+    def load_sequences(self, fasta_file: str, dataset_name: Optional[str] = None) -> Dict[str, str]:
+        """
+        Load sequences from a FASTA file.
+        
+        Args:
+            fasta_file: Path to FASTA file or name in fasta/ directory
+            dataset_name: Optional name to store sequences under
+            
+        Returns:
+            Dictionary of sequence_id -> sequence
+        """
+        # Resolve path
+        if not os.path.isabs(fasta_file):
+            # Check in fasta directory
+            fasta_path = self.data_dirs['fasta'] / fasta_file
+            if not fasta_path.exists() and not fasta_file.endswith('.fasta'):
+                fasta_path = self.data_dirs['fasta'] / f"{fasta_file}.fasta"
+        else:
+            fasta_path = Path(fasta_file)
+            
+        if not fasta_path.exists():
+            raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
+            
+        # Load sequences
+        sequences = read_fasta(str(fasta_path))
+        
+        # Store in cache
+        if dataset_name:
+            self.sequences[dataset_name] = sequences
+        else:
+            self.sequences.update(sequences)
+            
+        logger.info(f"Loaded {len(sequences)} sequences from {fasta_path}")
+        return sequences
+    
+    def save_sequences(self, sequences: Dict[str, str], output_file: str,
+                      dataset_name: Optional[str] = None):
+        """
+        Save sequences to a FASTA file.
+        
+        Args:
+            sequences: Dictionary of sequence_id -> sequence
+            output_file: Output filename
+            dataset_name: Optional dataset name for registration
+        """
+        # Resolve output path
+        if not os.path.isabs(output_file):
+            output_path = self.data_dirs['fasta'] / output_file
+            if not output_file.endswith('.fasta'):
+                output_path = self.data_dirs['fasta'] / f"{output_file}.fasta"
+        else:
+            output_path = Path(output_file)
+            
+        # Ensure directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Save sequences
+        write_fasta(sequences, str(output_path))
+        
+        # Register dataset if name provided
+        if dataset_name:
+            self.register_dataset(dataset_name, str(output_path), "fasta")
+            
+        logger.info(f"Saved {len(sequences)} sequences to {output_path}")
+    
+    def align_sequences(self, seq1: str, seq2: str, 
+                       seq1_id: str = "seq1", seq2_id: str = "seq2",
+                       store_alignment: bool = True) -> Tuple[float, List[str]]:
+        """
+        Align two sequences using BioPython.
+        
+        Args:
+            seq1: First sequence
+            seq2: Second sequence
+            seq1_id: ID for first sequence
+            seq2_id: ID for second sequence
+            store_alignment: Whether to store in alignment cache
+            
+        Returns:
+            Tuple of (alignment score, formatted alignment)
+        """
+        if not self.aligner:
+            raise RuntimeError("Aligner not initialized")
+            
+        # Perform alignment
+        alignment = align_blosum62(seq1, seq2, self.aligner)
+        formatted = format_alignment(alignment)
+        
+        # Store if requested
+        if store_alignment:
+            key = f"{seq1_id}_vs_{seq2_id}"
+            self.alignments[key] = {
+                'seq1_id': seq1_id,
+                'seq2_id': seq2_id,
+                'score': alignment.score,
+                'alignment': formatted
+            }
+            
+        return alignment.score, formatted
+    
+    def find_best_match(self, query_seq: str, reference_seqs: Dict[str, str],
+                       use_mmseqs: bool = True) -> Tuple[str, float, List[str]]:
+        """
+        Find best matching sequence from references.
+        
+        Args:
+            query_seq: Query sequence
+            reference_seqs: Dictionary of reference sequences
+            use_mmseqs: Whether to use MMseqs2 for fast search
+            
+        Returns:
+            Tuple of (best_match_id, score, alignment)
+        """
+        if use_mmseqs:
+            try:
+                # Use MMseqs2 for fast search
+                hits = mmseqs2_align(query_seq, reference_seqs)
+                if hits is not None and not hits.empty:
+                    best_hit = hits.iloc[0]
+                    best_id = best_hit['target_id']
+                    
+                    # Get detailed alignment with BioPython
+                    score, alignment = self.align_sequences(
+                        query_seq, reference_seqs[best_id],
+                        "query", best_id, store_alignment=False
+                    )
+                    
+                    return best_id, score, alignment
+            except Exception as e:
+                logger.warning(f"MMseqs2 search failed: {e}, falling back to BioPython")
+        
+        # Fall back to BioPython exhaustive search
+        best_id = None
+        best_score = float('-inf')
+        best_alignment = None
+        
+        for ref_id, ref_seq in reference_seqs.items():
+            try:
+                score, alignment = self.align_sequences(
+                    query_seq, ref_seq,
+                    "query", ref_id, store_alignment=False
+                )
+                if score > best_score:
+                    best_score = score
+                    best_id = ref_id
+                    best_alignment = alignment
+            except Exception as e:
+                logger.warning(f"Failed to align with {ref_id}: {e}")
+                continue
+                
+        return best_id, best_score, best_alignment
+    
+    def multiple_sequence_alignment(self, sequences: Dict[str, str],
+                                  reference_seqs: Optional[Dict[str, str]] = None,
+                                  use_mmseqs: bool = True) -> Dict[str, Tuple[str, float, List[str]]]:
+        """
+        Perform multiple sequence alignment against references.
+        
+        Args:
+            sequences: Query sequences
+            reference_seqs: Reference sequences (if None, align all-vs-all)
+            use_mmseqs: Whether to use MMseqs2
+            
+        Returns:
+            Dictionary of query_id -> (best_ref_id, score, alignment)
+        """
+        if reference_seqs is None:
+            # All-vs-all alignment
+            reference_seqs = sequences
+            
+        if use_mmseqs and len(sequences) > 1 and len(reference_seqs) > 1:
+            try:
+                # Use MMseqs2 for batch search
+                hits = mmseqs2_align2(sequences, reference_seqs)
+                if hits is not None and not hits.empty:
+                    # Process results
+                    results = {}
+                    for query_id in sequences:
+                        query_hits = hits[hits['query_id'] == query_id]
+                        if not query_hits.empty:
+                            best_hit = query_hits.iloc[0]
+                            ref_id = best_hit['target_id']
+                            
+                            # Get detailed alignment
+                            score, alignment = self.align_sequences(
+                                sequences[query_id], reference_seqs[ref_id],
+                                query_id, ref_id, store_alignment=True
+                            )
+                            results[query_id] = (ref_id, score, alignment)
+                    
+                    return results
+            except Exception as e:
+                logger.warning(f"MMseqs2 batch search failed: {e}")
+        
+        # Fall back to BioPython
+        results = msa_blosum62(sequences, reference_seqs, self.aligner)
+        
+        # Convert to expected format
+        formatted_results = {}
+        for query_id, (ref_id, score, alignment) in results.items():
+            formatted_results[query_id] = (ref_id, score, alignment)
+            
+        return formatted_results
+    
+    def mutate_sequence(self, sequence: str, mutations: List[str],
+                       sequence_id: str = "mutant") -> str:
+        """
+        Apply mutations to a sequence.
+        
+        Args:
+            sequence: Original sequence
+            mutations: List of mutations in format "A123G"
+            sequence_id: ID for the mutated sequence
+            
+        Returns:
+            Mutated sequence
+        """
+        mutated = apply_mutations_to_seq(sequence, mutations)
+        
+        # Store if ID provided
+        if sequence_id:
+            self.sequences[sequence_id] = mutated
+            
+        return mutated
+    
+    def generate_variants(self, sequence: str, positions: List[int],
+                         possible_aas: List[List[str]],
+                         base_id: str = "variant") -> Dict[str, str]:
+        """
+        Generate all possible sequence variants at specified positions.
+        
+        Args:
+            sequence: Base sequence
+            positions: List of positions to mutate (1-indexed)
+            possible_aas: List of possible amino acids for each position
+            base_id: Base ID for variant naming
+            
+        Returns:
+            Dictionary of variant_id -> sequence
+        """
+        combinations = generate_mutation_combinations(positions, possible_aas, sequence)
+        
+        variants = {}
+        for i, mutations in enumerate(combinations):
+            variant_id = f"{base_id}_{i+1}"
+            if mutations:  # Only if there are actual mutations
+                variant_seq = self.mutate_sequence(sequence, mutations)
+                variants[variant_id] = variant_seq
+                
+        return variants
+    
+    def save_alignment(self, alignment_data: Dict, output_file: str):
+        """Save alignment data to file."""
+        output_path = self.data_dirs['alignments'] / output_file
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        save_json(alignment_data, str(output_path))
+        logger.info(f"Saved alignment to {output_path}")
+    
+    def load_alignment(self, alignment_file: str) -> Dict:
+        """Load alignment data from file."""
+        alignment_path = self.data_dirs['alignments'] / alignment_file
+        if not alignment_path.exists():
+            raise FileNotFoundError(f"Alignment file not found: {alignment_path}")
+            
+        return load_json(str(alignment_path))
+    
+    def get_sequence_metadata(self, sequence_ids: Optional[List[str]] = None) -> pd.DataFrame:
+        """
+        Get metadata for sequences.
+        
+        Args:
+            sequence_ids: List of sequence IDs (None for all)
+            
+        Returns:
+            DataFrame with sequence metadata
+        """
+        if sequence_ids is None:
+            sequence_ids = list(self.sequences.keys())
+            
+        metadata = []
+        for seq_id in sequence_ids:
+            if seq_id in self.sequences:
+                seq = self.sequences[seq_id]
+                metadata.append({
+                    'sequence_id': seq_id,
+                    'length': len(seq),
+                    'molecular_weight': self._calculate_mw(seq),
+                    'isoelectric_point': self._calculate_pi(seq),
+                    'amino_acid_composition': self._get_aa_composition(seq)
+                })
+                
+        return pd.DataFrame(metadata)
+    
+    def _calculate_mw(self, sequence: str) -> float:
+        """Calculate molecular weight of sequence."""
+        # Simplified MW calculation
+        mw_dict = {
+            'A': 89.1, 'R': 174.2, 'N': 132.1, 'D': 133.1, 'C': 121.2,
+            'Q': 146.2, 'E': 147.1, 'G': 75.1, 'H': 155.2, 'I': 131.2,
+            'L': 131.2, 'K': 146.2, 'M': 149.2, 'F': 165.2, 'P': 115.1,
+            'S': 105.1, 'T': 119.1, 'W': 204.2, 'Y': 181.2, 'V': 117.1
+        }
+        
+        mw = sum(mw_dict.get(aa, 0) for aa in sequence)
+        # Subtract water for peptide bonds
+        mw -= 18.0 * (len(sequence) - 1)
+        return round(mw, 1)
+    
+    def _calculate_pi(self, sequence: str) -> float:
+        """Calculate isoelectric point of sequence."""
+        # Simplified pI calculation - just a placeholder
+        # In reality, this requires iterative pH calculation
+        basic_count = sum(1 for aa in sequence if aa in 'RKH')
+        acidic_count = sum(1 for aa in sequence if aa in 'DE')
+        
+        if acidic_count > basic_count:
+            return 4.5  # Acidic
+        elif basic_count > acidic_count:
+            return 9.5  # Basic
+        else:
+            return 7.0  # Neutral
+    
+    def _get_aa_composition(self, sequence: str) -> Dict[str, float]:
+        """Get amino acid composition of sequence."""
+        composition = {}
+        seq_len = len(sequence)
+        
+        for aa in 'ARNDCQEGHILKMFPSTWYV':
+            count = sequence.count(aa)
+            composition[aa] = round(count / seq_len * 100, 1) if seq_len > 0 else 0
+            
+        return composition

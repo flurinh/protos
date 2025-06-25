@@ -1,6 +1,9 @@
 import argparse
 import pandas as pd
 import re
+import os
+from pathlib import Path
+from protos.processing.grn.grn_base_processor import GRNBaseProcessor
 
 
 def validate_and_clean_row(row):
@@ -52,19 +55,32 @@ def validate_and_clean_row(row):
     return clean_row, erroneous_sequence
 
 
-def process_table(input_path, output_path):
+def process_table(input_path, output_path, use_processor=True):
     """
     Process a GRN table by validating and cleaning rows.
     
     Args:
-        input_path (str): Path to the input CSV file
-        output_path (str): Path to save the cleaned CSV file
+        input_path (str): Path to the input CSV file (or dataset ID if use_processor=True)
+        output_path (str): Path to save the cleaned CSV file (or dataset ID if use_processor=True)
+        use_processor (bool): Whether to use GRNBaseProcessor for loading/saving
     
     Returns:
         dict: Report of erroneous sequences
     """
-    # Load the table
-    df = pd.read_csv(input_path, index_col=0)
+    if use_processor:
+        # Use GRNBaseProcessor for loading
+        data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
+        processor = GRNBaseProcessor(
+            name='clean_grn',
+            data_root=data_root,
+            processor_data_dir='grn',
+            dataset=input_path,
+            preload=True
+        )
+        df = processor.data
+    else:
+        # Load directly from file path
+        df = pd.read_csv(input_path, index_col=0)
 
     erroneous_sequences_report = {}
 
@@ -80,7 +96,12 @@ def process_table(input_path, output_path):
             erroneous_sequences_report[index] = clean_row
 
     # Save the cleaned dataframe
-    df.to_csv(output_path)
+    if use_processor:
+        # Update processor data and save
+        processor.data = df
+        processor.save_grn_table(dataset_id=output_path)
+    else:
+        df.to_csv(output_path)
 
     # Report erroneous sequences
     if erroneous_sequences_report:
@@ -109,15 +130,37 @@ def clean_grn_table(input_path, output_path):
 
 def main():
     """Command-line entry point for GRN table cleaning."""
-    parser = argparse.ArgumentParser(description="Clean and validate residue sequences in a GRN table.")
+    parser = argparse.ArgumentParser(
+        description="Clean and validate residue sequences in a GRN table.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Clean a GRN table using dataset IDs
+  python -m protos.cli.grn.clean_grn_table -i ref/mo_ref -o ref/mo_ref_cleaned
+  
+  # Clean a GRN table using file paths
+  python -m protos.cli.grn.clean_grn_table -i input.csv -o output.csv --use-files
+  
+  # Clean with custom data root
+  python -m protos.cli.grn.clean_grn_table -i my_table -o my_table_clean --data-root /path/to/data
+        """
+    )
     parser.add_argument('-i', '--input_path', type=str, required=True, 
-                      help='Path to the input CSV file')
+                      help='Input dataset ID (or file path if --use-files)')
     parser.add_argument('-o', '--output_path', type=str, required=True, 
-                      help='Path to save the cleaned CSV file')
+                      help='Output dataset ID (or file path if --use-files)')
+    parser.add_argument('--use-files', action='store_true',
+                      help='Use file paths instead of dataset IDs')
+    parser.add_argument('--data-root', type=str, default=None,
+                      help='Root data directory (default: uses PROTOS_DATA_ROOT env var)')
 
     args = parser.parse_args()
+    
+    # Set environment variable if data root provided
+    if args.data_root:
+        os.environ['PROTOS_DATA_ROOT'] = str(Path(args.data_root).absolute())
 
-    process_table(args.input_path, args.output_path)
+    process_table(args.input_path, args.output_path, use_processor=not args.use_files)
     print(f"Cleaned table saved to {args.output_path}")
 
 

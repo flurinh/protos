@@ -315,18 +315,8 @@ def init_grn_intervals(grn_config):
         grns_float = [(float_left + Decimal(x) * Decimal('0.01')).quantize(Decimal('0.01')) for x in range(n)]
         # Convert the list of Decimals back to the standardized GRN strings
         grns_str = [parse_grn_float2str(x) for x in grns_float]
-        # Process the list to divide the numbers by 10 and adjust the format
-
-        output_list = []
-        for item in grns_str:
-            match = re.match(r'(\d+)x(\d+)', item)
-            if match:
-                prefix_number = match.group(1)
-                number_after_x = int(match.group(2))
-                scaled_number = number_after_x // 10  # Use integer division for rounding down
-                formatted_string = f'{prefix_number}x{scaled_number}'
-                output_list.append(formatted_string)
-        std_grns.extend(output_list)
+        # Use the grns_str directly (they're already in proper format)
+        std_grns.extend(grns_str)
     return std_grns
 
 
@@ -364,42 +354,42 @@ class GRNConfigManager:
                 self.config = {
                     "microbial_opsins": {
                         "standard": {
-                            "TM1": ["1x01", "1x50"],
-                            "TM2": ["2x01", "2x50"],
-                            "TM3": ["3x01", "3x50"],
-                            "TM4": ["4x01", "4x50"],
-                            "TM5": ["5x01", "5x50"],
-                            "TM6": ["6x01", "6x50"],
-                            "TM7": ["7x01", "7x50"]
+                            "TM1": ["1.01", "1.50"],
+                            "TM2": ["2.01", "2.50"],
+                            "TM3": ["3.01", "3.50"],
+                            "TM4": ["4.01", "4.50"],
+                            "TM5": ["5.01", "5.50"],
+                            "TM6": ["6.01", "6.50"],
+                            "TM7": ["7.01", "7.50"]
                         },
                         "strict": {
-                            "TM1": ["1x50", "1x50"],
-                            "TM2": ["2x50", "2x50"],
-                            "TM3": ["3x50", "3x50"],
-                            "TM4": ["4x50", "4x50"],
-                            "TM5": ["5x50", "5x50"],
-                            "TM6": ["6x50", "6x50"],
-                            "TM7": ["7x50", "7x50"]
+                            "TM1": ["1.50", "1.50"],
+                            "TM2": ["2.50", "2.50"],
+                            "TM3": ["3.50", "3.50"],
+                            "TM4": ["4.50", "4.50"],
+                            "TM5": ["5.50", "5.50"],
+                            "TM6": ["6.50", "6.50"],
+                            "TM7": ["7.50", "7.50"]
                         }
                     },
                     "gpcr_a": {
                         "standard": {
-                            "TM1": ["1x01", "1x50"],
-                            "TM2": ["2x01", "2x50"],
-                            "TM3": ["3x01", "3x50"],
-                            "TM4": ["4x01", "4x50"],
-                            "TM5": ["5x01", "5x50"],
-                            "TM6": ["6x01", "6x50"],
-                            "TM7": ["7x01", "7x50"]
+                            "TM1": ["1.01", "1.50"],
+                            "TM2": ["2.01", "2.50"],
+                            "TM3": ["3.01", "3.50"],
+                            "TM4": ["4.01", "4.50"],
+                            "TM5": ["5.01", "5.50"],
+                            "TM6": ["6.01", "6.50"],
+                            "TM7": ["7.01", "7.50"]
                         },
                         "strict": {
-                            "TM1": ["1x50", "1x50"],
-                            "TM2": ["2x50", "2x50"],
-                            "TM3": ["3x50", "3x50"],
-                            "TM4": ["4x50", "4x50"],
-                            "TM5": ["5x50", "5x50"],
-                            "TM6": ["6x50", "6x50"],
-                            "TM7": ["7x50", "7x50"]
+                            "TM1": ["1.50", "1.50"],
+                            "TM2": ["2.50", "2.50"],
+                            "TM3": ["3.50", "3.50"],
+                            "TM4": ["4.50", "4.50"],
+                            "TM5": ["5.50", "5.50"],
+                            "TM6": ["6.50", "6.50"],
+                            "TM7": ["7.50", "7.50"]
                         }
                     }
                 }
@@ -421,7 +411,15 @@ class GRNConfigManager:
         self.load_config()
         config_type = 'strict' if strict else 'standard'
         family_config = self.config.get(protein_family, {})
-        return family_config.get(config_type, {})
+        raw_config = family_config.get(config_type, {})
+        
+        # Normalize keys to uppercase for consistency
+        normalized_config = {}
+        for key, value in raw_config.items():
+            normalized_key = key.upper() if key.lower().startswith('tm') else key
+            normalized_config[normalized_key] = value
+        
+        return normalized_config
 
     def init_grns(self, strict=False, protein_family=None):
         if protein_family is None:

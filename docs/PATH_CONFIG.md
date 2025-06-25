@@ -2,203 +2,240 @@
 
 ## Overview
 
-Protos implements a flexible path management system that handles two distinct types of data:
-
-1. **Reference Data**: Read-only data distributed with the Protos package
-2. **User Data**: Read-write data created at runtime by the user
+Protos implements a simplified path management system with a single data directory that contains all project data. This unified approach ensures consistency and simplifies data management across all processors and components.
 
 This document explains how the path system works and how to configure it for your needs.
 
-## Data Types
+## Data Directory
 
-### Reference Data
+### Default Location
 
-Reference data is distributed with the Protos package and includes:
+The Protos data directory is automatically initialized in one of these locations (in order of precedence):
 
-- Standard structure files
-- Reference GRN tables
-- Standard sequence datasets
-- Default configurations
+1. **Environment Variable**: If `PROTOS_DATA_ROOT` is set, that location is used
+2. **Home Directory**: `~/protos_data/` (default location)
+3. **Custom Path**: When explicitly specified via `ProtosPaths` initialization
 
-Reference data is located within the package at `protos/reference_data/` and is read-only. It should not be modified directly by users.
+### Automatic Initialization
 
-### User Data
+The data directory is automatically created when:
+- Any processor is instantiated
+- The registry system is accessed
+- `ProtosPaths` is initialized
 
-User data is created at runtime and includes:
+This ensures that the data directory always exists when needed, without requiring manual setup.
 
-- User-generated datasets
-- Custom structures
-- Analysis results
-- User configurations
+### Data Organization
 
-User data is stored in the directory specified by the `PROTOS_DATA_ROOT` environment variable, or defaults to a `data/` directory in the current working directory.
+All data is organized within the single data directory:
+
+```
+~/protos_data/                # Default location
+├── structure/               # Structure-related data
+│   ├── mmcif/              # Structure files
+│   ├── alignments/         # Alignment results
+│   └── structure_dataset/   # Structure datasets
+├── grn/                    # GRN-related data
+│   ├── ref/                # Reference GRN tables
+│   ├── tables/             # Calculated GRN tables  
+│   └── configs/            # GRN configurations
+├── sequence/               # Sequence-related data
+│   ├── fasta/              # FASTA files
+│   └── alignments/         # Sequence alignments
+└── global_registry.json    # Global dataset registry
+```
 
 ## Configuration
 
 ### Environment Variables
 
-Protos uses these environment variables for path configuration:
+Protos uses a single environment variable for path configuration:
 
-- `PROTOS_DATA_ROOT`: Location for user data (default: `data/` in current directory)
-- `PROTOS_REF_DATA_ROOT`: Override for reference data location (usually not needed)
+- `PROTOS_DATA_ROOT`: Location for the data directory (default: `~/protos_data/`)
 
 ### Programmatic Configuration
 
 Paths can be configured programmatically:
 
 ```python
-from protos.io.paths import ProtosPaths, DataSource
+from protos.io.paths import ProtosPaths
 
-# Initialize with custom paths
+# Use default location (~protos_data/)
+paths = ProtosPaths()
+
+# Initialize with custom path
 paths = ProtosPaths(
-    user_data_root="/path/to/user/data",
-    ref_data_root="/path/to/reference/data",  # Optional override
-    create_dirs=True,  # Create directories if they don't exist
-    validate=True      # Validate directory structure
+    data_root="/path/to/my/data",
+    create_dirs=True,  # Create directories if they don't exist (default: True)
+    validate=True      # Validate directory structure (default: True)
 )
 
 # Use the paths object
-structure_path = paths.get_processor_path("structure", DataSource.USER)
-grn_path = paths.get_grn_subdir_path("table_dir", DataSource.REFERENCE)
+structure_path = paths.get_processor_path("structure")
+grn_path = paths.get_grn_subdir_path("tables")
 ```
 
-## Directory Structure
+### Automatic Initialization by Processors
 
-Both reference and user data follow the same directory structure:
+Processors automatically initialize paths if not already configured:
 
+```python
+from protos.processing.structure.struct_base_processor import CifBaseProcessor
+
+# No need to manually configure paths - processor handles it
+processor = CifBaseProcessor(name="my_processor")
+# Data directory is automatically created at ~/protos_data/
+
+# Or specify a custom location
+processor = CifBaseProcessor(
+    name="my_processor",
+    data_root="/my/project/data"
+)
 ```
-data_root/
-├── structure/
-│   ├── mmcif/
-│   ├── alignments/
-│   ├── structure_dataset/
-│   └── temp_cif/
-├── grn/
-│   ├── tables/
-│   ├── grn/
-│   ├── configs/
-│   └── assignments/
-├── sequence/
-│   ├── fasta/
-│   ├── alignments/
-│   └── metadata/
-└── global_registry.json
-```
-
-Each processor type directory also has its own `registry.json` file for backward compatibility.
 
 ## Processor Path Resolution
 
-Processor classes automatically resolve file paths without requiring user intervention:
+Processor classes automatically handle path resolution:
 
-1. **Initialization**: When a processor is instantiated, it automatically determines its type from the class name
+1. **Automatic Initialization**: When a processor is instantiated without a data_root, it uses the default location
    ```python
-   # CifProcessor sets processor_type = "structure"
-   # GRNProcessor sets processor_type = "grn"
+   # Automatically uses ~/protos_data/
+   processor = CifBaseProcessor(name="my_processor")
    ```
 
-2. **Path Resolver Creation**: A path resolver is created using `ProtosPaths`
+2. **Type Detection**: Processors automatically determine their subdirectory from the class name
    ```python
-   self.path_resolver = ProtosPaths()
+   # CifBaseProcessor → "structure" subdirectory
+   # GRNBaseProcessor → "grn" subdirectory
+   # SeqProcessor → "sequence" subdirectory
    ```
 
-3. **Default Paths**: Data paths are constructed following conventions
+3. **Directory Creation**: Required directories are automatically created
    ```python
-   self.data_root = self.path_resolver.get_data_root()
-   self.data_path = os.path.join(data_root, self.processor_type)
+   # These directories are created automatically:
+   # ~/protos_data/structure/mmcif/
+   # ~/protos_data/structure/alignments/
+   # ~/protos_data/structure/structure_dataset/
    ```
 
-4. **Cross-Platform Handling**: Paths use `pathlib.Path` for cross-platform compatibility
+4. **Cross-Platform Support**: All paths use `pathlib.Path` for compatibility
    ```python
-   # Instead of: os.path.join("data", "structure", "mmcif")
-   # The code uses: Path(data_root) / "structure" / "mmcif"
-   ```
-
-5. **Dual-Source Checking**: File operations check both reference and user data sources
-   ```python
-   # First checks user data (e.g., data/structure/mmcif/1abc.cif)
-   # Then checks reference data (e.g., protos/reference_data/structure/mmcif/1abc.cif)
+   # Works on Windows, Linux, and macOS
+   data_path = Path.home() / "protos_data" / "structure"
    ```
 
 ## Registry System
 
-Protos uses a registry system to track datasets:
+The registry system tracks all datasets in the data directory:
 
-- **Global Registry**: Located at `data_root/global_registry.json`, maintains a unified view of all datasets
-- **Processor Registries**: Located at `data_root/processor_type/registry.json`, for backward compatibility
+- **Global Registry**: Located at `data_root/global_registry.json`
+- **Processor Registries**: Located at `data_root/processor_type/registry.json` (for backward compatibility)
+- **Automatic Registration**: Datasets are automatically registered when created through processors
 
 The registry maps dataset IDs to file paths and metadata:
 
 ```json
 {
   "dataset_id": {
-    "path": "/path/to/file",
+    "path": "/home/user/protos_data/structure/mmcif/1abc.cif",
     "metadata": {
       "processor_type": "structure",
       "dataset_type": "cif",
-      "source": "user",
-      "description": "Description of the dataset"
+      "description": "Crystal structure of protein ABC"
     },
     "timestamp": "2023-01-01T00:00:00"
   }
 }
 ```
 
-## Usage
+## Usage Examples
 
-### Using Global Helper Functions
+### Basic Usage
 
 ```python
-from protos.io.paths import (
-    get_structure_path, 
-    get_grn_path,
-    get_dataset_path,
-    DataSource
-)
+# Import a processor - paths are handled automatically
+from protos.processing.structure.struct_base_processor import CifBaseProcessor
 
-# Get paths (will check both reference and user data)
-structure_path = get_structure_path("1abc")
-grn_path = get_grn_path("grn_table")
+# Create processor - data directory is initialized automatically
+processor = CifBaseProcessor(name="my_analysis")
 
-# Explicitly specify source
-user_path = get_dataset_path("user_dataset", source=DataSource.USER)
-ref_path = get_dataset_path("reference_dataset", source=DataSource.REFERENCE)
+# Load a structure
+processor.load_structure("1abc")
+
+# Work with data - all paths are resolved automatically
+processor.save_dataset("my_results")
 ```
 
-### Using the Global Registry
+### Custom Data Location
+
+```python
+# Specify a custom data directory
+processor = CifBaseProcessor(
+    name="my_analysis",
+    data_root="/my/project/data"
+)
+
+# Or set via environment variable before importing
+import os
+os.environ["PROTOS_DATA_ROOT"] = "/my/project/data"
+
+from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+grn_processor = GRNBaseProcessor(name="grn_analysis")
+```
+
+### Using the Registry
 
 ```python
 from protos.io.data_access import GlobalRegistry
-from protos.io.paths import DataSource
 
-# Initialize the registry
+# Registry automatically uses the configured data directory
 registry = GlobalRegistry()
 
-# Register a dataset
-registry.register_dataset(
-    dataset_id="my_dataset",
-    file_path="/path/to/file.dat",
-    processor_type="structure",
-    dataset_type="cif",
-    source=DataSource.USER,
-    metadata={"description": "My custom dataset"}
-)
+# List all datasets
+all_datasets = registry.list_datasets()
 
-# Get dataset path
-path = registry.get_dataset_path("my_dataset")
-
-# List datasets by type
+# Find specific types
 structure_datasets = registry.list_datasets("structure")
-cif_datasets = registry.get_datasets_by_type("cif")
-user_datasets = registry.get_datasets_by_source(DataSource.USER)
+
+# Get dataset information
+info = registry.get_dataset_info("my_dataset")
+print(f"Dataset location: {info['path']}")
+print(f"Dataset type: {info['metadata']['dataset_type']}")
 ```
 
 ## Best Practices
 
-1. Use the high-level API when possible, which will check both reference and user data sources
-2. For writing data, always use user data paths
-3. Use dataset IDs and the registry system instead of hardcoding paths
-4. Use the `GlobalRegistry` for cross-processor data relationships
-5. Use environment variables for deployment-specific configurations
-6. Use `pathlib.Path` for cross-platform path handling instead of string concatenation
-7. Always check both reference and user data locations when reading files
+1. **Let processors handle paths automatically** - They will use the correct default location
+2. **Use dataset IDs** instead of hardcoding file paths
+3. **Set `PROTOS_DATA_ROOT` once** at the start of your project if using a custom location
+4. **Use the registry system** to track and discover datasets
+5. **Avoid manual path construction** - Use the processor and registry APIs
+6. **Single data directory** - All data (reference tables, calculated results, etc.) lives in one place
+
+## Migration from Dual-Path System
+
+If you're migrating from the old dual-path system (separate reference and user data):
+
+1. **Copy reference data** to the new data directory structure:
+   ```bash
+   cp -r /old/reference/data/grn/ref/* ~/protos_data/grn/ref/
+   ```
+
+2. **Update environment variables**:
+   ```bash
+   # Old system
+   export PROTOS_DATA_ROOT=/path/to/user/data
+   export PROTOS_REF_DATA_ROOT=/path/to/reference/data
+   
+   # New system - only one variable
+   export PROTOS_DATA_ROOT=~/protos_data
+   ```
+
+3. **Update code** - Remove DataSource specifications:
+   ```python
+   # Old code
+   path = paths.get_processor_path("structure", DataSource.USER)
+   
+   # New code
+   path = paths.get_processor_path("structure")
+   ```

@@ -1,7 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor
 from protos.processing.grn.grn_table_utils import *
 from protos.processing.sequence.fasta_utils import *
-from protos.processing.grn.seq_alignment import init_aligner, align_blosum62, format_alignment
+from protos.processing.sequence.seq_alignment import init_aligner, align_blosum62, format_alignment
 import pandas as pd
 import argparse
 

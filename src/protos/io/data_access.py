@@ -18,9 +18,9 @@ from abc import ABC, abstractmethod
 
 from .paths import (
     ProtosPaths, 
-    DataSource,
     ensure_directory
 )
+from .paths.path_config import DataSource
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -452,7 +452,7 @@ class GlobalRegistry:
             DataRegistry instance for the specified processor
         """
         if processor_type not in self._processor_registries:
-            registry_file = self.paths.get_registry_path(processor_type, DataSource.USER)
+            registry_file = self.paths.get_registry_path(processor_type)
             self._processor_registries[processor_type] = DataRegistry(registry_file)
         return self._processor_registries[processor_type]
     
@@ -461,7 +461,7 @@ class GlobalRegistry:
                         file_path: str, 
                         processor_type: str,
                         dataset_type: Optional[str] = None,
-                        source: DataSource = DataSource.USER,
+                        source: str = 'user',
                         metadata: Optional[Dict[str, Any]] = None) -> None:
         """
         Register a dataset in the global registry.
@@ -478,7 +478,7 @@ class GlobalRegistry:
         metadata.update({
             'processor_type': processor_type,
             'dataset_type': dataset_type,
-            'source': source.value
+            'source': source
         })
         
         # Add to global registry
@@ -490,7 +490,7 @@ class GlobalRegistry:
         self._save_registry()
         
         # Add to processor-specific registry if it's user data
-        if source == DataSource.USER:
+        if source == 'user':
             processor_registry = self._get_processor_registry(processor_type)
             processor_registry.register_dataset(dataset_id, file_path, metadata)
     
@@ -519,10 +519,10 @@ class GlobalRegistry:
                 # Add to global registry for future lookups
                 metadata = processor_registry.get_dataset_metadata(dataset_id) or {}
                 metadata['processor_type'] = processor_type
-                metadata['source'] = DataSource.USER.value
+                metadata['source'] = 'user'
                 self.register_dataset(
                     dataset_id, path, processor_type, 
-                    metadata.get('dataset_type'), DataSource.USER, metadata
+                    metadata.get('dataset_type'), 'user', metadata
                 )
                 return path
         
@@ -551,10 +551,10 @@ class GlobalRegistry:
                 path = processor_registry.get_dataset_path(dataset_id)
                 if path is not None:
                     metadata['processor_type'] = processor_type
-                    metadata['source'] = DataSource.USER.value
+                    metadata['source'] = 'user'
                     self.register_dataset(
                         dataset_id, path, processor_type, 
-                        metadata.get('dataset_type'), DataSource.USER, metadata
+                        metadata.get('dataset_type'), 'user', metadata
                     )
                 return metadata
         
@@ -591,7 +591,7 @@ class GlobalRegistry:
         # Can only remove user datasets
         if dataset_id in self.registry:
             source = self.registry[dataset_id].get('metadata', {}).get('source')
-            if source == DataSource.REFERENCE.value:
+            if source == 'reference':
                 logger.warning(f"Cannot remove reference dataset: {dataset_id}")
                 return False
             
@@ -635,7 +635,7 @@ class GlobalRegistry:
         if dataset_id in self.registry:
             # Cannot update certain metadata fields for reference datasets
             source = self.registry[dataset_id].get('metadata', {}).get('source')
-            if source == DataSource.REFERENCE.value:
+            if source == 'reference':
                 protected_fields = ['source', 'processor_type', 'path']
                 for field in protected_fields:
                     if field in metadata:
@@ -649,7 +649,7 @@ class GlobalRegistry:
             self._save_registry()
             
             # Update processor-specific registry if it's user data
-            if source == DataSource.USER.value:
+            if source == 'user':
                 processor_type = self.registry[dataset_id].get('metadata', {}).get('processor_type')
                 if processor_type:
                     processor_registry = self._get_processor_registry(processor_type)
@@ -714,7 +714,7 @@ class GlobalRegistry:
                             # Add to global registry
                             self.register_dataset(
                                 dataset_id, file_path, processor_type, dataset_type,
-                                DataSource.REFERENCE, metadata
+                                'reference', metadata
                             )
                             count += 1
                 

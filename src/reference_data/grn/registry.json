@@ -1,0 +1,9 @@
+{
+  "test_grn_1": {
+    "path": "grn/test_file_1.dat",
+    "metadata": {
+      "processor_type": "grn",
+      "test": true
+    }
+  }
+}

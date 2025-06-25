@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(source:*)",
+      "Bash(conda activate:*)",
+      "Bash(pip install:*)",
+      "Bash(pytest:*)",
+      "Bash(python run_tests.py:*)",
+      "Bash(python:*)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor.py -v)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor.py -v --tb=short)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor.py::TestBaseProcessorInitialization::test_basic_initialization -v)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor.py -v -x)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor.py::TestBaseProcessorInitialization -v)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor.py -v --tb=no -q)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor.py::TestBaseProcessorInitialization::test_basic_initialization -v -s)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor_simple.py -v)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_grn/test_grn_base_processor.py -v)",
+      "Bash(find:*)",
+      "Bash(~/miniconda/envs/protos/bin/python claude/csv_helper.py schema curated_grn.csv)",
+      "Bash(~/miniconda/envs/protos/bin/python claude/csv_helper.py peek curated_grn.csv --rows 5)",
+      "Bash(~/miniconda/envs/protos/bin/python claude/csv_helper.py get-row curated_grn.csv --index \"7BMH\")",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cp:*)",
+      "Bash(conda info:*)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python examples/grn.py)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python examples/grn_working_fixed.py)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python examples/grn_complete_demo.py)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python examples/grn_annotate_sequence.py)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python examples/grn_annotate_direct.py)",
+      "Bash(rm:*)",
+      "Bash(cat:*)",
+      "Bash(pip show:*)",
+      "Bash(rg:*)"
+    ],
+    "deny": []
+  }
+}

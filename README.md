@@ -10,6 +10,14 @@ Protos is a Python library designed to **standardize and execute complex computa
 
 The core function of Protos is to manage multi-step analyses by breaking them down into defined tasks handled by modular components.
 
+## Recent Updates (2025-06-25)
+
+- **GRN Notation**: Now uses dot notation (e.g., `1.50`) as standard; x notation (e.g., `1x50`) is deprecated
+- **New Features**: Added GRN-Structure integration methods to CifBaseProcessor
+- **Bug Fixes**: Fixed path resolution, sequence extraction, and data type compatibility issues
+- **Testing**: Added comprehensive real-data tests for GRN and structure processors
+- See [RECENT_UPDATES.md](docs/RECENT_UPDATES.md) for detailed changes
+
 ## Core Architecture: Processors & Interoperability
 
 Protos utilizes a modular architecture built upon distinct Python components called **'Processors'**. Each Processor is specialized for a specific domain, such as:
@@ -547,7 +555,7 @@ These improvements would make Protos suitable for MCP integration by providing a
 
 ### Prerequisites
 
-- **Python**: Protos requires Python 3.9 or later.
+- **Python**: Protos requires Python 3.10 or later.
 - **Package Manager**: pip (or optionally conda) for installing Python packages.
 
 ### Standard Installation (Development)
@@ -565,7 +573,7 @@ pip install -e .
 Protos relies on environment variables for path configuration:
 
 ```bash
-# Essential configuration for reliable path resolution
+# !deprecated: Essential configuration for reliable path resolution
 export PROTOS_DATA_ROOT=/path/to/your/data
 export PROTOS_REF_DATA_ROOT=/path/to/your/data
 ```
@@ -576,5 +584,5 @@ Protos integrates with several external bioinformatics tools:
 
 - **MMseqs2**: For sequence searching and clustering
 - **GTalign**: For GPU-accelerated protein structure alignment
-
+- **Boltz-2**: For protein structure prediction
 These tools need to be installed separately and made available in your system PATH.

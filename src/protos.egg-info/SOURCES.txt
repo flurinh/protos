@@ -36,6 +36,7 @@ src/protos/io/file_utils.py
 src/protos/io/formats.py
 src/protos/io/paths/__init__.py
 src/protos/io/paths/path_config.py
+src/protos/io/paths/path_config_legacy.py
 src/protos/io/paths/path_constants.py
 src/protos/loaders/__init__.py
 src/protos/loaders/alphafold_utils.py
@@ -60,6 +61,7 @@ src/protos/processing/graph/graph_utils.py
 src/protos/processing/grn/__init__.py
 src/protos/processing/grn/grn_analyzer.py
 src/protos/processing/grn/grn_assignment.py
+src/protos/processing/grn/grn_assignment_deprecated.py
 src/protos/processing/grn/grn_base_processor.py
 src/protos/processing/grn/grn_dict.py
 src/protos/processing/grn/grn_processor.py
@@ -104,8 +106,12 @@ src/protos/processing/tables/gene_table_utils.py
 src/protos/processing/tables/grn_table_analysis_utils.py
 src/protos/processing/tables/grn_table_utils.py
 src/protos/reference_data/README.md
+src/protos/reference_data/grn/config.json
 src/protos/reference_data/grn/registry.json
-src/protos/reference_data/grn/tables/example_grn.csv
+src/protos/reference_data/grn/ref/gpcrdb_ref.csv
+src/protos/reference_data/grn/ref/mo_ref.csv
+src/protos/reference_data/grn/ref/mo_ref_old.csv
+src/protos/reference_data/grn/ref/ref.csv
 src/protos/reference_data/sequence/registry.json
 src/protos/reference_data/sequence/fasta/example.fasta
 src/protos/reference_data/structure/registry.json

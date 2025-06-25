@@ -188,13 +188,15 @@ def visualize_grn_table(
     output_path: Optional[str] = None,
     title: str = "GRN Table Visualization",
     figsize: Tuple[int, int] = (15, 10),
-    dpi: int = 300
+    dpi: int = 300,
+    use_processor: bool = True,
+    data_root: Optional[str] = None
 ) -> plt.Figure:
     """
     Visualize a GRN table as a heatmap.
     
     Args:
-        grn_table_path: Path to GRN table CSV file
+        grn_table_path: Dataset ID (if use_processor) or file path
         protein_ids: Optional list of protein IDs to include (all if None)
         grn_subset: Optional list of GRNs to include (all if None)
         normalize_formats: Whether to normalize GRN formats
@@ -202,12 +204,30 @@ def visualize_grn_table(
         title: Plot title
         figsize: Figure size
         dpi: DPI for saved figure
+        use_processor: Whether to use GRNBaseProcessor for loading
+        data_root: Root data directory (if None, uses PROTOS_DATA_ROOT)
         
     Returns:
         Matplotlib figure object
     """
     # Load the GRN table
-    df = pd.read_csv(grn_table_path, index_col=0)
+    if use_processor:
+        # Use GRNBaseProcessor
+        if data_root is None:
+            data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
+        
+        processor = GRNBaseProcessor(
+            name='visualize_grn',
+            data_root=data_root,
+            processor_data_dir='grn',
+            dataset=grn_table_path,
+            preload=True,
+            normalize_formats=normalize_formats
+        )
+        df = processor.data
+    else:
+        # Load directly from file
+        df = pd.read_csv(grn_table_path, index_col=0)
     
     # Filter proteins if specified
     if protein_ids:
@@ -217,8 +237,20 @@ def visualize_grn_table(
     if normalize_formats:
         df.columns = [normalize_grn_format(col) for col in df.columns]
     
-    # Sort columns by GRN order
-    df = df.loc[:, sort_grns(df.columns.tolist())]
+    # Sort columns by GRN order - handle function name difference
+    try:
+        from protos.processing.grn.grn_utils import sort_grns_str
+        sorted_cols = sort_grns_str(df.columns.tolist())
+        df = df.loc[:, sorted_cols]
+    except ImportError:
+        # Use the sort_grns function from grn_utils_updated
+        sorted_cols = sort_grns(df.columns.tolist())
+        # Convert float values back to column names
+        col_to_float = {col: parse_grn_str2float(col) for col in df.columns}
+        float_to_col = {v: k for k, v in col_to_float.items()}
+        sorted_floats = sort_grns([col_to_float[col] for col in df.columns])
+        sorted_cols = [float_to_col[f] for f in sorted_floats]
+        df = df.loc[:, sorted_cols]
     
     # Filter GRNs if specified
     if grn_subset:
@@ -260,11 +292,27 @@ def visualize_grn_table(
     ax.set_yticks(np.arange(-0.5, len(df.index), 1), minor=True)
     ax.grid(which='minor', color='black', linestyle='-', linewidth=0.5)
     
+    # Define helix colors here since it's not defined in this scope
+    helix_colors = {
+        1: 'tab:blue',
+        2: 'tab:orange',
+        3: 'tab:green',
+        4: 'tab:red',
+        5: 'tab:purple',
+        6: 'tab:brown',
+        7: 'tab:pink',
+        8: 'tab:olive'
+    }
+    
     # Color-code the helices in the x-axis labels
     for i, grn in enumerate(df.columns):
         helix_color = 'black'
+        # Handle both x and dot notation
         if 'x' in grn:
             helix = int(grn.split('x')[0])
+            helix_color = helix_colors.get(helix, 'black')
+        elif '.' in grn and grn[0].isdigit() and len(grn.split('.')[0]) == 1:
+            helix = int(grn.split('.')[0])
             helix_color = helix_colors.get(helix, 'black')
         ax.get_xticklabels()[i].set_color(helix_color)
     
@@ -287,32 +335,64 @@ def visualize_grn_distribution(
     output_path: Optional[str] = None,
     title: str = "GRN Distribution",
     figsize: Tuple[int, int] = (15, 10),
-    dpi: int = 300
+    dpi: int = 300,
+    use_processor: bool = True,
+    data_root: Optional[str] = None
 ) -> plt.Figure:
     """
     Visualize the distribution of amino acids at each GRN position.
     
     Args:
-        grn_table_path: Path to GRN table CSV file
+        grn_table_path: Dataset ID (if use_processor) or file path
         grn_subset: Optional list of GRNs to include (all if None)
         normalize_formats: Whether to normalize GRN formats
         output_path: Path to save the visualization
         title: Plot title
         figsize: Figure size
         dpi: DPI for saved figure
+        use_processor: Whether to use GRNBaseProcessor for loading
+        data_root: Root data directory (if None, uses PROTOS_DATA_ROOT)
         
     Returns:
         Matplotlib figure object
     """
     # Load the GRN table
-    df = pd.read_csv(grn_table_path, index_col=0)
+    if use_processor:
+        # Use GRNBaseProcessor
+        if data_root is None:
+            data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
+        
+        processor = GRNBaseProcessor(
+            name='visualize_grn_dist',
+            data_root=data_root,
+            processor_data_dir='grn',
+            dataset=grn_table_path,
+            preload=True,
+            normalize_formats=normalize_formats
+        )
+        df = processor.data
+    else:
+        # Load directly from file
+        df = pd.read_csv(grn_table_path, index_col=0)
     
     # Normalize column names if requested
     if normalize_formats:
         df.columns = [normalize_grn_format(col) for col in df.columns]
     
-    # Sort columns by GRN order
-    df = df.loc[:, sort_grns(df.columns.tolist())]
+    # Sort columns by GRN order - handle function name difference
+    try:
+        from protos.processing.grn.grn_utils import sort_grns_str
+        sorted_cols = sort_grns_str(df.columns.tolist())
+        df = df.loc[:, sorted_cols]
+    except ImportError:
+        # Use the sort_grns function from grn_utils_updated
+        sorted_cols = sort_grns(df.columns.tolist())
+        # Convert float values back to column names
+        col_to_float = {col: parse_grn_str2float(col) for col in df.columns}
+        float_to_col = {v: k for k, v in col_to_float.items()}
+        sorted_floats = sort_grns([col_to_float[col] for col in df.columns])
+        sorted_cols = [float_to_col[f] for f in sorted_floats]
+        df = df.loc[:, sorted_cols]
     
     # Filter GRNs if specified
     if grn_subset:
@@ -365,9 +445,26 @@ def visualize_grn_distribution(
 
 def main():
     """Main function when run as script."""
-    parser = argparse.ArgumentParser(description='Visualize GRN assignments')
+    parser = argparse.ArgumentParser(
+        description='Visualize GRN assignments',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Visualize GRN table as heatmap using dataset ID
+  python -m protos.cli.grn.visualize_grn -t ref/mo_ref -o grn_heatmap.png
+  
+  # Visualize with file path
+  python -m protos.cli.grn.visualize_grn -t grn_table.csv -o heatmap.png --use-file
+  
+  # Show distribution of amino acids at GRN positions
+  python -m protos.cli.grn.visualize_grn -t ref_table -o distribution.png -v distribution
+  
+  # Filter specific GRNs and proteins
+  python -m protos.cli.grn.visualize_grn -t my_table -o filtered.png -g 3.50,7.50 -p BR,1UAZ
+        """
+    )
     parser.add_argument('-t', '--table', required=True, 
-                        help='Path to GRN table CSV file')
+                        help='Dataset ID (or file path if --use-file)')
     parser.add_argument('-o', '--output', required=True,
                         help='Path to save visualization')
     parser.add_argument('-v', '--vis_type', default='heatmap',
@@ -381,8 +478,16 @@ def main():
                         help='Plot title')
     parser.add_argument('--dpi', type=int, default=300,
                         help='DPI for saved figure')
+    parser.add_argument('--use-file', action='store_true',
+                        help='Treat table argument as file path instead of dataset ID')
+    parser.add_argument('--data-root', type=str, default=None,
+                        help='Root data directory (default: uses PROTOS_DATA_ROOT env var)')
     
     args = parser.parse_args()
+    
+    # Set environment variable if data root provided
+    if args.data_root:
+        os.environ['PROTOS_DATA_ROOT'] = os.path.abspath(args.data_root)
     
     # Parse GRNs and proteins if provided
     grn_subset = args.grns.split(',') if args.grns else None
@@ -399,7 +504,9 @@ def main():
             grn_subset=grn_subset,
             output_path=args.output,
             title=title,
-            dpi=args.dpi
+            dpi=args.dpi,
+            use_processor=not args.use_file,
+            data_root=args.data_root
         )
     elif args.vis_type == 'distribution':
         visualize_grn_distribution(
@@ -407,7 +514,9 @@ def main():
             grn_subset=grn_subset,
             output_path=args.output,
             title=title,
-            dpi=args.dpi
+            dpi=args.dpi,
+            use_processor=not args.use_file,
+            data_root=args.data_root
         )
     
     print(f"Visualization saved to {args.output}")

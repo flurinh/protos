@@ -26,6 +26,7 @@ Requires-Dist: networkx>=2.7.0
 Requires-Dist: python-dotenv>=0.20.0
 Requires-Dist: gemmi>=0.5.5
 Requires-Dist: seaborn>=0.11.2
+Requires-Dist: openpyxl>=3.1.5
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -38,9 +39,13 @@ Dynamic: summary
 
 # Protos Overview
 
+
+![Protos-MCP](resources/logo.png)
+
+
 ## What is Protos?
 
-Protos is a Python library designed to **standardize and execute complex computational workflows** essential for structural biology research. It provides integrated capabilities for handling diverse biological data types â€“ including sequences, 3D structures, alignments, and associated properties â€“ through a unified framework.
+Protos is a Python library designed to **standardize and execute complex computational workflows** essential for structural biology research. It provides integrated capabilities for handling diverse biological data types – including sequences, 3D structures, alignments, and associated properties – through a unified framework.
 
 The core function of Protos is to manage multi-step analyses by breaking them down into defined tasks handled by modular components.
 
@@ -254,7 +259,7 @@ for pdb_id in pdb_ids:
 # Rank and output results
 ranked_results = sorted(results.items(), key=lambda x: x[1]['avg_distance'])
 for pdb_id, result in ranked_results:
-    print(f"{pdb_id}: Avg distance = {result['avg_distance']:.2f}Ã…, Pocket size = {result['pocket_size']}")
+    print(f"{pdb_id}: Avg distance = {result['avg_distance']:.2f}Å, Pocket size = {result['pocket_size']}")
 ```
 
 This example demonstrates important production practices:
@@ -479,7 +484,7 @@ for pdb_id, data in processed_structures.items():
 
 print(f"\nAnalyzed {len(stats)} structures")
 for pdb_id, stat in list(stats.items())[:3]:  # Show top 3 examples
-    print(f"{pdb_id}: {stat['residue_count']} residues, Rg = {stat['radius_of_gyration']:.2f}Ã…")
+    print(f"{pdb_id}: {stat['residue_count']} residues, Rg = {stat['radius_of_gyration']:.2f}Å")
 
 # Final results
 results = {
@@ -581,7 +586,7 @@ These improvements would make Protos suitable for MCP integration by providing a
 
 ### Prerequisites
 
-- **Python**: Protos requires Python 3.9 or later.
+- **Python**: Protos requires Python 3.10 or later.
 - **Package Manager**: pip (or optionally conda) for installing Python packages.
 
 ### Standard Installation (Development)
@@ -599,7 +604,7 @@ pip install -e .
 Protos relies on environment variables for path configuration:
 
 ```bash
-# Essential configuration for reliable path resolution
+# !deprecated: Essential configuration for reliable path resolution
 export PROTOS_DATA_ROOT=/path/to/your/data
 export PROTOS_REF_DATA_ROOT=/path/to/your/data
 ```
@@ -610,5 +615,5 @@ Protos integrates with several external bioinformatics tools:
 
 - **MMseqs2**: For sequence searching and clustering
 - **GTalign**: For GPU-accelerated protein structure alignment
-
+- **Boltz-2**: For protein structure prediction
 These tools need to be installed separately and made available in your system PATH.

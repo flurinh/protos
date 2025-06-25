@@ -1,0 +1,50 @@
+# MOGRN EXECUTION & SETUP PROCEDURES
+
+## =� SESSION INITIALIZATION
+
+### 1. Environment Setup
+```bash
+source /home/hidberf/miniconda/etc/profile.d/conda.sh && conda activate mogrn
+
+# Verify Protos is installed
+python -c "import protos; print('Protos version:', protos.__version__)"
+
+# Check required directories exist
+ls -la property/
+ls -la structures/
+```
+
+### 2. Data Path Verification
+```bash
+# Check property files
+ls -la property/mo_exp.csv
+ls -la property/helices.json
+
+# Check structure directories
+ls -la structures/hideaki_exp/
+ls -la structures/hideaki_pred/
+ls -la structures/mo_pred/
+
+# Count available structures
+find structures/ -name "*.cif" | wc -l
+```
+
+### 3. Protos Path Configuration
+**CRITICAL**: Always explicitly set Protos paths to avoid resolution bugs:
+```python
+import os
+from pathlib import Path
+from protos.io.paths.path_config import ProtosPaths
+
+# Set environment variables
+data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/MOGRN")
+os.environ["PROTOS_DATA_ROOT"] = str(data_dir.absolute())
+os.environ["PROTOS_REF_DATA_ROOT"] = str(data_dir.absolute())
+
+# Initialize paths
+paths = ProtosPaths(
+    user_data_root=str(data_dir.absolute()),
+    ref_data_root=str(data_dir.absolute()),
+    create_dirs=True
+)
+```

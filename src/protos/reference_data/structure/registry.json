@@ -95,5 +95,75 @@
       "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\opsin_demo.json",
       "type": "json"
     }
-  ]
+  ],
+  "structure/1uaz": {
+    "type": "structure",
+    "atom_count": 3654,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-06-25T23:06:16.641572",
+    "directory": "structures"
+  },
+  "structure/3ddl": {
+    "type": "structure",
+    "atom_count": 4417,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-06-25T23:06:16.793802",
+    "directory": "structures"
+  },
+  "structure/4pxk": {
+    "type": "structure",
+    "atom_count": 2044,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-06-25T23:06:16.899969",
+    "directory": "structures"
+  },
+  "test_mo_with_grn": {
+    "format": "pkl",
+    "rows": 10115,
+    "columns": [
+      "pdb_id",
+      "group",
+      "auth_chain_id",
+      "gen_chain_id",
+      "auth_seq_id",
+      "gen_seq_id",
+      "res_name3l",
+      "res_name1l",
+      "phi",
+      "omega",
+      "psi",
+      "atom_id",
+      "res_atom_name",
+      "atom_name",
+      "x",
+      "y",
+      "z",
+      "grn"
+    ],
+    "saved_at": "2025-06-25T23:06:19.929707",
+    "processor_type": "structure",
+    "last_updated": "2025-06-25T23:06:19.929726",
+    "directory": "structure",
+    "filename": "datasets/test_mo_with_grn.pkl"
+  },
+  "structure/test_mo_with_grn": {
+    "type": "structure",
+    "saved_at": "2025-06-25T23:06:19.953698",
+    "atom_count": 10115,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "format": "pkl",
+    "last_updated": "2025-06-25T23:06:19.954032",
+    "directory": "structures"
+  }
 }

@@ -1,0 +1,36 @@
+[2025-06-25 15:28] [CREATE] /tests/test_processors/test_grn/test_grn_base_processor.py - Comprehensive GRN processor tests with actual table format
+[2025-06-25 15:40] [CREATE] /tests/test_processors/test_grn/test_grn_advanced_features.py - Comprehensive advanced GRN tests for sorting, filtering, sequences, intervals, parsing, utilities
+[2025-06-25 15:54] [CREATE] /src/protos/reference_data/grn/ref/curated_grn.csv - Copied curated GRN reference table
+[2025-06-25 15:55] [CREATE] /docs/GRN_ASSIGNMENT_WORKFLOW.md - Comprehensive GRN assignment workflow documentation
+[2025-06-25 15:58] [CREATE] /tests/test_processors/test_grn/test_grn_assignment.py - Comprehensive GRN assignment tests
+[2025-06-25 16:04] [MODIFY] /tests/test_processors/test_grn/test_grn_assignment.py - Fixed import issues and test assertions
+[2025-06-25 16:06] [MODIFY] /tests/test_processors/test_grn/test_grn_base_processor.py - Fixed test assertions for filter, merge, and NA handling
+[2025-06-25 16:17] [CREATE] /tests/test_processors/test_grn/test_grn_assignment_real_data.py - Real data tests for GRN assignment
+[2025-06-25 16:18] [MODIFY] /docs/GRN_ASSIGNMENT_WORKFLOW.md - Added detailed steps and error detection methods
+[2025-06-25 16:21] [CREATE] /docs/GRN_TESTING_SUMMARY.md - Summary of GRN testing accomplishments
+[2025-06-25 17:45] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/examples/grn_alignment_debug.py - Detailed GRN alignment debug script
+[2025-06-25 17:49] [CREATE] /docs/GRN_MISSING_FUNCTIONS.md - Analysis of missing GRN assignment functions
+[2025-06-25 17:49] [CREATE] /examples/grn_complete_workflow.py - Complete GRN assignment workflow demonstration
+[2025-06-25 17:54] [MODIFY] /src/protos/processing/grn/grn_assignment.py - Added all missing functions from deprecated version
+[2025-06-25 18:06] [MODIFY] /src/protos/processing/grn/grn_table_utils.py - Fixed expand_annotation to properly call get_correctly_aligned_grns
+[2025-06-25 21:36] [START] Working on sequence processor tests - reviewing functionalities and setting up comprehensive tests
+[2025-06-25 21:39] [CREATE] /src/protos/processing/sequence/seq_processor.py - Created SeqProcessor class for sequence data management
+[2025-06-25 21:54] [CREATE] /tests/test_processors/test_grn_structure_integration.py - Comprehensive integration test for GRN-Structure processor interaction
+[2025-06-25 21:58] [CREATE] /examples/grn_structure_integration_demo.py - Practical demo of GRN-Structure processor integration workflow
+[2025-06-25 22:07] [MODIFY] /src/protos/processing/structure/struct_base_processor.py - Added get_seq_dict, get_grn_dict, and assign_grns methods to CifBaseProcessor
+[2025-06-25 22:09] [CREATE] /examples/test_cifbase_grn_methods.py - Test script for new CifBaseProcessor GRN methods
+[2025-06-25 22:10] [CREATE] /tests/test_processors/test_struct_grn_methods.py - Unit tests for CifBaseProcessor GRN integration methods
+[2025-06-25 22:16] [CREATE] /examples/test_grn_struct_step_by_step.py - Step-by-step test of GRN-Structure integration functionality
+[2025-06-25 22:19] [CREATE] /tests/test_processors/test_cifbase_grn_integration.py - Unit tests for CifBaseProcessor GRN integration without problematic imports
+[2025-06-25 22:21] [CREATE] /docs/GRN_STRUCTURE_INTEGRATION.md - Comprehensive guide for GRN-Structure integration features
+[2025-06-25 22:28] [MODIFY] /src/protos/processing/structure/struct_base_processor.py - Fixed import issue in assign_grns method, removed non-existent GRNAssignment import
+[2025-06-25 22:31] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/TEST_PLAN.md - Updated with issues found in GRN-CifBase integration testing
+[2025-06-25 22:38] [MODIFY] /src/protos/processing/structure/struct_base_processor.py - Fixed GRN reference table loading to use ref/ subdirectory path and corrected grn_table references to data
+[2025-06-25 22:40] [MODIFY] /examples/test_grn_struct_step_by_step.py - Modified to load real microbial opsin structures instead of using fake test data
+[2025-06-25 22:41] [MODIFY] /src/protos/processing/structure/struct_base_processor.py - Fixed column name compatibility for res_name3l vs auth_comp_id in get_seq_dict and get_grn_dict methods
+[2025-06-25 22:46] [MODIFY] /src/protos/processing/structure/struct_base_processor.py - Fixed sequence extraction to get unique residues only and fixed data_dirs attribute error
+[2025-06-25 22:48] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/TEST_PLAN.md - Updated to reflect successful completion of Structure-GRN integration workflow
+[2025-06-25 22:59] [MODIFY] /claude/todo.txt - Added new critical tasks for real data testing and CLI updates
+[2025-06-25 22:59] [MODIFY] /TEST_PLAN.md - Added Phase 4 for real data validation and CLI updates
+[2025-06-25 23:05] [CREATE] /tests/test_processors/test_grn/test_grn_base_processor_real_data.py - Real data tests for GRN base processor
+[2025-06-25 23:09] [CREATE] /tests/test_processors/test_grn/test_grn_processor_with_real_data.py - GRN processor tests with real data that work with current system

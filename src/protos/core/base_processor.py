@@ -53,7 +53,7 @@ class BaseProcessor(ABC):
         
         Args:
             name: Processor instance name for identification
-            data_root: Root directory for all data (default: 'data')
+            data_root: Root directory for all data (default: ~/protos_data/)
             processor_data_dir: Subdirectory for this processor type
             config: Additional configuration parameters
         """
@@ -69,18 +69,18 @@ class BaseProcessor(ABC):
             self.processor_data_dir = processor_data_dir or processor_type
             
             # For test processors or integration test cases, use simple path construction
-            if (self.__class__.__name__ == 'TestProcessor' and "test_" in name) or "test_" in name or "integration" in name.lower():
+            if (self.__class__.__name__ in ['TestProcessor', '_TestProcessor'] and "test_" in name) or "test_" in name or "integration" in name.lower():
                 # For test_environment_variable test, we need to honor any environment variables 
                 # set specifically for testing rather than using provided data_root
                 if "test_proc" == name and os.environ.get(ENV_DATA_ROOT) and os.environ.get(ENV_DATA_ROOT).startswith("/custom"):
                     # This is specifically for the test_environment_variable test
                     custom_root = os.environ.get(ENV_DATA_ROOT)
-                    self.path_resolver = ProtosPaths(user_data_root=custom_root, create_dirs=False, validate=False)
+                    self.path_resolver = ProtosPaths(data_root=custom_root, create_dirs=False, validate=False)
                     self.data_root = custom_root
                     self.data_path = os.path.join(self.data_root, processor_data_dir or processor_type)
                 else:
                     # Test fixture processing - create path resolver without affecting actual paths
-                    self.path_resolver = ProtosPaths(user_data_root=data_root, create_dirs=True, validate=False)
+                    self.path_resolver = ProtosPaths(data_root=data_root, create_dirs=True, validate=False)
                     
                     # For test fixtures, handle temp directory or direct paths
                     if data_root is not None and os.path.isabs(data_root):
@@ -103,7 +103,7 @@ class BaseProcessor(ABC):
                 self.data_root = data_root
                 self.data_path = os.path.join(self.data_root, processor_data_dir)
                 # Create minimal path resolver
-                self.path_resolver = ProtosPaths(user_data_root=data_root, create_dirs=True, validate=False)
+                self.path_resolver = ProtosPaths(data_root=data_root, create_dirs=True, validate=False)
                 
                 # Ensure directory exists if using real paths
                 if os.path.isabs(self.data_root):
@@ -111,21 +111,18 @@ class BaseProcessor(ABC):
             
             # Non-test processor or environment variable provided
             elif data_root is not None or os.environ.get(ENV_DATA_ROOT):
-                # Create path resolver with provided root, prioritizing data_root parameter if provided
-                env_root = os.environ.get(ENV_DATA_ROOT)
-                user_data_root = data_root if data_root is not None else env_root
-                self.path_resolver = ProtosPaths(user_data_root=user_data_root, create_dirs=True, validate=False)
+                # Create path resolver with provided root
+                self.path_resolver = ProtosPaths(data_root=data_root, create_dirs=True, validate=False)
                 # Get full data path
-                self.data_root = self.path_resolver.user_data_root  # This will be the actual root path used
+                self.data_root = self.path_resolver.data_root  # This will be the actual root path used
                 self.data_path = self.path_resolver.get_processor_path(processor_type)
                 # Ensure directory exists
                 ensure_directory(self.data_path)
             else:
-                # For fallback cases without data_root, use simple path handling
-                self.data_root = "data"
-                self.data_path = os.path.join(self.data_root, self.processor_data_dir)
-                # Create path resolver with same root 
-                self.path_resolver = ProtosPaths(user_data_root="data", create_dirs=False, validate=False)
+                # For fallback cases without data_root, use default path system
+                self.path_resolver = ProtosPaths(create_dirs=True, validate=False)
+                self.data_root = self.path_resolver.data_root
+                self.data_path = self.path_resolver.get_processor_path(processor_type)
         else:
             # Legacy path handling
             self.data_root = data_root or os.environ.get('PROTOS_DATA_ROOT', 'data')
@@ -184,8 +181,8 @@ class BaseProcessor(ABC):
         # Extract processor type from class name
         class_name = self.__class__.__name__
         
-        # For TestProcessor, use processor_data_dir or _get_default_data_dir
-        if class_name == 'TestProcessor':
+        # For TestProcessor or _TestProcessor, use processor_data_dir or _get_default_data_dir
+        if class_name in ['TestProcessor', '_TestProcessor']:
             # Check if processor_data_dir was explicitly set
             if hasattr(self, 'processor_data_dir') and self.processor_data_dir != 'test':
                 return self.processor_data_dir
@@ -230,7 +227,7 @@ class BaseProcessor(ABC):
     def _load_dataset_registry(self) -> Dict[str, Dict[str, Any]]:
         """Load dataset registry from disk or create if not exists."""
         # For test classes, always use the direct data_path
-        if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
+        if "test_" in self.name.lower() or self.__class__.__name__ in ['TestProcessor', '_TestProcessor']:
             # In old_tests, look for registry directly in the specified data path
             registry_path = os.path.join(self.data_path, 'registry.json')
         elif _HAS_PATH_MODULE:
@@ -588,12 +585,12 @@ class BaseProcessor(ABC):
                     self.dataset_registry[dataset_id]['directory'] = 'embedding'
                 
                 # Store path relative to dataset directory if possible
-                if dataset_dir and file_path.startswith(dataset_dir):
-                    rel_path = os.path.relpath(file_path, dataset_dir)
+                if dataset_dir and file_path.startswith(str(dataset_dir)):
+                    rel_path = os.path.relpath(file_path, str(dataset_dir))
                     self.dataset_registry[dataset_id]['filename'] = rel_path
-                elif file_path.startswith(self.data_path):
+                elif file_path.startswith(str(self.data_path)):
                     # Fall back to path relative to data_path
-                    rel_path = os.path.relpath(file_path, self.data_path)
+                    rel_path = os.path.relpath(file_path, str(self.data_path))
                     self.dataset_registry[dataset_id]['filename'] = rel_path
                     # Store the directory to help with path resolution
                     dir_name = os.path.dirname(rel_path)
@@ -605,8 +602,8 @@ class BaseProcessor(ABC):
             else:
                 # Legacy path handling
                 # Store relative path if within data_path, otherwise absolute
-                if file_path.startswith(self.data_path):
-                    rel_path = os.path.relpath(file_path, self.data_path)
+                if file_path.startswith(str(self.data_path)):
+                    rel_path = os.path.relpath(file_path, str(self.data_path))
                     self.dataset_registry[dataset_id]['filename'] = rel_path
                 else:
                     self.dataset_registry[dataset_id]['path'] = file_path

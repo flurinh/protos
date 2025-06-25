@@ -8,6 +8,13 @@ import os
 from dotenv import load_dotenv
 from typing import Dict
 
+# Import MMseqs2 utilities
+try:
+    from .mmseqs_utils import detect_mmseqs2, get_mmseqs_command, windows_to_wsl_path
+except ImportError:
+    # Fallback if running as script
+    from mmseqs_utils import detect_mmseqs2, get_mmseqs_command, windows_to_wsl_path
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -43,7 +50,7 @@ def format_alignment(alm):
 
 def align_blosum62(a, b, aligner, verbose=0):
     alignments = list(aligner.align(a, b))
-    best_score = 0
+    best_score = float('-inf')  # Start with negative infinity to handle negative scores
     best_alignment = None
     if verbose > 0:
         for alignment in sorted(alignments):
@@ -53,6 +60,9 @@ def align_blosum62(a, b, aligner, verbose=0):
         if alignment.score > best_score:
             best_score = alignment.score
             best_alignment = alignment
+    # If no alignment found, return the first one (even if score is negative)
+    if best_alignment is None and alignments:
+        best_alignment = alignments[0]
     return best_alignment
 
 
@@ -242,29 +252,75 @@ def mmseqs2_align(query_seq, seqs, temp_folder='temp'):
     if not os.path.exists(os.path.join(temp_folder, "mmseqs_tmp")):
         os.makedirs(os.path.join(temp_folder, "mmseqs_tmp"))
 
-    path_mmseqs = os.getenv("MMSEQS_PATH")
+    # Detect MMseqs2
+    path_mmseqs, use_wsl = detect_mmseqs2()
+    
+    if not path_mmseqs:
+        print("MMseqs2 not found. Please install it or set MMSEQS_PATH environment variable.")
+        return None
+    
     write_fasta_file(seqs, os.path.join(temp_folder, 'sequences.fasta'))
 
     with open(os.path.join(temp_folder, 'query.fasta'), 'w') as query_file:
         query_file.write(f'>query\n{query_seq}\n')
 
-    subprocess.run(['wsl', path_mmseqs, 'createdb', f"{temp_folder}/sequences.fasta",
-                    f"{temp_folder}/mmseqs_tmp/sequences_db"])
-    subprocess.run(['wsl', path_mmseqs, 'createdb', f"{temp_folder}/query.fasta",
-                    f"{temp_folder}/mmseqs_tmp/query_db"])
-    subprocess.run(['wsl', path_mmseqs, 'search', f"{temp_folder}/mmseqs_tmp/query_db",
-                    f"{temp_folder}/mmseqs_tmp/sequences_db", f"{temp_folder}/mmseqs_tmp/results",
-                    f"{temp_folder}/mmseqs_tmp"])
-    subprocess.run(['wsl', path_mmseqs, 'convertalis', f"{temp_folder}/mmseqs_tmp/query_db",
-                    f"{temp_folder}/mmseqs_tmp/sequences_db", f"{temp_folder}/mmseqs_tmp/results",
-                    f"{temp_folder}/alignment_results.tsv"])
-    subprocess.run(['wsl', 'rm', '-rf', f"{temp_folder}/mmseqs_tmp"])
+    # use_wsl was already determined above
+    if use_wsl:
+        # Windows user with WSL
+        cmd_prefix = ['wsl']
+    else:
+        # Direct execution (Linux/WSL)
+        cmd_prefix = []
+    
+    try:
+        # Convert paths to WSL format if needed
+        if use_wsl:
+            sequences_fasta = windows_to_wsl_path(os.path.join(temp_folder, 'sequences.fasta'))
+            query_fasta = windows_to_wsl_path(os.path.join(temp_folder, 'query.fasta'))
+            sequences_db = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp', 'sequences_db'))
+            query_db = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp', 'query_db'))
+            results_db = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp', 'results'))
+            tmp_dir = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp'))
+            alignment_tsv = windows_to_wsl_path(os.path.join(temp_folder, 'alignment_results.tsv'))
+        else:
+            sequences_fasta = f"{temp_folder}/sequences.fasta"
+            query_fasta = f"{temp_folder}/query.fasta"
+            sequences_db = f"{temp_folder}/mmseqs_tmp/sequences_db"
+            query_db = f"{temp_folder}/mmseqs_tmp/query_db"
+            results_db = f"{temp_folder}/mmseqs_tmp/results"
+            tmp_dir = f"{temp_folder}/mmseqs_tmp"
+            alignment_tsv = f"{temp_folder}/alignment_results.tsv"
+            
+        subprocess.run(cmd_prefix + [path_mmseqs, 'createdb', sequences_fasta,
+                        sequences_db], check=True)
+        subprocess.run(cmd_prefix + [path_mmseqs, 'createdb', query_fasta,
+                        query_db], check=True)
+        subprocess.run(cmd_prefix + [path_mmseqs, 'search', query_db,
+                        sequences_db, results_db,
+                        tmp_dir], check=True)
+        subprocess.run(cmd_prefix + [path_mmseqs, 'convertalis', query_db,
+                        sequences_db, results_db,
+                        alignment_tsv], check=True)
+        
+        # Clean up
+        if use_wsl:
+            subprocess.run(['wsl', 'rm', '-rf', tmp_dir])
+        else:
+            import shutil
+            shutil.rmtree(os.path.join(temp_folder, "mmseqs_tmp"))
 
-    # Load the first round alignment results into a dataframe
-    alignment_df = load_alignment_file(os.path.join(temp_folder, 'alignment_results.tsv'))
-    os.remove(os.path.join(temp_folder, 'alignment_results.tsv'))
+        # Load the first round alignment results into a dataframe
+        alignment_df = load_alignment_file(os.path.join(temp_folder, 'alignment_results.tsv'))
+        os.remove(os.path.join(temp_folder, 'alignment_results.tsv'))
 
-    return alignment_df
+        return alignment_df
+        
+    except subprocess.CalledProcessError as e:
+        print(f"MMseqs2 error: {e}")
+        return None
+    except Exception as e:
+        print(f"Error running MMseqs2: {e}")
+        return None
 
 
 def mmseqs2_align2(query_seqs: Dict[str, str], ref_seqs: Dict[str, str], temp_folder: str = 'temp'):
@@ -278,28 +334,71 @@ def mmseqs2_align2(query_seqs: Dict[str, str], ref_seqs: Dict[str, str], temp_fo
     if not os.path.exists(os.path.join(temp_folder, "mmseqs_tmp")):
         os.makedirs(os.path.join(temp_folder, "mmseqs_tmp"))
 
-    # path_mmseqs = "~/MMseqs2/build/bin/mmseqs"
-    path_mmseqs = os.getenv("MMSEQS_PATH")
+    # Detect MMseqs2
+    path_mmseqs, use_wsl = detect_mmseqs2()
+    
+    if not path_mmseqs:
+        print("MMseqs2 not found. Please install it or set MMSEQS_PATH environment variable.")
+        return None
+    
     write_fasta_file(ref_seqs, os.path.join(temp_folder, 'ref_seqs.fasta'))
     write_fasta_file(query_seqs, os.path.join(temp_folder, 'query_seqs.fasta'))
 
-    subprocess.run(['wsl', path_mmseqs, 'createdb', f"{temp_folder}/ref_seqs.fasta",
-                    f"{temp_folder}/mmseqs_tmp/sequences_db"])
-    subprocess.run(['wsl', path_mmseqs, 'createdb', f"{temp_folder}/query_seqs.fasta",
-                    f"{temp_folder}/mmseqs_tmp/query_db"])
-    subprocess.run(['wsl', path_mmseqs, 'search', f"{temp_folder}/mmseqs_tmp/query_db",
-                    f"{temp_folder}/mmseqs_tmp/sequences_db", f"{temp_folder}/mmseqs_tmp/results",
-                    f"{temp_folder}/mmseqs_tmp"])
-    subprocess.run(['wsl', path_mmseqs, 'convertalis', f"{temp_folder}/mmseqs_tmp/query_db",
-                    f"{temp_folder}/mmseqs_tmp/sequences_db", f"{temp_folder}/mmseqs_tmp/results",
-                    f"{temp_folder}/alignment_results.tsv"])
-    subprocess.run(['wsl', 'rm', '-rf', f"{temp_folder}/mmseqs_tmp"])
+    # Set command prefix based on WSL usage
+    if use_wsl:
+        cmd_prefix = ['wsl']
+    else:
+        cmd_prefix = []
 
-    # Load the first round alignment results into a dataframe
-    alignment_df = load_alignment_file(os.path.join(temp_folder, 'alignment_results.tsv'))
-    os.remove(os.path.join(temp_folder, 'alignment_results.tsv'))
+    try:
+        # Convert paths to WSL format if needed
+        if use_wsl:
+            ref_fasta = windows_to_wsl_path(os.path.join(temp_folder, 'ref_seqs.fasta'))
+            query_fasta = windows_to_wsl_path(os.path.join(temp_folder, 'query_seqs.fasta'))
+            sequences_db = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp', 'sequences_db'))
+            query_db = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp', 'query_db'))
+            results_db = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp', 'results'))
+            tmp_dir = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp'))
+            alignment_tsv = windows_to_wsl_path(os.path.join(temp_folder, 'alignment_results.tsv'))
+        else:
+            ref_fasta = f"{temp_folder}/ref_seqs.fasta"
+            query_fasta = f"{temp_folder}/query_seqs.fasta"
+            sequences_db = f"{temp_folder}/mmseqs_tmp/sequences_db"
+            query_db = f"{temp_folder}/mmseqs_tmp/query_db"
+            results_db = f"{temp_folder}/mmseqs_tmp/results"
+            tmp_dir = f"{temp_folder}/mmseqs_tmp"
+            alignment_tsv = f"{temp_folder}/alignment_results.tsv"
+            
+        subprocess.run(cmd_prefix + [path_mmseqs, 'createdb', ref_fasta,
+                        sequences_db], check=True)
+        subprocess.run(cmd_prefix + [path_mmseqs, 'createdb', query_fasta,
+                        query_db], check=True)
+        subprocess.run(cmd_prefix + [path_mmseqs, 'search', query_db,
+                        sequences_db, results_db,
+                        tmp_dir], check=True)
+        subprocess.run(cmd_prefix + [path_mmseqs, 'convertalis', query_db,
+                        sequences_db, results_db,
+                        alignment_tsv], check=True)
+        
+        # Clean up
+        if use_wsl:
+            subprocess.run(['wsl', 'rm', '-rf', tmp_dir])
+        else:
+            import shutil
+            shutil.rmtree(os.path.join(temp_folder, "mmseqs_tmp"))
 
-    return alignment_df
+        # Load the first round alignment results into a dataframe
+        alignment_df = load_alignment_file(os.path.join(temp_folder, 'alignment_results.tsv'))
+        os.remove(os.path.join(temp_folder, 'alignment_results.tsv'))
+
+        return alignment_df
+        
+    except subprocess.CalledProcessError as e:
+        print(f"MMseqs2 error: {e}")
+        return None
+    except Exception as e:
+        print(f"Error running MMseqs2: {e}")
+        return None
 
 
 def clean_pdb_seq(sequence):

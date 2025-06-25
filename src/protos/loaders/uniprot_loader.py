@@ -1,7 +1,7 @@
 from protos.io.fasta_utils import validate_fasta_format as validate_fasta_content, read_fasta, write_fasta
 from protos.io.file_utils import get_filenames
 from protos.loaders.uniprot_utils import *
-from protos.io.paths.path_config import ProtosPaths, DataSource, join_path
+from protos.io.paths.path_config import ProtosPaths, join_path
 
 import re
 import os
@@ -67,9 +67,9 @@ class UniprotDL:
         self.dataset = dataset
         
         # Get standard directories from ProtosPaths
-        self.sequence_dir = self.paths.get_processor_path('sequence', source=DataSource.USER)
-        self.fasta_dir = self.paths.get_sequence_subdir_path('fasta_dir', source=DataSource.USER)
-        self.metadata_dir = self.paths.get_sequence_subdir_path('metadata_dir', source=DataSource.USER)
+        self.sequence_dir = self.paths.get_processor_path('sequence')
+        self.fasta_dir = self.paths.get_sequence_subdir_path('fasta_dir')
+        self.metadata_dir = self.paths.get_sequence_subdir_path('metadata_dir')
         
         # Set specific paths for files
         self.dataset_file = join_path(self.metadata_dir, f"{dataset}.txt")

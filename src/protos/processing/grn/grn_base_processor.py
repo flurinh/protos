@@ -235,6 +235,12 @@ class GRNBaseProcessor(BaseProcessor):
             **kwargs
         )
         
+        # Handle case where load_data returns a file path instead of data
+        if isinstance(df, str):
+            self.logger.debug(f"load_data returned path: {df}, loading directly")
+            import pandas as pd
+            df = pd.read_csv(df, index_col=0, low_memory=low_memory, **kwargs)
+        
         # Process the loaded DataFrame to ensure it has the right format
         # Handle case where the protein_id column is present
         if "protein_id" in df.columns:

@@ -1,0 +1,188 @@
+<!-- MOGRN PROJECT TASK TREE -->
+
+<!-- COMPLETION RULES -->
+<!-- 
+1. Mark task "in_progress" when starting work
+2. Complete all subtasks before marking parent complete
+3. If blocked, add reason in description
+4. When completing a task, check if parent can be completed
+5. Always update this file when task status changes
+-->
+
+<!-- TASK BREAKDOWN GUIDELINES -->
+<!--
+Complex tasks should be broken down when:
+- Task requires multiple distinct operations
+- Task spans multiple files or modules  
+- Task has dependencies on other components
+- Task can be parallelized into independent subtasks
+
+Atomic tasks (no breakdown needed):
+- Single file edits
+- Simple function implementations
+- Configuration changes
+- Documentation updates
+-->
+
+<!-- PROJECT TASKS -->
+
+<task id="grn-struct-testing" status="in_progress" priority="critical">
+  <description>Ensure GRN processor, struct processor and their integration work seamlessly with real data</description>
+  <subtasks>
+    <task id="grn-struct-testing.1" status="pending" priority="critical">
+      <description>Review and fix all GRN processor tests to use real data</description>
+      <subtasks>
+        <task id="grn-struct-testing.1.1" status="pending" priority="high">
+          <description>Check tests in tests/test_processors/test_grn/ for mocked data</description>
+        </task>
+        <task id="grn-struct-testing.1.2" status="pending" priority="high">
+          <description>Replace mocked data with real reference data</description>
+        </task>
+        <task id="grn-struct-testing.1.3" status="pending" priority="high">
+          <description>Ensure all GRN processor tests pass</description>
+        </task>
+      </subtasks>
+    </task>
+    <task id="grn-struct-testing.2" status="pending" priority="critical">
+      <description>Review and fix all struct processor tests to use real data</description>
+      <subtasks>
+        <task id="grn-struct-testing.2.1" status="pending" priority="high">
+          <description>Check CifBaseProcessor tests for mocked data</description>
+        </task>
+        <task id="grn-struct-testing.2.2" status="pending" priority="high">
+          <description>Replace mocked structures with real CIF files</description>
+        </task>
+        <task id="grn-struct-testing.2.3" status="pending" priority="high">
+          <description>Fix load_structure method signature issue</description>
+        </task>
+      </subtasks>
+    </task>
+    <task id="grn-struct-testing.3" status="pending" priority="critical">
+      <description>Verify GRN-Structure integration tests with real data</description>
+      <subtasks>
+        <task id="grn-struct-testing.3.1" status="pending" priority="high">
+          <description>Run test_grn_struct_step_by_step.py and fix any issues</description>
+        </task>
+        <task id="grn-struct-testing.3.2" status="pending" priority="high">
+          <description>Ensure all integration tests use real microbial opsin data</description>
+        </task>
+        <task id="grn-struct-testing.3.3" status="pending" priority="high">
+          <description>Verify data source paths (reference_data, test-data, data/)</description>
+        </task>
+      </subtasks>
+    </task>
+  </subtasks>
+</task>
+
+<task id="cli-grn-update" status="pending" priority="critical">
+  <description>Update deprecated CLI functionalities for GRN operations</description>
+  <subtasks>
+    <task id="cli-grn-update.1" status="pending" priority="high">
+      <description>Review all GRN CLI scripts in src/protos/cli/grn/</description>
+    </task>
+    <task id="cli-grn-update.2" status="pending" priority="high">
+      <description>Update assign_grns.py to work with current GRN system</description>
+    </task>
+    <task id="cli-grn-update.3" status="pending" priority="high">
+      <description>Update clean_grn_table.py for current table format</description>
+    </task>
+    <task id="cli-grn-update.4" status="pending" priority="high">
+      <description>Update diagnose_grn.py for troubleshooting</description>
+    </task>
+    <task id="cli-grn-update.5" status="pending" priority="high">
+      <description>Update expand_annotation.py for GRN expansion</description>
+    </task>
+    <task id="cli-grn-update.6" status="pending" priority="high">
+      <description>Update visualize_grn.py for GRN visualization</description>
+    </task>
+    <task id="cli-grn-update.7" status="pending" priority="high">
+      <description>Ensure all CLI scripts use proper data/ directory for production</description>
+    </task>
+  </subtasks>
+</task>
+
+<task id="grn-assignment" status="completed" priority="critical">
+  <description>Implement and test GRN assignment system for sequences</description>
+  <subtasks>
+    <task id="grn-assignment.1" status="completed" priority="high">
+      <description>Review and document GRN file architecture</description>
+      <subtasks>
+        <task id="grn-assignment.1.1" status="completed" priority="high">
+          <description>Document ref/ folder structure for reference GRN tables</description>
+        </task>
+        <task id="grn-assignment.1.2" status="completed" priority="high">
+          <description>Document tables/ folder for assigned GRN outputs</description>
+        </task>
+        <task id="grn-assignment.1.3" status="completed" priority="high">
+          <description>Document configs/ folder for secondary structure boundaries</description>
+        </task>
+        <task id="grn-assignment.1.4" status="completed" priority="high">
+          <description>Copy curated_grn.csv to appropriate reference location</description>
+        </task>
+      </subtasks>
+    </task>
+    <task id="grn-assignment.2" status="completed" priority="critical">
+      <description>Analyze and document GRN assignment functionality</description>
+      <subtasks>
+        <task id="grn-assignment.2.1" status="completed" priority="high">
+          <description>Trace assignment workflow from FASTA input to GRN table output</description>
+        </task>
+        <task id="grn-assignment.2.2" status="completed" priority="high">
+          <description>Document sequence alignment process to reference</description>
+        </task>
+        <task id="grn-assignment.2.3" status="completed" priority="high">
+          <description>Document GRN number transfer algorithm</description>
+        </task>
+        <task id="grn-assignment.2.4" status="completed" priority="high">
+          <description>Document handling of gaps, insertions, and boundary constraints</description>
+        </task>
+      </subtasks>
+    </task>
+    <task id="grn-assignment.3" status="completed" priority="high">
+      <description>Create comprehensive tests for GRN assignment</description>
+      <subtasks>
+        <task id="grn-assignment.3.1" status="completed" priority="high">
+          <description>Test single sequence FASTA assignment</description>
+        </task>
+        <task id="grn-assignment.3.2" status="completed" priority="high">
+          <description>Test multi-sequence FASTA assignment</description>
+        </task>
+        <task id="grn-assignment.3.3" status="completed" priority="high">
+          <description>Test different protein families (GPCR, microbial opsins)</description>
+        </task>
+        <task id="grn-assignment.3.4" status="completed" priority="high">
+          <description>Test strict vs standard boundary constraints</description>
+        </task>
+      </subtasks>
+    </task>
+    <task id="grn-assignment.4" status="completed" priority="high">
+      <description>Create detailed documentation</description>
+      <subtasks>
+        <task id="grn-assignment.4.1" status="completed" priority="high">
+          <description>Write GRN assignment workflow documentation</description>
+        </task>
+        <task id="grn-assignment.4.2" status="completed" priority="high">
+          <description>Create step-by-step algorithm documentation</description>
+        </task>
+        <task id="grn-assignment.4.3" status="completed" priority="high">
+          <description>Add real sequence examples and use cases</description>
+        </task>
+      </subtasks>
+    </task>
+  </subtasks>
+</task>
+
+<task id="testing-migration" status="pending" priority="medium">
+  <description>Migrate remaining tests from old_tests directory</description>
+  <subtasks>
+    <task id="testing-migration.1" status="pending" priority="medium">
+      <description>Migrate PropertyProcessor tests</description>
+    </task>
+    <task id="testing-migration.2" status="pending" priority="medium">
+      <description>Migrate sequence processing tests</description>
+    </task>
+    <task id="testing-migration.3" status="pending" priority="medium">
+      <description>Migrate integration tests</description>
+    </task>
+  </subtasks>
+</task>

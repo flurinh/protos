@@ -2,124 +2,150 @@
 
 ## Overview
 
-Protos organizes data in a hierarchical directory structure to ensure consistent file organization across different data types and processor modules. The path structure is designed to separate reference data (distributed with the package) from user data (created at runtime).
-
-## Data Sources
-
-Protos recognizes two distinct data sources:
-
-1. **Reference Data**: Read-only data distributed with the package, containing essential reference files and default datasets
-2. **User Data**: Read-write data created during runtime, containing user-specific datasets and analysis results
+Protos organizes data in a hierarchical directory structure within a single data directory. This unified approach ensures consistent file organization across different data types and processor modules while simplifying data management.
 
 ## Directory Structure
 
-Both reference and user data follow the same basic directory structure:
+The standard Protos data directory structure:
 
 ```
-data_root/
-├── structure/               # Structure-related data
-│   ├── mmcif/               # mmCIF structure files
-│   ├── alignments/          # Structure alignment results
-│   ├── structure_dataset/   # Structure dataset files
-│   └── temp_cif/            # Temporary structure files
-├── grn/                     # GRN-related data
-│   ├── tables/              # GRN tables
-│   ├── grn/                 # GRN definitions
-│   ├── configs/             # GRN configuration files
-│   └── assignments/         # GRN assignment results
-├── sequence/                # Sequence-related data
-│   ├── fasta/               # FASTA sequence files
-│   ├── alignments/          # Sequence alignment results
-│   └── metadata/            # Sequence metadata
-├── graph/                   # Graph-related data
-├── property/                # Property-related data
-├── embedding/               # Embedding-related data
-└── global_registry.json     # Global dataset registry (user data only)
+~/protos_data/              # Default location (or $PROTOS_DATA_ROOT)
+├── structure/              # Structure-related data
+│   ├── mmcif/              # PDB/mmCIF structure files
+│   ├── alignments/         # Structure alignment results
+│   ├── structure_dataset/  # Structure dataset definitions
+│   ├── temp_cif/           # Temporary structure files
+│   └── registry.json       # Structure dataset registry
+│
+├── grn/                    # GRN (Generic Residue Numbering) data
+│   ├── ref/                # Reference GRN tables
+│   ├── tables/             # Calculated GRN tables
+│   ├── configs/            # GRN configuration files
+│   ├── assignments/        # GRN assignment results
+│   └── registry.json       # GRN dataset registry
+│
+├── sequence/               # Sequence-related data
+│   ├── fasta/              # FASTA sequence files
+│   ├── alignments/         # Sequence alignment results
+│   ├── metadata/           # Sequence metadata
+│   └── registry.json       # Sequence dataset registry
+│
+├── graph/                  # Graph-related data
+│   └── registry.json
+│
+├── property/               # Property and metadata
+│   └── registry.json
+│
+├── embedding/              # Protein embeddings
+│   └── registry.json
+│
+└── global_registry.json    # Global dataset registry
 ```
 
-Each processor-specific directory also contains a `registry.json` file for tracking datasets associated with that processor.
+Each processor type has its own subdirectory with a local `registry.json` file for backward compatibility. The global registry provides a unified view of all datasets.
 
-## Path Resolution
+## Default Location
 
-### Reference Data Paths
+The data directory is located at:
 
-Reference data is located within the package at:
+1. **Environment Variable**: If `PROTOS_DATA_ROOT` is set, that location is used
+2. **Home Directory**: `~/protos_data/` (default)
+3. **Custom Path**: When explicitly specified during processor initialization
 
-```
-protos/reference_data/
-```
-
-This location is determined during package installation and is normally not directly accessed by users.
-
-### User Data Paths
-
-User data is located at either:
-
-1. The directory specified by the `PROTOS_DATA_ROOT` environment variable
-2. A `data/` directory in the current working directory (default)
+The directory is automatically created when any processor or registry is first used.
 
 ## Registry System
 
-The registry system maps dataset IDs to file paths and metadata:
+The registry system provides a catalog of all datasets:
 
 ### Global Registry
 
-Located at `user_data_root/global_registry.json`, provides a unified view of all datasets (both reference and user).
+Located at `data_root/global_registry.json`, maintains a unified view of all datasets across all processors.
 
 ### Processor Registries
 
-Located at `data_root/processor_type/registry.json`, provides backward compatibility with older code.
+Located at `data_root/processor_type/registry.json`, maintained for backward compatibility.
 
 ### Registry Format
 
 ```json
 {
   "dataset_id": {
-    "path": "/path/to/file",
+    "path": "/home/user/protos_data/structure/mmcif/1abc.cif",
     "metadata": {
       "processor_type": "structure",
       "dataset_type": "cif",
-      "source": "user",
-      "description": "Description of the dataset"
+      "description": "Crystal structure of protein ABC",
+      "resolution": 2.5,
+      "chains": ["A", "B"]
     },
     "timestamp": "2023-01-01T00:00:00"
   }
 }
 ```
 
-## Configuration
+## File Organization Examples
 
-The path structure can be configured through:
+### Structure Files
+```
+~/protos_data/structure/
+├── mmcif/
+│   ├── 1abc.cif        # Individual structure files
+│   ├── 2xyz.cif
+│   └── 3def.cif
+└── structure_dataset/
+    ├── kinases.json    # Dataset definition listing multiple structures
+    └── gpcrs.json
+```
 
-### Environment Variables
+### GRN Data
+```
+~/protos_data/grn/
+├── ref/
+│   ├── gpcr_ref.csv    # Reference GRN table for GPCRs
+│   └── opsin_ref.csv   # Reference table for opsins
+├── tables/
+│   ├── my_proteins.csv # User-generated GRN table
+│   └── project_x.csv
+└── configs/
+    └── config.json     # GRN numbering configuration
+```
 
-- `PROTOS_DATA_ROOT`: Sets the root directory for user data
-- `PROTOS_REF_DATA_ROOT`: Overrides the reference data location (rarely needed)
-
-### Programmatic Configuration
-
-```python
-from protos.io.paths import ProtosPaths, DataSource
-
-# Initialize with custom user data path
-paths = ProtosPaths(
-    user_data_root="/path/to/user/data",
-    ref_data_root=None,  # Defaults to package reference data
-    create_dirs=True,
-    validate=True
-)
-
-# Access paths
-structure_path = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+### Sequence Data
+```
+~/protos_data/sequence/
+├── fasta/
+│   ├── human_proteome.fasta
+│   └── project_sequences.fasta
+└── alignments/
+    ├── family_alignment.aln
+    └── pairwise_results.csv
 ```
 
 ## Best Practices
 
-1. Use the high-level API when possible, which handles path resolution automatically
-2. For writing data, always use user data paths
-3. Use dataset IDs and the registry system instead of hardcoding paths
-4. Use the `GlobalRegistry` to manage datasets across processor types
-5. Prefer relative paths in registry entries to improve portability
-6. Use `pathlib.Path` for cross-platform compatibility
-7. Always check both reference and user data locations when loading files
-8. Let processor classes handle path resolution automatically when possible
+1. **Use processor APIs** - They handle all path resolution automatically
+2. **Organize by type** - Keep files in their appropriate subdirectories
+3. **Use descriptive names** - Make dataset IDs and filenames self-documenting
+4. **Let the system create directories** - They're created automatically as needed
+5. **One data directory** - Everything lives in one place for easy backup and sharing
+6. **Use the registry** - Track datasets through the registry system, not hardcoded paths
+
+## Automatic Directory Creation
+
+Directories are created automatically when needed:
+
+```python
+from protos.processing.structure.struct_base_processor import CifBaseProcessor
+
+# This automatically creates:
+# ~/protos_data/
+# ~/protos_data/structure/
+# ~/protos_data/structure/mmcif/
+# ~/protos_data/structure/alignments/
+# ~/protos_data/structure/structure_dataset/
+# ~/protos_data/global_registry.json
+processor = CifBaseProcessor(name="my_processor")
+```
+
+No manual directory creation is required - the system handles it all.

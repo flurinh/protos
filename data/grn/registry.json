@@ -1,0 +1,11 @@
+{
+  "ref/mo_ref": {
+    "type": "grn_table",
+    "protein_count": 124,
+    "grn_count": 119,
+    "first_grn": "1.44",
+    "last_grn": "7.55",
+    "invalid_grns": [],
+    "last_updated": "2025-06-25T23:55:22.097892"
+  }
+}

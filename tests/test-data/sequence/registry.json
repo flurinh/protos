@@ -1,0 +1,9 @@
+{
+  "test_sequence_1": {
+    "path": "sequence/test_file_1.dat",
+    "metadata": {
+      "processor_type": "sequence",
+      "test": true
+    }
+  }
+}
