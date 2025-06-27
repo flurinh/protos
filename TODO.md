@@ -1,340 +1,287 @@
-# Protos Path System Refactoring TODO
+# PROTOS TODO
 
-## Project Overview
+## 🎯 CORE PHILOSOPHY & CRITICAL PRINCIPLES
 
-The goal is to update Protos to use a single directory approach with centralized path configuration, where:
-- `data/` is the default production data directory
-- `tests/test-data/` is used for all testing
-- Configuration is done once via `ProtosPaths.set_data_root()` rather than passing paths everywhere
+### The Protos Promise
+**Users work with names, never paths. Protos handles ALL file system complexity.**
 
-## Current Status (2025-06-26 22:40)
+### What This Means:
+1. **Complete Abstraction** - Users NEVER see or manipulate file paths
+2. **Name-Based Access** - Everything accessed by biological/dataset names
+3. **Universal Entity IDs** - One protein = one hash ID across all formats
+4. **Transparent Operations** - Load/save/convert without format concerns
+5. **Registry as Truth** - All lookups and discovery through registry
 
-### ✅ Completed Tasks
+### The Golden Rules:
+```python
+# ✅ CORRECT - Users work with names
+processor.load_structure("1ABC")           # PDB ID
+processor.load_sequence("P12345")          # UniProt ID
+processor.load_grn_annotation("BR1_HUMAN") # Sequence name
+processor.save_dataset("my_results", data) # Dataset name
 
-1. **Phase 1: ProtosPaths Class-Level Configuration**
-   - Added `ProtosPaths.set_data_root()` class method for global configuration
-   - Added `ProtosPaths.get_global_data_root()` to check current setting
-   - Updated `__init__` to use priority: instance parameter > global setting > env var > default
-   - Global helper functions now respect the global setting
-   - All existing path config tests pass
-   - Created and tested the new functionality
-
-2. **Test Data Setup**
-   - `setup_test_data.py` already creates proper directory structure in `tests/test-data/`
-   - Created `setup_test_data_from_reference.py` to copy real data from `src/protos/reference_data/`
-   - Copied 12 essential files including:
-     - GRN reference tables (mo_ref.csv, gpcrdb_ref.csv)
-     - GRN configs (binding_domain.json, config.json, etc.)
-     - Structure files (1uaz.cif, 3ddl.cif, example.cif)
-     - Sequence data (test_mo.fasta, example.fasta)
-
-3. **Phase 2: Clean BaseProcessor (COMPLETED)**
-   - ✅ Removed 200+ lines of test-specific logic from `__init__`
-   - ✅ Simplified path initialization to just use ProtosPaths
-   - ✅ Removed test-specific logic from `_load_dataset_registry`
-   - ✅ Removed test-specific logic from `_save_dataset_registry`
-   - ✅ Removed test-specific logic from `_get_dataset_path`
-   - ✅ Removed test-specific logic from `_register_dataset`
-   - ✅ Made ProtosPaths flexible to handle unknown processor types
-   - ✅ Removed test-specific logic from `load_data` method
-   - ✅ Removed test-specific logic from `save_data` method
-   - ✅ All 25 BaseProcessor tests pass!
-
-4. **Phase 3: Simplify BaseProcessor Path Initialization (COMPLETED)**
-   - ✅ Removed `data_root` parameter from BaseProcessor.__init__
-   - ✅ BaseProcessor now always creates `ProtosPaths()` without parameters
-   - ✅ ProtosPaths handles all path resolution via global configuration
-
-5. **Phase 4: Create Test Configuration (COMPLETED)**
-   - ✅ Updated `tests/conftest.py` with global path configuration
-   - ✅ Added session-scoped fixture that sets test-data as global root
-   - ✅ Configuration automatically resets after tests complete
-
-### ✅ Recent Completions (2025-06-26 22:07)
-
-6. **Phase 5: Update BaseProcessor Tests (COMPLETED)**
-   - ✅ Updated _TestProcessor to remove data_root parameter
-   - ✅ Fixed all test methods to rely on global configuration
-   - ✅ Fixed is_dataset_available to work with new registry structure
-   - ✅ Fixed _save_file to properly raise ValueError for unsupported formats
-   - ✅ All 25 BaseProcessor tests now pass!
-
-7. **Phase 6: Update All Processor Subclasses (COMPLETED)**
-   - ✅ Updated CifBaseProcessor to remove data_root parameter
-   - ✅ Updated GRNBaseProcessor to remove data_root parameter
-   - ✅ Updated SeqProcessor to remove data_root parameter
-   - Note: Only 3 processors actually inherit from BaseProcessor (not 6 as docs suggested)
-
-8. **Phase 7: Update All Tests (COMPLETED)**
-   - ✅ Updated all tests in test_processors directory
-   - ✅ Removed data_root parameters from test files:
-     - test_grn_base_processor.py
-     - test_grn_advanced_features.py
-     - test_grn_assignment.py
-     - test_grn_assignment_real_data.py
-     - test_grn_base_processor_real_data.py
-     - test_grn_processor_with_real_data.py
-     - test_cifbase_grn_integration.py
-     - test_struct_grn_methods.py
-     - test_cif_base_processor.py
-   - ✅ Test Results: 122 PASSED, 8 FAILED (unrelated to path refactoring), 26 SKIPPED
-
-9. **Phase 8: Update CI/CD (COMPLETED)**
-   - ✅ Created `.github/workflows/tests.yml` with comprehensive test matrix
-   - ✅ Added setup for test data using `setup_test_data.py` and `setup_test_data_from_reference.py`
-   - ✅ Configured multi-OS (Ubuntu, Windows, macOS) and multi-Python (3.8-3.11) testing
-   - ✅ Added code quality checks (black, isort, flake8, mypy)
-   - ✅ Created `quick-tests.yml` for faster PR feedback
-   - ✅ Added caching for pip packages and test data
-   - ✅ Integrated coverage reporting with codecov
-
-### ✅ Recent Completions (2025-06-26 23:40)
-
-9. **Phase 9: Fix Failing Processor Tests (COMPLETED)**
-   - ✅ Fixed bacteriorhodopsin sequence length expectation (248 → 263)
-   - ✅ Fixed GRN reference table loading with proper temp directory handling
-   - ✅ Fixed non-standard residue handling test expectation
-   - ✅ Updated mo_ref.csv columns to use 2-digit notation (1.5 → 1.50)
-   - ✅ Modified GRN float to string conversion to prefer dot notation
-   - ✅ Added flexible GRN column matching (1.50 matches 1.5)
-   - ✅ Ensured GRN column is always added even without assignments
-   - ✅ All processor tests now pass: 131 passed, 25 skipped
-
-### ✅ Recent Completions (2025-06-27)
-
-10. **Phase 10: Fix Non-Processor Test Failures (COMPLETED)**
-   - ✅ Fixed all 12 failures in test_base_processor_simple.py
-     - Updated all tests to use ProtosPaths.set_data_root() instead of data_root parameter
-   - ✅ Fixed test_environment_variable in test_path_config.py
-     - Properly handled global configuration priority
-   - ✅ Fixed all 10 tests in test_downloads.py
-     - Updated test_paths fixture to use new configuration approach
-     - Fixed Bio.PDB.PDBList mocking to use patch.object
-     - Fixed get_structure_path test to use temporary directory
-   - ✅ Created new test files for better coverage:
-     - test_downloads_integration.py - Real download tests (marked with @pytest.mark.integration)
-     - test_downloads_functional.py - Functional tests without network requirements
-   - ✅ All 17 non-processor tests now pass!
-
-### ✅ Recent Completions (2025-06-27 - EmbeddingProcessor Implementation)
-
-11. **Implemented EmbeddingProcessor Following BaseProcessor Pattern (COMPLETED)**
-    - ✅ Created new `embedding_processor.py` that properly inherits from BaseProcessor
-    - ✅ Integrated support for multiple transformer models (ESM-2 family, Ankh)
-    - ✅ Implemented graceful handling of optional dependencies (torch, transformers)
-    - ✅ Added three embedding types: mean, cls, per_residue
-    - ✅ Created comprehensive test suite (basic tests, mocked tests, integration tests)
-    - ✅ Removed deprecated legacy implementation files
-    - ✅ Updated setup.py with proper GPU installation support
-    - ✅ Created example script demonstrating usage
-    - ✅ Updated documentation and installation instructions
-
-### 📋 Remaining Tasks
-
-#### High Priority (NEW: 2025-06-27)
-
-**NOTE**: Next priority is testing and reviewing the EmbeddingProcessor implementation.
-
-1. **Test and Review EmbeddingProcessor** (IN PROGRESS)
-   - ✅ Created comprehensive test suite with 50+ tests across 3 files
-   - ✅ Test all models (ESM-2 and Ankh) with memory-efficient mocking
-   - ✅ Test different embedding types (mean, cls, per_residue)
-   - ✅ Test special sequences (X, U, masked characters)
-   - ✅ Test batch processing with edge cases
-   - ✅ Test FASTA file processing integration
-   - ✅ Test dataset save/load functionality
-   - ✅ Test error handling and device management
-   - ❌ Test the GPU installation process with actual hardware (requires GPU)
-   - ❌ Performance benchmarking on real GPU vs CPU (requires GPU)
-
-2. **Test Additional Non-Processor Functionalities** (IN PROGRESS)
-   - ✅ CLI GRN commands (clean_grn_table) - tests created using real data
-   - ✅ Embedding functionality - EmbeddingProcessor implemented with full test coverage
-   - ❌ CLI prediction functionality (not yet tested)
-   - ❌ CLI training functionality (not yet tested)
-   - ❌ Additional IO utilities (partially tested)
-   - ✅ Ensure all tests use proper path configuration
-
-#### Medium Priority
-
-2. **Remove DataSource Enum**
-   - Fully deprecate or remove DataSource.REFERENCE/USER/AUTO
-   - Simplify all path resolution methods
-   - Remove `_resolve_data_root()` method
-   - Update all methods that accept DataSource parameter
-
-3. **Documentation**
-   - Update CLAUDE.md to remove path workarounds
-   - Create new documentation explaining:
-     - Default behavior (uses `data/`)
-     - Test configuration (uses `tests/test-data/`)
-     - Custom configuration (via `ProtosPaths.set_data_root()`)
-
-#### Low Priority
-
-3. **Fix Failing Structure Tests**
-   - 5 failures in test_cif_base_processor.py
-   - 14 errors in test_cif_base_processor.py  
-   - 1 failure in test_struct_grn_methods.py
-   - Note: These appear to be pre-existing issues, not related to path refactoring
-
-4. **Remove Legacy Code**
-   - Delete `path_config_legacy.py`
-   - Remove backward compatibility code
-   - Clean up any remaining workarounds
-
-5. **Update Examples**
-   - Simplify all example scripts
-   - Show clean usage without path complexity
-   - Remove absolute path workarounds
-
-6. **Create User Tools**
-    - Script to initialize empty `data/` directory for new users
-    - Include helpful README files
-
-## Architecture Summary
-
-### Current Issues
-1. **BaseProcessor** has 200+ lines of test-specific logic
-2. **Path resolution** varies between test and production contexts
-3. **Test detection** relies on fragile naming conventions ("test_" prefix)
-4. **Complex workarounds** throughout the codebase for path issues
-
-### Target Architecture
-```
-User Code → Processor → ProtosPaths → File System
-                              ↑
-                              |
-                    Global Configuration
-                    (set once per session)
+# ❌ WRONG - Users never see paths or files
+open("/path/to/file.csv")                 # NO direct file access
+Path("data/structures/1ABC.cif")          # NO path construction
+pd.read_csv("file.csv")                   # NO manual format handling
+os.path.exists("some/path")               # NO file system checks
 ```
 
-### Key Design Principles
-1. **Single Configuration Point**: Configure paths once, not per processor
-2. **Context Agnostic**: Production code doesn't know if it's being tested
-3. **Simple Defaults**: Works out of the box for common cases
-4. **Flexible Override**: Can still customize when needed
-
-## Data Directory Structure
-
-### Production (`data/`)
-- Default location for user data
-- Created automatically on first use
-- Not shipped with package
-
-### Test Data (`tests/test-data/`)
-- Contains real data copied from reference
-- Used for all testing
-- Populated by setup scripts
-
-### Reference Data (`src/protos/reference_data/`)
-- Example data shipped with library
-- Source for test data
-- Immutable reference datasets
-
-## Implementation Notes
-
-### ProtosPaths Changes
-- Added class variable `_global_data_root`
-- Added `set_data_root()` and `get_global_data_root()` class methods
-- Priority: instance param > global setting > env var > default
-- Resets default resolver when global setting changes
-
-### Next Steps for BaseProcessor
-1. Identify all test-specific code blocks
-2. Create simplified version without test logic
-3. Run existing tests to ensure compatibility
-4. Update tests that rely on old behavior
-
-### Testing Strategy
-- All tests should pass with minimal changes
-- Use `conftest.py` for global test configuration
-- Ensure backward compatibility during transition
-- Comprehensive testing after each phase
-
-## Commands and Scripts
-
-### Setup Test Data
+### Testing Principles:
+0. **USE THE EXISTING MINICONDA ENV: 'protos'** - Activate it during development 
 ```bash
-# Create directory structure
-python setup_test_data.py
-
-# Copy reference data
-python setup_test_data_from_reference.py
+conda activate protos
 ```
+1. **USE REAL TEST DATA** - Never mock biological data
+2. **USE tests/test-data/** - Mirror production data structure  
+3. **NO TEMPORARY FILES** - Use fixture data, not generated files
+4. **TEST WITH REAL FILES** - CIF, FASTA, CSV from test-data
+5. **FOLLOW PROTOS PHILOSOPHY** - Names only, never paths
 
-### Test Configuration (Future)
+### Current Violations:
+- **170+ path violations in tests** - Breaking core abstraction
+- **No universal entity system** - Can't track entities across formats
+- **Incomplete registry** - Users can't discover available data
+- **Direct file operations** - Bypassing processor abstraction
+
+---
+
+## 📁 PATH SYSTEM - ProtosPaths
+
+**See [docs/PROTOSPATH.md](docs/PROTOSPATH.md) for complete documentation**
+
+### Architecture Summary:
+- **ProtosPaths** - Central path resolver (singleton pattern)
+- **Global Configuration** - Set once via `ProtosPaths.set_data_root()`
+- **Processor Integration** - BaseProcessor uses ProtosPaths automatically
+- **Complete Abstraction** - Users never construct or see paths
+
+### Key Components:
 ```python
-# In tests/conftest.py
-from protos.io.paths import ProtosPaths
-ProtosPaths.set_data_root('tests/test-data')
+# Global configuration (only in conftest.py for tests)
+ProtosPaths.set_data_root("/path/to/data")
+
+# Processors use it automatically
+processor = CifBaseProcessor()  # No path parameters!
+processor.load_structure("1ABC")  # Just names!
 ```
 
-### Production Usage (Future)
+---
+
+## 🔑 REGISTRY SYSTEM - Entity & Dataset Management
+
+### Universal Entity ID System:
+**One biological entity = One hash ID across ALL formats**
+
 ```python
-# Simple, no configuration needed
-from protos.processing.structure import CifBaseProcessor
-processor = CifBaseProcessor(name="analysis")
+# Same protein gets SAME entity ID everywhere
+"P12345" → entity_id "a3f2d8c91b"
+  ├── sequence format: /seq/a3f2d8c91b.fasta
+  ├── structure format: /struct/a3f2d8c91b.cif  
+  ├── GRN format: in table with entity_id column
+  └── embedding format: /emb/a3f2d8c91b.pkl
 ```
 
-## Progress Summary
+### Registry Architecture:
+1. **EntityRegistry** - Tracks all entities with hash IDs
+   - Multi-format support (same entity, multiple formats)
+   - Original ID → Hash ID lookups
+   - Metadata per format
+   
+2. **Registry as Universal Translator**:
+   ```python
+   # User provides biological name
+   processor.load_structure("1ABC")
+   
+   # Registry translates transparently
+   entity_id = registry.resolve_identifier("1ABC")  # → "a3f2d8c91b"
+   
+   # System uses hash internally
+   data = processor._load_entity_by_hash(entity_id)
+   ```
 
-### What We Achieved:
-1. **Centralized Path Configuration**: ProtosPaths now supports global configuration via `set_data_root()`
-2. **Simplified BaseProcessor**: Removed data_root parameter, now uses global configuration
-3. **Test Infrastructure**: Set up automatic test configuration in conftest.py
-4. **All BaseProcessor Tests Pass**: Fixed all 25 tests to work with new architecture
-5. **Fixed All Non-Processor Tests**: All 42 non-processor tests now pass
-6. **Created Comprehensive Download Tests**: Both functional and integration tests for download functionality
+3. **GRN Tables Special Case**:
+   ```
+   entity_id    | sequence_id | 1.50 | 2.50 | 3.50
+   -------------|-------------|------|------|------
+   a3f2d8c91b   | BR1_HUMAN   | L45  | V87  | I123
+   b4e5f6a72c   | BR2_MOUSE   | L46  | V88  | I124
+   ```
 
-### Key Benefits:
-- **Simpler API**: No more passing data_root everywhere
-- **Cleaner Code**: Removed 200+ lines of test-specific logic
-- **Better Testing**: Tests automatically use test-data directory
-- **Future Ready**: Easy to extend to all processors
-- **Robust Testing**: All non-processor functionalities properly tested
-- **Integration Tests**: Real download tests available with RUN_INTEGRATION_TESTS=1
+---
 
-### Test Status:
-- ✅ BaseProcessor tests: 25 passed
-- ✅ Non-processor tests: 42 passed  
-- ✅ Processor tests: 131 passed, 25 skipped
-- ✅ EmbeddingProcessor tests: 9 basic + 50+ comprehensive tests (3 test files total)
-  - test_embedding_processor.py: Basic functionality and integration tests
-  - test_embedding_processor_advanced.py: Device handling, batching, FASTA, error handling
-  - test_embedding_processor_models.py: All models, output formats, special sequences
-- ⚠️ Structure tests: 5 failed, 14 errors (pre-existing issues)
-- **Total**: 260+ passed, 32 skipped, 5 failed, 14 errors
+## 📋 TODOS BY PRIORITY
 
-## Log Entries
-- [2025-06-26 21:27] [MODIFY] /src/protos/io/paths/path_config.py - Added class-level configuration support with set_data_root() method
-- [2025-06-26 21:41] [MODIFY] /src/protos/core/base_processor.py - Removed ALL test-specific logic, simplified path initialization
-- [2025-06-26 21:48] [MODIFY] /tests/conftest.py - Added global test path configuration fixture
-- [2025-06-26 22:05] [MODIFY] /src/protos/core/base_processor.py - Phase 3: Removed data_root parameter from __init__
-- [2025-06-26 22:07] [MODIFY] /tests/test_core/test_base_processor.py - Updated all tests to use global configuration
-- [2025-06-26 22:16] [MODIFY] /src/protos/core/base_processor.py - Phase 2 Complete: Removed all test-specific logic from load_data and save_data methods
-- [2025-06-26 22:23] [MODIFY] /src/protos/processing/structure/struct_base_processor.py - Phase 6: Removed data_root parameter from CifBaseProcessor
-- [2025-06-26 22:23] [MODIFY] /src/protos/processing/grn/grn_base_processor.py - Phase 6: Removed data_root parameter from GRNBaseProcessor
-- [2025-06-26 22:23] [MODIFY] /src/protos/processing/sequence/seq_processor.py - Phase 6: Removed data_root parameter from SeqProcessor
-- [2025-06-26 22:40] [MODIFY] /tests/test_processors/**/*.py - Phase 7: Updated all processor tests to remove data_root parameters
-- [2025-06-26 22:49] [CREATE] /.github/workflows/tests.yml - Phase 8: Created comprehensive CI/CD workflow with test data setup
-- [2025-06-26 22:49] [CREATE] /.github/workflows/quick-tests.yml - Phase 8: Created quick tests workflow for PR feedback
-- [2025-06-27 00:05] [MODIFY] /tests/test_core/test_base_processor_simple.py - Phase 10: Updated all tests to use ProtosPaths.set_data_root()
-- [2025-06-27 00:10] [MODIFY] /tests/test_io/test_path_config.py - Phase 10: Fixed environment variable test
-- [2025-06-27 00:15] [MODIFY] /tests/test_loaders/test_downloads.py - Phase 10: Fixed all download tests with proper mocking
-- [2025-06-27 00:20] [CREATE] /tests/test_loaders/test_downloads_integration.py - Phase 10: Created real integration tests
-- [2025-06-27 00:20] [CREATE] /tests/test_loaders/test_downloads_functional.py - Phase 10: Created functional tests without network
-- [2025-06-27 00:25] [MODIFY] /pytest.ini - Added custom markers for integration tests
-- [2025-06-27 00:27] [CREATE] /tests/test_cli/test_clean_grn_table_real_data.py - Created tests for CLI GRN functionality using real mo_ref data
-- [2025-06-27 00:28] [CREATE] /tests/test_cli/test_expand_annotation_real_data.py - Created tests for expand_annotation using real opsin sequences
-- [2025-06-27 00:29] [CREATE] /tests/test_cli/test_grn_utils.py - Created unit tests for GRN utility functions
-- [2025-06-27 00:30] [DELETE] /old_tests/test_cli/test_grn/test_expand_annotation.py - Removed mock-based tests in favor of real data tests
-- [2025-06-27 00:30] [DELETE] /old_tests/test_cli/test_grn/test_clean_grn_table.py - Removed mock-based tests in favor of real data tests
-- [2025-06-27 11:40] [CREATE] /src/protos/processing/embedding/embedding_processor.py - Implemented EmbeddingProcessor following BaseProcessor pattern with transformer model support
-- [2025-06-27 11:41] [DELETE] /src/protos/processing/embedding/emb_processor.py - Removed deprecated embedding processor
-- [2025-06-27 11:41] [DELETE] /src/protos/processing/embedding/embedding.py - Removed deprecated embedding module
-- [2025-06-27 11:43] [CREATE] /examples/embedding_example.py - Created example demonstrating new EmbeddingProcessor functionality
-- [2025-06-27 11:55] [CREATE] /tests/test_processors/test_embedding/test_embedding_processor.py - Created comprehensive tests for EmbeddingProcessor
-- [2025-06-27 12:00-13:03] Multiple updates to setup.py and README.md for GPU installation support
-- [2025-06-27 13:16] [CREATE] /tests/test_processors/test_embedding/test_embedding_processor_advanced.py - Advanced tests for device handling, batch processing, FASTA, error handling, dataset management
-- [2025-06-27 13:18] [CREATE] /tests/test_processors/test_embedding/test_embedding_processor_models.py - Comprehensive tests for all models with output formats, special sequences, memory-efficient testing
+### 🔴 HIGH PRIORITY - Registry Implementation
+
+#### Phase 1: Complete Multi-Format EntityRegistry ✅ COMPLETED
+- [x] Basic EntityRegistry with hash IDs
+- [x] Multi-format support per entity
+- [x] Original ID lookups
+- [x] Add resolve_identifier method:
+  ```python
+  def resolve_identifier(self, identifier: str) -> str:
+      """Resolve any name to entity hash ID."""
+      # Check if already hash
+      # Lookup by original ID  
+      # Generate new if needed
+  ```
+
+#### Phase 2: Update ALL Processors for Entity Support ✅ COMPLETED
+- [✅] **CifBaseProcessor**:
+  - [x] Basic entity registration
+  - [x] load_structure uses resolve_identifier
+  - [x] list_structures returns original IDs (not hashes!)
+  - [x] Full multi-format awareness
+  - [x] save_structure_as_entity method
+  - [x] get_entity_id_for_pdb method
+  
+- [✅] **GRNBaseProcessor** (Special Case - Tables contain MULTIPLE entities):
+  ```python
+  def save_grn_table_with_entities(self, grn_df):
+      # Add entity_id column as FIRST column
+      entity_ids = [generate_entity_id(seq_id) for seq_id in grn_df.index]
+      grn_df.insert(0, 'entity_id', entity_ids)
+      
+      # Register each row as an entity
+      for seq_id, entity_id in zip(grn_df.index, entity_ids):
+          register_entity(entity_id, "grn", seq_id, metadata={"in_table": table_name})
+  ```
+  
+  **Important GRN Design Decisions**:
+  - GRN tables contain MANY entities (one per row/sequence)
+  - Each row gets an entity_id column based on sequence ID
+  - Consider: Should single GRN entities be stored as:
+    a) JSON files for individual annotated sequences?
+    b) FASTA files (since GRN entity = annotated sequence)?
+    c) Single-row CSV tables (current approach)?
+  
+- [✅] **SeqProcessor**:
+  - [x] Parse FASTA headers for entity names
+  - [x] Register each sequence as entity
+  - [x] Support multi-sequence files
+  - [x] load_sequence_entity method
+  - [x] save_sequence_entity method
+  - [x] list_sequence_entities method
+  
+- [✅] **EmbeddingProcessor**:
+  - [x] Use same entity IDs as source sequences
+  - [x] Register embeddings by model type
+  - [x] _register_embedding_entities method
+  - [x] load_embedding_entity method  
+  - [x] list_embedding_entities method
+
+#### Phase 3: Complete Processor Testing ⚡ CURRENT FOCUS
+- [ ] Test resolve_identifier for all processors
+- [ ] Test list operations return names not hashes
+- [ ] Test multi-format entity scenarios
+- [ ] Test GRN tables with entity_id column
+- [ ] Test that all processors can load by both name and hash ID
+
+### 🟡 MEDIUM PRIORITY - Cross-Format Operations
+
+#### Phase 4: Cross-Format Workflows
+- [ ] Sequence → Structure (AlphaFold)
+- [ ] Structure → Sequence extraction  
+- [ ] Sequence → GRN assignment
+- [ ] Any format → Embeddings
+- [ ] Track conversion lineage in metadata
+
+#### Phase 5: Migration Tools
+- [ ] Script to migrate existing data to entity system
+- [ ] Update all test data with proper entities
+- [ ] Documentation for users to migrate
+
+### 🟢 LOW PRIORITY - Future Enhancements
+
+#### Phase 6: Advanced Features
+- [ ] Entity versioning support
+- [ ] Entity relationship tracking
+- [ ] Bulk operations optimization
+- [ ] Export/import entity registry
+
+#### Phase 7: Documentation & Examples
+- [ ] Complete entity system user guide
+- [ ] Cross-format workflow examples
+- [ ] Migration guide from old system
+- [ ] Best practices documentation
+
+---
+
+## 🐛 OTHER ISSUES TO FIX
+
+### Test Issues:
+- [ ] Fix 170+ path violations in tests
+- [ ] Remove all Path() usage from tests
+- [ ] Fix GRN test data setup (column formats)
+- [ ] Add proper test markers (@pytest.mark.slow, etc.)
+- [ ] Fix embedding test timeouts (use small models)
+
+### CLI Updates:
+- [ ] Update CLI embed.py to use new EmbeddingProcessor
+- [ ] Ensure all CLI commands use entity system
+- [ ] Add entity discovery commands
+
+### Documentation:
+- [ ] Update README.md with correct usage
+- [ ] Document entity system
+- [ ] Add workflow examples
+
+---
+
+## 📊 PROGRESS TRACKING
+
+### Completed ✅:
+- ProtosPaths architecture and documentation
+- Basic EntityRegistry implementation  
+- Multi-format entity support
+- Hash-based entity ID generation
+- BaseProcessor entity methods
+
+### In Progress 🔄:
+- resolve_identifier implementation
+- CifBaseProcessor entity integration
+- Test updates for new system
+
+### Blocked ❌:
+- Cross-format operations (need processors done first)
+- Migration tools (need final system design)
+
+---
+
+## 💡 IMPLEMENTATION NOTES
+
+### Entity ID Generation:
+```python
+# ALWAYS hash the biological identifier, not filename
+entity_id = generate_entity_id("P12345")     # UniProt
+entity_id = generate_entity_id("1ABC")       # PDB
+entity_id = generate_entity_id("BR1_HUMAN")  # Sequence name
+
+# For FASTA with random names
+>some_random_name
+MKLSPADKTN...
+entity_id = generate_entity_id("some_random_name")
+```
+
+### Processor Pattern:
+```python
+class AnyProcessor(BaseProcessor):
+    def load_entity(self, identifier: str):
+        # User provides name
+        entity_id = self.registry.resolve_identifier(identifier)
+        
+        # Internal uses hash
+        return self._load_by_hash(entity_id)
+        
+    def list_entities(self):
+        # Return names, not hashes!
+        entities = self.registry.list_entities(format_type=self.format)
+        return [self.registry.get_original_id(e) for e in entities]
+```
+
+### Timeline:
+- Week 1: Complete resolve_identifier and processor updates
+- Week 2: Full testing suite  
+- Week 3: Cross-format operations
+- Week 4: Migration and documentation

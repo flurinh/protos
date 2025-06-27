@@ -22,6 +22,7 @@ import requests
 from tqdm import tqdm
 
 from protos.io import cif_utils
+from protos.io.data_access import generate_entity_id
 from protos.core.base_processor import BaseProcessor
 from protos.processing.structure.struct_utils import (
     load_structure as load_structure_util,
@@ -97,6 +98,9 @@ class CifBaseProcessor(BaseProcessor):
         self.path_structure_dir = os.path.join(self.data_root, processor_data_dir, structure_dir)
         self.path_dataset_dir = os.path.join(self.data_root, processor_data_dir, dataset_dir)
         self.path_alignment_dir = os.path.join(self.data_root, processor_data_dir, alignments_dir)
+        
+        # Track PDB ID to entity ID mappings
+        self._pdb_entity_map = {}
         
         # Create directories if they don't exist
         os.makedirs(self.path_structure_dir, exist_ok=True)
@@ -198,19 +202,235 @@ class CifBaseProcessor(BaseProcessor):
                    for file in all_files if file.lower().endswith('.cif')]
         return pdb_ids
     
+    # Entity management methods
+    def _register_structure_entity(self, pdb_id: str, structure_df: pd.DataFrame) -> str:
+        """
+        Register a structure as an entity.
+        
+        Args:
+            pdb_id: PDB identifier
+            structure_df: Structure DataFrame
+            
+        Returns:
+            Generated entity ID
+        """
+        # Generate entity ID based on PDB ID (no prefix for universal IDs)
+        entity_id = generate_entity_id(pdb_id)
+        
+        # Get chain information
+        chains = structure_df["auth_chain_id"].unique().tolist() if "auth_chain_id" in structure_df.columns else []
+        
+        # Extract metadata
+        metadata = {
+            "atom_count": len(structure_df),
+            "chains": chains,
+            "residue_count": structure_df["auth_seq_id"].nunique() if "auth_seq_id" in structure_df.columns else 0
+        }
+        
+        # Register with entity registry
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            global_registry.entity_registry.register_entity(
+                entity_id=entity_id,
+                entity_type="structure",
+                original_id=pdb_id,
+                file_path=os.path.join(self.path_structure_dir, f"{pdb_id}.cif"),
+                metadata=metadata,
+                datasets=[]
+            )
+        except Exception as e:
+            self.logger.warning(f"Could not register entity: {e}")
+        
+        # Track mapping
+        self._pdb_entity_map[pdb_id] = entity_id
+        
+        return entity_id
+    
+    def load_structure_by_entity(self, entity_id: str, apply_dtypes: bool = True, debug: bool = False):
+        """
+        Load a structure by its entity ID.
+        
+        Args:
+            entity_id: Entity hash ID
+            apply_dtypes: Whether to apply proper data types
+            debug: Whether to print debug information
+            
+        Returns:
+            DataFrame with structure data or None if not found
+        """
+        # Find PDB ID from entity
+        pdb_id = None
+        
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_info = global_registry.entity_registry.get_entity(entity_id)
+            if entity_info:
+                formats = entity_info.get('formats', {})
+                if 'structure' in formats:
+                    pdb_id = entity_info.get("original_id")
+        except:
+            pass
+        
+        # Check local mapping
+        if pdb_id is None:
+            for pid, eid in self._pdb_entity_map.items():
+                if eid == entity_id:
+                    pdb_id = pid
+                    break
+        
+        if pdb_id:
+            return self.load_structure(pdb_id, apply_dtypes=apply_dtypes, debug=debug)
+        
+        self.logger.warning(f"No structure found for entity ID: {entity_id}")
+        return None
+    
+    def get_entity_id_for_pdb(self, pdb_id: str) -> Optional[str]:
+        """
+        Get the entity ID for a PDB ID.
+        
+        Args:
+            pdb_id: PDB identifier
+            
+        Returns:
+            Entity ID or None if not found
+        """
+        # Check local mapping first
+        if pdb_id in self._pdb_entity_map:
+            return self._pdb_entity_map[pdb_id]
+        
+        # Check entity registry
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_id = global_registry.entity_registry.find_entity_by_original_id(pdb_id, format_type="structure")
+            if entity_id:
+                self._pdb_entity_map[pdb_id] = entity_id
+                return entity_id
+        except:
+            pass
+        
+        # Generate new entity ID if not found (no prefix for universal IDs)
+        entity_id = generate_entity_id(pdb_id)
+        self._pdb_entity_map[pdb_id] = entity_id
+        return entity_id
+    
+    def list_structures(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all available structures.
+        
+        Args:
+            dataset: Optional dataset ID to filter by
+            
+        Returns:
+            List of PDB IDs (not hash IDs!)
+        """
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            
+            # Get entity IDs
+            entity_ids = global_registry.entity_registry.list_entities(format_type="structure", dataset=dataset)
+            
+            # Convert to PDB IDs for user-friendliness
+            pdb_ids = []
+            for entity_id in entity_ids:
+                original_id = global_registry.entity_registry.get_original_id(entity_id)
+                if original_id:
+                    pdb_ids.append(original_id)
+            return pdb_ids
+        except:
+            # Fall back to listing PDB IDs
+            return self.pdb_ids
+    
+    def save_structure_as_entity(self, 
+                                structure_df: pd.DataFrame, 
+                                pdb_id: str,
+                                datasets: Optional[List[str]] = None,
+                                metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Save a structure DataFrame as an entity.
+        
+        Args:
+            structure_df: Structure DataFrame to save
+            pdb_id: PDB identifier
+            datasets: Optional list of dataset IDs to associate with
+            metadata: Additional metadata
+            
+        Returns:
+            Entity ID of the saved structure
+        """
+        # Save the structure file
+        output_path = os.path.join(self.path_structure_dir, f"{pdb_id}.cif")
+        
+        # Use cif_utils to write the structure
+        try:
+            from protos.io.cif_writer import write_cif
+            write_cif(structure_df, output_path)
+        except ImportError:
+            # Fallback to CSV for now
+            structure_df.to_csv(output_path, index=False)
+        
+        # Register as entity
+        entity_id = self._register_structure_entity(pdb_id, structure_df)
+        
+        # Add to datasets if specified
+        if datasets:
+            try:
+                from protos.io.data_access import GlobalRegistry
+                global_registry = GlobalRegistry()
+                for dataset_id in datasets:
+                    global_registry.entity_registry.add_entity_to_dataset(entity_id, dataset_id)
+            except:
+                pass
+        
+        # Update metadata if provided
+        if metadata:
+            try:
+                from protos.io.data_access import GlobalRegistry
+                global_registry = GlobalRegistry()
+                global_registry.entity_registry.update_entity_metadata(entity_id, metadata)
+            except:
+                pass
+        
+        return entity_id
+    
     # Core structure loading methods
-    def load_structure(self, pdb_id, apply_dtypes=True, debug=False):
+    def load_structure(self, identifier, apply_dtypes=True, debug=False):
         """
         Load a structure from a CIF file.
         
         Args:
-            pdb_id: PDB ID to load
+            identifier: Structure identifier (PDB ID, entity ID, or hash)
             apply_dtypes: Whether to apply proper data types to the loaded structure
             debug: Whether to print debug information during data type formatting
             
         Returns:
             DataFrame with structure data or None if loading fails
         """
+        # Resolve identifier to get both entity ID and PDB ID
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_id = global_registry.entity_registry.resolve_identifier(identifier, format_type="structure")
+            
+            # Check if this entity exists in our registry
+            entity_info = global_registry.entity_registry.get_entity(entity_id)
+            if entity_info:
+                # Get the PDB ID from entity info
+                formats = entity_info.get('formats', {})
+                if 'structure' in formats:
+                    pdb_id = entity_info.get('original_id', identifier)
+                else:
+                    pdb_id = identifier
+            else:
+                # New entity - use identifier as PDB ID
+                pdb_id = identifier
+        except:
+            # No entity registry - use identifier directly
+            pdb_id = identifier
+            entity_id = generate_entity_id(identifier)
         try:
             # Call the utility function to load the structure
             structure = load_structure_util(pdb_id, folder=self.path_structure_dir)
@@ -264,6 +484,9 @@ class CifBaseProcessor(BaseProcessor):
                         if col in self.data.columns:
                             self.logger.info(f"Column {col} dtype: {self.data[col].dtype}")
                             self.logger.info(f"Column {col} sample: {self.data[col].head()}")
+            
+            # Register structure as entity
+            self._register_structure_entity(pdb_id, structure)
             
             # Return the loaded structure
             return structure
@@ -712,12 +935,36 @@ class CifBaseProcessor(BaseProcessor):
         if self.dataset_manager is not None:
             dataset = self.dataset_manager.load_dataset(dataset_id)
             if dataset is not None and hasattr(dataset, 'content'):
-                pdb_ids = dataset.content
-                self.logger.info(f"Loaded dataset '{dataset_id}' with {len(pdb_ids)} structures using dataset manager")
+                content = dataset.content
                 
-                # Load the structures
-                self.load_structures(pdb_ids, apply_dtypes=apply_dtypes, debug=debug)
-                return pdb_ids
+                # Check if content is entity IDs (10-char hash) or PDB IDs
+                if content and all(len(str(item)) == 10 and str(item).isalnum() for item in content[:5]):
+                    # Content appears to be entity IDs
+                    pdb_ids = []
+                    for entity_id in content:
+                        if hasattr(self, 'entity_registry') and self.entity_registry is not None:
+                            entity_info = self.entity_registry.get_entity(entity_id)
+                            if entity_info and entity_info.get("type") == "structure":
+                                pdb_ids.append(entity_info.get("original_id"))
+                        else:
+                            # Try to find in local mapping
+                            for pid, eid in self._pdb_entity_map.items():
+                                if eid == entity_id:
+                                    pdb_ids.append(pid)
+                                    break
+                    
+                    if pdb_ids:
+                        self.logger.info(f"Loaded dataset '{dataset_id}' with {len(pdb_ids)} structures from {len(content)} entities")
+                        self.load_structures(pdb_ids, apply_dtypes=apply_dtypes, debug=debug)
+                        return pdb_ids
+                else:
+                    # Content is PDB IDs
+                    pdb_ids = content
+                    self.logger.info(f"Loaded dataset '{dataset_id}' with {len(pdb_ids)} structures using dataset manager")
+                    
+                    # Load the structures
+                    self.load_structures(pdb_ids, apply_dtypes=apply_dtypes, debug=debug)
+                    return pdb_ids
         
         # Legacy approach: check datasets.json
         datasets_json_path = os.path.join(self.path_dataset_dir, 'datasets.json')
@@ -758,7 +1005,8 @@ class CifBaseProcessor(BaseProcessor):
                     name: str,
                     description: str,
                     content: Optional[List[str]] = None,
-                    metadata: Optional[Dict[str, Any]] = None) -> Optional[object]:
+                    metadata: Optional[Dict[str, Any]] = None,
+                    use_entity_ids: bool = True) -> Optional[object]:
         """
         Create a new dataset.
         
@@ -768,6 +1016,7 @@ class CifBaseProcessor(BaseProcessor):
             description: Detailed description
             content: List of PDB IDs (defaults to current pdb_ids)
             metadata: Additional metadata
+            use_entity_ids: If True, convert PDB IDs to entity IDs for storage
             
         Returns:
             Created Dataset instance or None if not available
@@ -780,6 +1029,21 @@ class CifBaseProcessor(BaseProcessor):
         if not content:
             self.logger.error("No PDB IDs provided or loaded to create dataset")
             return None
+        
+        # Convert to entity IDs if requested
+        if use_entity_ids:
+            entity_ids = []
+            for pdb_id in content:
+                entity_id = self.get_entity_id_for_pdb(pdb_id)
+                if entity_id:
+                    entity_ids.append(entity_id)
+            
+            if entity_ids:
+                content = entity_ids
+                if metadata is None:
+                    metadata = {}
+                metadata["entity_based"] = True
+                metadata["original_pdb_count"] = len(content)
             
         # Use the standardized dataset API if available
         if self.dataset_manager is not None:

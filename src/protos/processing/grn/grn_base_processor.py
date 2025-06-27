@@ -26,6 +26,8 @@ import os
 import pandas as pd
 import plotly.graph_objs as go
 from protos.core.base_processor import BaseProcessor
+from protos.io.data_access import generate_entity_id
+from typing import Dict, List, Optional, Any, Union
 
 
 class GRNBaseProcessor(BaseProcessor):
@@ -82,6 +84,9 @@ class GRNBaseProcessor(BaseProcessor):
         self.dot_to_x = {}  # Maps dot notation (3.50) to x notation (3x50)
         self.x_to_dot = {}  # Maps x notation (3x50) to dot notation (3.50)
         
+        # Track entity IDs for GRN tables
+        self._grn_entity_map = {}  # Maps table names to entity IDs
+        
         # Set dataset and preload if specified
         if dataset is not None:
             if isinstance(dataset, list):
@@ -107,13 +112,14 @@ class GRNBaseProcessor(BaseProcessor):
         datasets = self.list_datasets()
         return [d["id"] for d in datasets if d.get("format") == "csv"]
         
-    def save_grn_table(self, dataset_id=None, normalize_formats=True, **kwargs):
+    def save_grn_table(self, dataset_id=None, normalize_formats=True, include_entity_ids=True, **kwargs):
         """
-        Save the current GRN table to a dataset.
+        Save the current GRN table to a dataset with entity ID support.
         
         Args:
             dataset_id: Dataset identifier (uses current dataset if None)
             normalize_formats: Whether to normalize GRN formats before saving
+            include_entity_ids: Whether to include entity_id column (default True)
             **kwargs: Additional format-specific saving parameters
             
         Returns:
@@ -131,6 +137,35 @@ class GRNBaseProcessor(BaseProcessor):
         # Create a copy of the data to avoid modifying the original
         if self.data is not None:
             data_to_save = self.data.copy()
+            
+            # Add entity_id column if requested (as FIRST column)
+            if include_entity_ids and 'entity_id' not in data_to_save.columns:
+                # Generate entity IDs for each sequence
+                entity_ids = []
+                for seq_id in data_to_save.index:
+                    entity_id = generate_entity_id(str(seq_id))
+                    entity_ids.append(entity_id)
+                    
+                    # Register each entity in the global registry
+                    try:
+                        from protos.io.data_access import GlobalRegistry
+                        global_registry = GlobalRegistry()
+                        global_registry.entity_registry.register_entity(
+                            entity_id=entity_id,
+                            entity_type="grn",
+                            original_id=str(seq_id),
+                            file_path=None,  # GRN entities are in tables, not individual files
+                            metadata={
+                                "table": dataset_id or self.dataset,
+                                "grn_positions": len([col for col in data_to_save.columns if col not in ['family', 'species', 'name', 'grn_system', 'id']])
+                            },
+                            datasets=[dataset_id or self.dataset] if (dataset_id or self.dataset) else []
+                        )
+                    except Exception as e:
+                        self.logger.warning(f"Could not register GRN entity {seq_id}: {e}")
+                
+                # Insert entity_id as first column
+                data_to_save.insert(0, 'entity_id', entity_ids)
             
             # Normalize GRN formats if requested
             if normalize_formats:
@@ -199,14 +234,15 @@ class GRNBaseProcessor(BaseProcessor):
         self.logger.info(f"Saved GRN table '{self.dataset}' to {file_path}")
         return file_path
         
-    def load_grn_table(self, dataset_id=None, low_memory=False, remove_duplicates=True, normalize_formats=True, **kwargs):
+    def load_grn_table(self, dataset_id=None, low_memory=False, remove_duplicates=True, normalize_formats=True, register_entities=True, **kwargs):
         """
-        Load a GRN table from a dataset.
+        Load a GRN table from a dataset with entity support.
         
         Args:
             dataset_id: Dataset identifier (uses current dataset if None)
             low_memory: Whether to use pandas low_memory option
             remove_duplicates: Whether to remove duplicate protein IDs
+            register_entities: Whether to register entities found in the table
             normalize_formats: Whether to normalize GRN formats (e.g., convert legacy loop formats)
             **kwargs: Additional format-specific loading parameters
             
@@ -260,6 +296,30 @@ class GRNBaseProcessor(BaseProcessor):
         # Update processor state
         self.ids = self.data.index.tolist()
         self.grns = self.data.columns.tolist()
+        
+        # Register entities if requested and no entity_id column exists
+        if register_entities and 'entity_id' not in self.data.columns:
+            try:
+                from protos.io.data_access import GlobalRegistry
+                global_registry = GlobalRegistry()
+                
+                # Register each sequence as an entity
+                for seq_id in self.ids:
+                    entity_id = generate_entity_id(str(seq_id))
+                    global_registry.entity_registry.register_entity(
+                        entity_id=entity_id,
+                        entity_type="grn",
+                        original_id=str(seq_id),
+                        file_path=None,  # GRN entities are in tables
+                        metadata={
+                            "table": dataset_id or self.dataset,
+                            "grn_positions": len([col for col in self.grns if col not in ['entity_id', 'family', 'species', 'name', 'grn_system', 'id']])
+                        },
+                        datasets=[dataset_id or self.dataset] if (dataset_id or self.dataset) else []
+                    )
+                self.logger.info(f"Registered {len(self.ids)} GRN entities")
+            except Exception as e:
+                self.logger.warning(f"Could not register GRN entities: {e}")
         
         # Validate and normalize GRN formats
         if normalize_formats:
@@ -1006,5 +1066,99 @@ class GRNBaseProcessor(BaseProcessor):
             else:
                 self.logger.warning(f"No valid GRNs to apply to map '{map_key}'")
     
-    # Additional methods for maps, feature population, etc. can be integrated similarly
-    # by updating them to use the BaseProcessor functionality where appropriate
+    # Entity-specific methods for GRN tables
+    def load_grn_entity(self, identifier: str) -> Optional[pd.Series]:
+        """
+        Load a single GRN entity (one row from a GRN table).
+        
+        Args:
+            identifier: Entity identifier (sequence ID or entity hash)
+            
+        Returns:
+            Series with GRN annotations for the entity or None if not found
+        """
+        # Resolve identifier
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_id = global_registry.entity_registry.resolve_identifier(identifier, format_type="grn")
+            
+            # Get original ID 
+            original_id = global_registry.entity_registry.get_original_id(entity_id)
+            if not original_id:
+                original_id = identifier
+        except:
+            # Fallback to direct lookup
+            original_id = identifier
+            entity_id = generate_entity_id(identifier)
+        
+        # Check if we have this entity in current data
+        if self.data is not None and original_id in self.data.index:
+            return self.data.loc[original_id]
+        
+        # If not loaded, try to find which table contains this entity
+        try:
+            global_registry = GlobalRegistry()
+            entity_info = global_registry.entity_registry.get_entity(entity_id)
+            if entity_info and 'grn' in entity_info.get('formats', {}):
+                table_name = entity_info['formats']['grn']['metadata'].get('table')
+                if table_name:
+                    # Load the table containing this entity
+                    self.load_grn_table(table_name)
+                    if original_id in self.data.index:
+                        return self.data.loc[original_id]
+        except:
+            pass
+        
+        self.logger.warning(f"GRN entity not found: {identifier}")
+        return None
+    
+    def list_grn_entities(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all GRN entities (sequence IDs).
+        
+        Args:
+            dataset: Optional dataset/table to filter by
+            
+        Returns:
+            List of sequence IDs (not hash IDs!)
+        """
+        if dataset:
+            # Load specific dataset first
+            self.load_grn_table(dataset)
+            return self.ids
+        elif self.data is not None:
+            # Return current loaded entities
+            return self.ids
+        else:
+            # List all GRN entities from registry
+            try:
+                from protos.io.data_access import GlobalRegistry
+                global_registry = GlobalRegistry()
+                entity_ids = global_registry.entity_registry.list_entities(format_type="grn", dataset=dataset)
+                
+                # Convert to original IDs
+                original_ids = []
+                for entity_id in entity_ids:
+                    original_id = global_registry.entity_registry.get_original_id(entity_id)
+                    if original_id:
+                        original_ids.append(original_id)
+                return original_ids
+            except:
+                return []
+    
+    def get_entity_grn_positions(self, identifier: str) -> List[str]:
+        """
+        Get the GRN positions that have residues for a given entity.
+        
+        Args:
+            identifier: Entity identifier (sequence ID or entity hash)
+            
+        Returns:
+            List of GRN positions with residues (not '-')
+        """
+        entity_data = self.load_grn_entity(identifier)
+        if entity_data is not None:
+            # Return columns where value is not '-'
+            return [col for col in entity_data.index if entity_data[col] != '-']
+        return []

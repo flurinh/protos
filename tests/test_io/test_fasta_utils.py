@@ -1,15 +1,13 @@
 """
 Tests for the FASTA utilities in the protos package.
 
-This module contains tests for reading, writing, and manipulating FASTA files,
-including actual downloads from UniProt for testing with real protein sequences.
+This module contains tests for reading, writing, and manipulating FASTA files.
+Uses temporary directories for test isolation.
 """
 
-import os
 import tempfile
 import pytest
 import pandas as pd
-from pathlib import Path
 
 from protos.io.fasta_utils import (
     read_fasta, 
@@ -20,7 +18,6 @@ from protos.io.fasta_utils import (
     create_fasta_id_map
 )
 from protos.loaders.uniprot_utils import get_uniprot
-from protos.loaders.uniprot_loader import UniprotDL
 
 
 @pytest.fixture
@@ -37,17 +34,11 @@ GSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN"""
 
 
 @pytest.fixture
-def temp_fasta_file(sample_fasta_content):
+def temp_fasta_file(sample_fasta_content, tmp_path):
     """Create a temporary FASTA file for testing."""
-    with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.fasta') as temp_file:
-        temp_file.write(sample_fasta_content)
-        temp_path = temp_file.name
-    
-    yield temp_path
-    
-    # Clean up the temporary file
-    if os.path.exists(temp_path):
-        os.remove(temp_path)
+    fasta_file = tmp_path / "test.fasta"
+    fasta_file.write_text(sample_fasta_content)
+    return str(fasta_file)
 
 
 @pytest.fixture
@@ -71,27 +62,24 @@ def test_read_fasta(temp_fasta_file):
     assert sequences["sp|P01308|INS_HUMAN"].startswith("MALWMRLLPLLALLALWGPDPAA")
 
 
-def test_write_fasta(temp_fasta_file):
+def test_write_fasta(temp_fasta_file, tmp_path):
     """Test writing FASTA files."""
     # Read the original sequences
     original_sequences = read_fasta(temp_fasta_file)
     
-    # Create a new temporary file for writing
-    output_path = temp_fasta_file + ".out"
+    # Create output path
+    output_path = tmp_path / "output.fasta"
     
     # Write the sequences to the new file
-    write_fasta(original_sequences, output_path)
+    write_fasta(original_sequences, str(output_path))
     
     # Read back the written sequences
-    written_sequences = read_fasta(output_path)
+    written_sequences = read_fasta(str(output_path))
     
     # Verify the sequences match
     assert set(original_sequences.keys()) == set(written_sequences.keys())
     for key in original_sequences:
         assert original_sequences[key] == written_sequences[key]
-    
-    # Clean up
-    os.remove(output_path)
 
 
 def test_clean_sequence():
@@ -176,8 +164,7 @@ def test_create_fasta_id_map():
     assert "sp|P01308|INS_HUMAN" in descriptions
 
 
-@pytest.mark.skipif(not os.environ.get("RUN_NETWORK_TESTS"), 
-                   reason="Network-dependent tests are disabled")
+@pytest.mark.network
 def test_uniprot_download(test_uniprot_ids):
     """Test downloading sequences from UniProt."""
     # Only test the first ID to avoid too many requests
@@ -198,43 +185,7 @@ def test_uniprot_download(test_uniprot_ids):
     assert all(aa in "ACDEFGHIKLMNPQRSTVWY" for aa in sequence[:20])  # Check first 20 amino acids
 
 
-@pytest.mark.skipif(not os.environ.get("RUN_NETWORK_TESTS"), 
-                   reason="Network-dependent tests are disabled")
-def test_uniprot_loader(test_uniprot_ids, tmp_path):
-    """Test the UniprotDL class."""
-    # Create a temporary directory structure for the test
-    tmp_uniprot_dir = tmp_path / "uniprot"
-    tmp_uniprot_dir.mkdir()
-    (tmp_uniprot_dir / "datasets").mkdir()
-    (tmp_uniprot_dir / "table").mkdir()
-    (tmp_uniprot_dir / "fastas").mkdir()
-    
-    # Create a file with test IDs
-    dataset_name = "test_dataset"
-    dataset_file = tmp_uniprot_dir / "datasets" / f"{dataset_name}.txt"
-    with open(dataset_file, 'w') as f:
-        f.write(" ".join(test_uniprot_ids[:2]))  # Use only 2 IDs for speed
-    
-    # Initialize the loader
-    loader = UniprotDL(
-        path=str(tmp_uniprot_dir) + "/",
-        dataset=dataset_name,
-        limit=2  # Limit to 2 sequences for speed
-    )
-    
-    # Load dataset IDs
-    loaded_ids = loader.load_dataset()
-    assert len(loaded_ids) == 2
-    assert loaded_ids[0] in test_uniprot_ids
-    assert loaded_ids[1] in test_uniprot_ids
-    
-    # Download the sequences (this might take a bit longer)
-    # Skip actual download to avoid slow tests
-    # loader.download_genes_single_query(batchsize=2, save=True)
-    # assert len(loader.gene_df) == 2
-
-
-def test_integration_read_process_write(temp_fasta_file):
+def test_integration_read_process_write(temp_fasta_file, tmp_path):
     """Integration test for reading, processing, and writing FASTA files."""
     # Read the original sequences
     original_sequences = read_fasta(temp_fasta_file)
@@ -246,16 +197,13 @@ def test_integration_read_process_write(temp_fasta_file):
     }
     
     # Write the processed sequences to a new file
-    output_path = temp_fasta_file + ".processed"
-    write_fasta(processed_sequences, output_path)
+    output_path = tmp_path / "processed.fasta"
+    write_fasta(processed_sequences, str(output_path))
     
     # Read back the processed sequences
-    processed_sequences_read = read_fasta(output_path)
+    processed_sequences_read = read_fasta(str(output_path))
     
     # Verify the processing worked correctly
     assert set(processed_sequences.keys()) == set(processed_sequences_read.keys())
     for key in processed_sequences:
         assert processed_sequences[key] == processed_sequences_read[key]
-    
-    # Clean up
-    os.remove(output_path)

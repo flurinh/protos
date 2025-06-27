@@ -30,7 +30,7 @@
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-27T14:00:09.286512"
+    "last_updated": "2025-06-27T19:17:22.640690"
   },
   "structure/1tqn": {
     "type": "structure",
@@ -38,7 +38,7 @@
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-27T14:00:09.398182"
+    "last_updated": "2025-06-27T19:17:01.894416"
   },
   "structure/3nir": {
     "type": "structure",
@@ -46,6 +46,6 @@
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-27T14:00:09.445723"
+    "last_updated": "2025-06-27T19:17:02.117152"
   }
 }

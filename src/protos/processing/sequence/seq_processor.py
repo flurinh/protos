@@ -9,7 +9,7 @@ import logging
 from protos.core.base_processor import BaseProcessor
 from protos.io.fasta_utils import read_fasta, write_fasta
 from protos.io.file_utils import save_json, load_json
-from protos.io.formats import read_data, write_data
+from protos.io.data_access import generate_entity_id
 from .seq_alignment import (
     init_aligner, align_blosum62, format_alignment,
     mmseqs2_align, mmseqs2_align2, msa_blosum62,
@@ -52,6 +52,17 @@ class SeqProcessor(BaseProcessor):
             **kwargs
         )
         
+        # Set up data directories
+        self.data_dirs = {
+            'fasta': Path(self.data_path) / 'fasta',
+            'alignments': Path(self.data_path) / 'alignments',
+            'metadata': Path(self.data_path) / 'metadata'
+        }
+        
+        # Ensure directories exist
+        for dir_path in self.data_dirs.values():
+            dir_path.mkdir(parents=True, exist_ok=True)
+        
         # Initialize aligner
         self.aligner = None
         self._init_aligner()
@@ -70,13 +81,15 @@ class SeqProcessor(BaseProcessor):
             logger.warning(f"Failed to initialize aligner: {e}")
             self.aligner = None
     
-    def load_sequences(self, fasta_file: str, dataset_name: Optional[str] = None) -> Dict[str, str]:
+    def load_sequences(self, fasta_file: str, dataset_name: Optional[str] = None, 
+                      register_entities: bool = True) -> Dict[str, str]:
         """
-        Load sequences from a FASTA file.
+        Load sequences from a FASTA file with entity support.
         
         Args:
             fasta_file: Path to FASTA file or name in fasta/ directory
             dataset_name: Optional name to store sequences under
+            register_entities: Whether to register each sequence as an entity
             
         Returns:
             Dictionary of sequence_id -> sequence
@@ -95,6 +108,32 @@ class SeqProcessor(BaseProcessor):
             
         # Load sequences
         sequences = read_fasta(str(fasta_path))
+        
+        # Register entities if requested
+        if register_entities:
+            try:
+                from protos.io.data_access import GlobalRegistry
+                global_registry = GlobalRegistry()
+                
+                for seq_id, sequence in sequences.items():
+                    # Generate entity ID from sequence ID
+                    entity_id = generate_entity_id(seq_id)
+                    
+                    # Register entity
+                    global_registry.entity_registry.register_entity(
+                        entity_id=entity_id,
+                        entity_type="sequence",
+                        original_id=seq_id,
+                        file_path=str(fasta_path),
+                        metadata={
+                            "length": len(sequence),
+                            "dataset": dataset_name or os.path.basename(fasta_path)
+                        },
+                        datasets=[dataset_name] if dataset_name else []
+                    )
+                logger.info(f"Registered {len(sequences)} sequence entities")
+            except Exception as e:
+                logger.warning(f"Could not register sequence entities: {e}")
         
         # Store in cache
         if dataset_name:
@@ -403,3 +442,142 @@ class SeqProcessor(BaseProcessor):
             composition[aa] = round(count / seq_len * 100, 1) if seq_len > 0 else 0
             
         return composition
+    
+    # Entity support methods
+    def load_sequence_entity(self, identifier: str) -> Optional[str]:
+        """
+        Load a single sequence entity.
+        
+        Args:
+            identifier: Sequence identifier (name or entity hash)
+            
+        Returns:
+            Sequence string or None if not found
+        """
+        # Resolve identifier
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_id = global_registry.entity_registry.resolve_identifier(identifier, format_type="sequence")
+            
+            # Get original ID
+            original_id = global_registry.entity_registry.get_original_id(entity_id)
+            if not original_id:
+                original_id = identifier
+        except:
+            # Fallback
+            original_id = identifier
+            entity_id = generate_entity_id(identifier)
+        
+        # Check cache first
+        for dataset, sequences in self.sequences.items():
+            if original_id in sequences:
+                return sequences[original_id]
+        
+        # Try to load from entity registry
+        try:
+            global_registry = GlobalRegistry()
+            entity_info = global_registry.entity_registry.get_entity(entity_id)
+            if entity_info and 'sequence' in entity_info.get('formats', {}):
+                file_path = entity_info['formats']['sequence'].get('file_path')
+                if file_path and os.path.exists(file_path):
+                    # Load the FASTA file
+                    sequences = read_fasta(file_path)
+                    if original_id in sequences:
+                        return sequences[original_id]
+        except:
+            pass
+        
+        logger.warning(f"Sequence entity not found: {identifier}")
+        return None
+    
+    def save_sequence_entity(self, seq_id: str, sequence: str, 
+                           datasets: Optional[List[str]] = None,
+                           metadata: Optional[Dict[str, any]] = None) -> str:
+        """
+        Save a single sequence as an entity.
+        
+        Args:
+            seq_id: Sequence identifier
+            sequence: Sequence string
+            datasets: Optional dataset IDs to associate with
+            metadata: Additional metadata
+            
+        Returns:
+            Entity ID
+        """
+        # Save sequence to individual file
+        output_file = f"{seq_id}.fasta"
+        output_path = self.data_dirs['fasta'] / output_file
+        
+        # Save single sequence
+        write_fasta({seq_id: sequence}, str(output_path))
+        
+        # Generate entity ID
+        entity_id = generate_entity_id(seq_id)
+        
+        # Register entity
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            
+            # Merge metadata
+            entity_metadata = {
+                "length": len(sequence),
+                "file": output_file
+            }
+            if metadata:
+                entity_metadata.update(metadata)
+            
+            global_registry.entity_registry.register_entity(
+                entity_id=entity_id,
+                entity_type="sequence",
+                original_id=seq_id,
+                file_path=str(output_path),
+                metadata=entity_metadata,
+                datasets=datasets or []
+            )
+            logger.info(f"Saved sequence entity {seq_id} -> {entity_id}")
+        except Exception as e:
+            logger.warning(f"Could not register sequence entity: {e}")
+        
+        return entity_id
+    
+    def list_sequence_entities(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all sequence entities.
+        
+        Args:
+            dataset: Optional dataset to filter by
+            
+        Returns:
+            List of sequence IDs (not hash IDs!)
+        """
+        # First check cached sequences
+        if dataset and dataset in self.sequences:
+            return list(self.sequences[dataset].keys())
+        elif not dataset and self.sequences:
+            # Return all cached sequences
+            all_seqs = []
+            for seqs in self.sequences.values():
+                all_seqs.extend(seqs.keys())
+            return list(set(all_seqs))
+        
+        # Check registry
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_ids = global_registry.entity_registry.list_entities(
+                format_type="sequence", 
+                dataset=dataset
+            )
+            
+            # Convert to original IDs
+            original_ids = []
+            for entity_id in entity_ids:
+                original_id = global_registry.entity_registry.get_original_id(entity_id)
+                if original_id:
+                    original_ids.append(original_id)
+            return original_ids
+        except:
+            return []

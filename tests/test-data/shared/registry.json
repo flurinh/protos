@@ -1,0 +1,12 @@
+{
+  "shared_data": {
+    "format": "json",
+    "rows": 1,
+    "columns": null,
+    "loaded_at": "2025-06-27T15:09:59.757965",
+    "processor_type": "shared",
+    "last_updated": "2025-06-27T15:09:59.757977",
+    "filename": "datasets/shared_data.json",
+    "directory": "datasets"
+  }
+}

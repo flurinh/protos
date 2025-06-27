@@ -80,3 +80,23 @@
 [2025-06-27 13:38] [CREATE] /tests/test_processors/test_embedding/test_embedding_output_format.py - Comprehensive tests for embedding output formats and residue mapping
 [2025-06-27 13:42] [MODIFY] /src/protos/processing/embedding/embedding_processor.py - Added get_residue_embeddings helper method for extracting residue-only embeddings
 [2025-06-27 13:42] [CREATE] /examples/embedding_grn_integration.py - Example demonstrating proper residue embedding extraction and GRN mapping
+[2025-06-27 14:12] [MODIFY] /TODO.md - Updated with comprehensive test failure analysis and action items
+[2025-06-27 14:32] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/tests_violations_report.md - Created comprehensive report of test suite critical rule violations
+[2025-06-27 14:49] [CREATE] /docs/PROTOSPATH.md - Comprehensive ProtosPaths architecture documentation
+[2025-06-27 14:49] [MODIFY] /tests/test_cli/test_expand_annotation_real_data.py - Fixed to extract amino acids from GRN format and use processor.save_data()
+[2025-06-27 14:49] [MODIFY] /TODO.md - Major update with critical rules, ProtosPaths reference, comprehensive test status
+[2025-06-27 14:53] [MODIFY] /TODO.md - Added core philosophy section emphasizing complete file system abstraction
+[2025-06-27 14:53] [MODIFY] /docs/PROTOSPATH.md - Enhanced with core philosophy and importance of complete abstraction
+[2025-06-27 14:58] [MODIFY] /TODO.md - Added current state analysis and systematic test fix plan to restore core philosophy
+[2025-06-27 15:14] [MODIFY] /tests/test_core/ - Fixed all path violations in core tests to follow Protos principles
+[2025-06-27 16:22] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/docs/REGISTRY_OVERHAUL_PLAN.md - Comprehensive plan for registry system overhaul with hash-based entity IDs
+[2025-06-27 16:22] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/TODO.md - Updated registry overhaul section with hash-based entity ID approach
+[2025-06-27 16:24] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/TODO.md - Added comprehensive context for registry overhaul including philosophy alignment, hash ID rationale, and migration strategy
+[2025-06-27 16:36] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/io/data_access.py - Added EntityRegistry class with hash-based entity ID system
+[2025-06-27 16:36] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/core/base_processor.py - Added entity management methods (list_entities, load_entity, save_entity, etc.)
+[2025-06-27 16:37] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/tests/test_io/test_entity_registry.py - Comprehensive test suite for entity registry system
+[2025-06-27 17:00] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/TODO.md - Consolidated entity registry implementation plan with philosophy, current status, and detailed phases
+[2025-06-27 17:00] [DELETE] /mnt/c/Users/hidbe/PycharmProjects/protos/docs/ENTITY_IMPLEMENTATION_PLAN.md - Removed redundant document, content consolidated into TODO.md
+[2025-06-27 17:29] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/TODO.md - Reorganized with philosophy, path, registry sections and prioritized todos
+[2025-06-27 17:31] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/io/data_access.py - Added resolve_identifier and get_original_id methods to EntityRegistry
+[2025-06-27 17:31] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/core/base_processor.py - Updated load_entity to use resolve_identifier, list_entities to return names by default

@@ -1,0 +1,17 @@
+{
+  "config": {
+    "version": "1.0",
+    "debug": true
+  },
+  "items": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "metadata": {
+    "created": "2023-01-01",
+    "author": "test"
+  }
+}

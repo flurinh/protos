@@ -47,7 +47,21 @@
       "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/ -v --tb=no)",
       "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_grn/ -v --tb=no)",
       "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_structure/ -v --tb=no)",
-      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_sequence/ -v --tb=no 2 >& 1)"
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_sequence/ -v --tb=no 2 >& 1)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/ -v --tb=no 2 >& 1)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_cli/ -v --tb=no 2 >& 1)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_cli/test_expand_annotation_real_data.py::TestExpandAnnotationRealData::test_expand_annotation_ar1 -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_loaders/ -v --tb=no 2 >& 1)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_cli/test_expand_annotation_real_data.py -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_cli/ -v --tb=no)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python setup_test_data_from_reference.py)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/ -v --tb=short 2 >& 1)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_grn/test_grn_processor_with_real_data.py::TestGRNProcessorWithRealData::test_load_reference_table_and_basic_operations -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_sequence/ -v --tb=no)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor_fixed.py -v)",
+      "Bash(mv:*)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor_clean.py -v)",
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/ -v)"
     ],
     "deny": []
   }

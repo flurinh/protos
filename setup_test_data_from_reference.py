@@ -31,6 +31,7 @@ def copy_reference_data():
     files_to_copy = [
         # GRN reference tables
         ("grn/ref/mo_ref.csv", "grn/ref/mo_ref.csv"),
+        ("grn/ref/mo_grn.csv", "grn/ref/mo_grn.csv"),
         ("grn/ref/gpcrdb_ref.csv", "grn/ref/gpcrdb_ref.csv"),
         
         # GRN configs

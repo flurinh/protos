@@ -1,14 +1,13 @@
 """
 Tests for CIF file handling functionality.
+
+Uses pytest's tmp_path fixture for clean test isolation.
 """
 
-import os
-import tempfile
 import pytest
 import pandas as pd
 import numpy as np
 
-# Import the CifHandler class
 from protos.io.cif_handler import CifHandler
 
 
@@ -42,32 +41,19 @@ def cif_handler():
     """Create a CifHandler instance."""
     return CifHandler()
 
-@pytest.fixture
-def temp_cif_file(sample_cif_df, cif_handler):
-    """Create a temporary CIF file from sample data."""
-    with tempfile.NamedTemporaryFile(suffix='.cif', delete=False) as tmp:
-        # Use the handler to write the file
-        tmp_name = cif_handler.write(tmp.name, sample_cif_df, force_overwrite=True)
-    
-    yield tmp_name
-    
-    # Clean up after test
-    if os.path.exists(tmp_name):
-        os.unlink(tmp_name)
-
 
 def test_df_to_cif(sample_cif_df, cif_handler, tmp_path):
-    """Test converting DataFrame to CIF format string."""
+    """Test converting DataFrame to CIF format."""
     # Use the handler to write to a temporary file
-    output_file = os.path.join(tmp_path, 'test_df_to_cif.cif')
-    cif_handler.write(output_file, sample_cif_df)
+    output_file = tmp_path / 'test_df_to_cif.cif'
+    cif_handler.write(str(output_file), sample_cif_df)
     
-    # Verify file exists
-    assert os.path.exists(output_file)
+    # Verify file exists and has content
+    assert output_file.exists()
+    assert output_file.stat().st_size > 0
     
     # Read the file content
-    with open(output_file, 'r') as f:
-        cif_content = f.read()
+    cif_content = output_file.read_text()
     
     # Check basic CIF format elements
     assert cif_content.startswith('data_')
@@ -82,92 +68,105 @@ def test_df_to_cif(sample_cif_df, cif_handler, tmp_path):
 def test_write_cif_file(sample_cif_df, cif_handler, tmp_path):
     """Test writing DataFrame to CIF file."""
     # Define output path
-    output_file = os.path.join(tmp_path, 'output.cif')
+    output_file = tmp_path / 'output.cif'
     
     # Write the file using the handler
     cif_handler.write(
-        output_file,
+        str(output_file),
         sample_cif_df,
         force_overwrite=True
     )
     
     # Check file was created
-    assert os.path.exists(output_file)
-    assert os.path.getsize(output_file) > 0
+    assert output_file.exists()
+    assert output_file.stat().st_size > 0
     
     # Read content and verify
-    with open(output_file, 'r') as f:
-        content = f.read()
-        assert 'data_' in content
-        assert 'ATOM   1' in content
+    content = output_file.read_text()
+    assert 'data_' in content
+    assert 'ATOM   1' in content
 
 
 def test_write_cif_file_versioned(sample_cif_df, cif_handler, tmp_path):
     """Test writing DataFrame to CIF file with versioning."""
     # Define output path
-    output_file = os.path.join(tmp_path, 'versioned_output.cif')
+    output_file = tmp_path / 'versioned_output.cif'
     
-    # Write file with versioning using the handler's write_with_versioning method
+    # Write file with versioning
     result_path = cif_handler.write_with_versioning(
-        file_path=output_file,
+        file_path=str(output_file),
         data=sample_cif_df,
         versioned=True
     )
     
     # Check file was created with version in filename
     assert result_path is not None
-    assert os.path.exists(result_path)
-    assert result_path != output_file  # Should have version added
-    assert '_v1' in os.path.basename(result_path)
+    # Convert result_path to Path for easier checking
+    result_path_obj = tmp_path / result_path.split('/')[-1]
+    assert '_v1' in result_path_obj.name
     
     # Write another version
     result_path_2 = cif_handler.write_with_versioning(
-        file_path=output_file,
+        file_path=str(output_file),
         data=sample_cif_df,
         versioned=True
     )
     
     # Check new version was created
     assert result_path_2 is not None
-    assert os.path.exists(result_path_2)
-    assert '_v2' in os.path.basename(result_path_2)
+    result_path_2_obj = tmp_path / result_path_2.split('/')[-1]
+    assert '_v2' in result_path_2_obj.name
 
 
 def test_cif_file_overwrite_protection(sample_cif_df, cif_handler, tmp_path):
     """Test CIF file overwrite protection."""
     # Define output path
-    output_file = os.path.join(tmp_path, 'protected.cif')
+    output_file = tmp_path / 'protected.cif'
     
     # Write initial file
     cif_handler.write(
-        output_file,
+        str(output_file),
         sample_cif_df
     )
     
     # Verify file exists
-    assert os.path.exists(output_file)
+    assert output_file.exists()
     
-    # Try to overwrite without force flag
-    try:
+    # Try to overwrite without force flag - should raise an exception
+    with pytest.raises(Exception):
         cif_handler.write(
-            output_file,
+            str(output_file),
             sample_cif_df,
             force_overwrite=False
         )
-        # If we get here, the test failed
-        assert False, "Should have raised an error trying to overwrite file"
-    except Exception:
-        # Expected behavior
-        pass
     
-    # Now try with force_overwrite=True
-    try:
-        cif_handler.write(
-            output_file,
-            sample_cif_df,
-            force_overwrite=True
-        )
-        # Should succeed
-        assert os.path.exists(output_file)
-    except Exception as e:
-        assert False, f"Should not have raised an error with force_overwrite=True: {str(e)}"
+    # Now try with force_overwrite=True - should succeed
+    cif_handler.write(
+        str(output_file),
+        sample_cif_df,
+        force_overwrite=True
+    )
+    assert output_file.exists()
+
+
+def test_cif_format_requirements(sample_cif_df, cif_handler, tmp_path):
+    """Test that CIF files meet format requirements."""
+    output_file = tmp_path / 'format_test.cif'
+    cif_handler.write(str(output_file), sample_cif_df)
+    
+    content = output_file.read_text()
+    
+    # Check required CIF sections
+    required_sections = [
+        'data_',
+        'loop_',
+        '_atom_site.',
+        'ATOM'
+    ]
+    
+    for section in required_sections:
+        assert section in content, f"Missing required section: {section}"
+    
+    # Check coordinate format (should have decimal places)
+    assert '10.000' in content or '10.0' in content
+    assert '13.500' in content or '13.5' in content

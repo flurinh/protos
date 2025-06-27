@@ -1,10 +1,11 @@
 """
-Tests for GRN CLI utilities with real test data.
+Tests for GRN CLI utilities.
+
+These tests focus on pure functions that don't need file access.
 """
 
 import pytest
 import pandas as pd
-from pathlib import Path
 
 from protos.cli.grn.clean_grn_table import validate_and_clean_row
 from protos.processing.grn.grn_assignment import (
@@ -16,11 +17,11 @@ from protos.processing.grn.grn_assignment import (
 
 
 class TestGRNUtils:
-    """Test GRN utility functions with real sequences."""
+    """Test GRN utility functions with synthetic sequences."""
     
     def test_assign_gene_nr(self):
-        """Test gene number assignment on a real sequence fragment."""
-        # Use a fragment of AR1 sequence
+        """Test gene number assignment on a sequence fragment."""
+        # Use a synthetic sequence fragment
         seq = "TAAVGADLLGDGRPETLWL"
         gene_numbers = assign_gene_nr(seq)
         
@@ -68,16 +69,16 @@ class TestGRNUtils:
         assert len(c_tail_list) > 0
         assert last_gene_number_int == 230  # Position of K230
         
-    def test_validate_and_clean_row_from_mo_ref(self):
-        """Test validation on actual mo_ref data patterns."""
-        # Normal sequence from mo_ref (simplified)
+    def test_validate_and_clean_row_patterns(self):
+        """Test validation on typical GRN table patterns."""
+        # Normal sequence
         row = ['P42', 'I43', 'Y44', 'E45', 'T46']
         clean_row, is_erroneous = validate_and_clean_row(row)
         
         assert clean_row == row
         assert not is_erroneous
         
-        # Sequence with gap (non-sequential numbering like in mo_ref)
+        # Sequence with gap (non-sequential numbering)
         row = ['P42', 'I43', '-', '-', 'V85', 'I86']
         clean_row, is_erroneous = validate_and_clean_row(row)
         

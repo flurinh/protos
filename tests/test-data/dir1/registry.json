@@ -1,0 +1,13 @@
+{
+  "data1": {
+    "format": "json",
+    "rows": 1,
+    "columns": null,
+    "saved_at": "2025-06-27T15:10:00.022857",
+    "processor_type": "dir1",
+    "last_updated": "2025-06-27T15:10:00.022883",
+    "filename": "datasets/data1.json",
+    "directory": "datasets",
+    "loaded_at": "2025-06-27T15:08:29.008528"
+  }
+}

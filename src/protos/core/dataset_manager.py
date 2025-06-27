@@ -9,11 +9,11 @@ to provide consistent dataset handling.
 import os
 import json
 import logging
-from typing import Dict, List, Any, Optional, Union, Set
+from typing import Dict, List, Any, Optional, Union, Set, Tuple
 from datetime import datetime
 from pathlib import Path
 
-from protos.io.data_access import Dataset, DataRegistry, GlobalRegistry
+from protos.io.data_access import Dataset, DataRegistry, GlobalRegistry, EntityRegistry, generate_entity_id
 from protos.io.paths import ProtosPaths, DataSource, ensure_directory
 
 # Configure logger
@@ -48,6 +48,9 @@ class DatasetManager:
         self.dataset_dir = self._get_dataset_dir()
         print(f"Dataset Manager initialized at {self.dataset_dir}")
         ensure_directory(self.dataset_dir)
+        
+        # Initialize entity registry for entity-dataset management
+        self.entity_registry = self.global_registry.entity_registry
     
     def _get_dataset_dir(self) -> str:
         """
@@ -460,3 +463,210 @@ class DatasetManager:
         )
         
         return dataset
+    
+    # Entity-aware dataset methods
+    
+    def create_dataset_from_entities(self,
+                                   dataset_id: str,
+                                   entity_ids: List[str],
+                                   name: Optional[str] = None,
+                                   description: Optional[str] = None,
+                                   metadata: Optional[Dict[str, Any]] = None) -> Dataset:
+        """
+        Create a dataset from a list of entity IDs.
+        
+        Args:
+            dataset_id: Unique identifier for the dataset
+            entity_ids: List of entity hash IDs to include
+            name: Optional human-readable name
+            description: Optional detailed description
+            metadata: Additional metadata
+            
+        Returns:
+            Created Dataset instance
+        """
+        # Validate entity IDs exist
+        valid_entity_ids = []
+        for entity_id in entity_ids:
+            if self.entity_registry.entity_exists(entity_id):
+                valid_entity_ids.append(entity_id)
+            else:
+                logger.warning(f"Entity '{entity_id}' not found, skipping")
+        
+        if not valid_entity_ids:
+            raise ValueError("No valid entity IDs provided")
+        
+        # Update entity registry to link entities to dataset
+        for entity_id in valid_entity_ids:
+            self.entity_registry.add_entity_to_dataset(entity_id, dataset_id)
+        
+        # Create dataset
+        name = name or f"Dataset {dataset_id}"
+        description = description or f"Dataset containing {len(valid_entity_ids)} entities"
+        
+        dataset = self.create_dataset(
+            dataset_id=dataset_id,
+            name=name,
+            description=description,
+            content=valid_entity_ids,
+            metadata={
+                **(metadata or {}),
+                "entity_based": True,
+                "entity_count": len(valid_entity_ids)
+            }
+        )
+        
+        return dataset
+    
+    def add_entities_to_dataset(self, dataset_id: str, entity_ids: List[str]) -> int:
+        """
+        Add entities to an existing dataset.
+        
+        Args:
+            dataset_id: Dataset identifier
+            entity_ids: List of entity hash IDs to add
+            
+        Returns:
+            Number of entities successfully added
+        """
+        # Load dataset
+        dataset = self.load_dataset(dataset_id)
+        if not dataset:
+            raise ValueError(f"Dataset '{dataset_id}' not found")
+        
+        # Ensure content is a list
+        if not isinstance(dataset.content, list):
+            raise ValueError(f"Dataset '{dataset_id}' content is not a list of entities")
+        
+        added_count = 0
+        for entity_id in entity_ids:
+            if self.entity_registry.entity_exists(entity_id):
+                if entity_id not in dataset.content:
+                    dataset.add_item(entity_id)
+                    self.entity_registry.add_entity_to_dataset(entity_id, dataset_id)
+                    added_count += 1
+            else:
+                logger.warning(f"Entity '{entity_id}' not found, skipping")
+        
+        # Save updated dataset
+        if added_count > 0:
+            self.save_dataset(dataset)
+        
+        return added_count
+    
+    def remove_entities_from_dataset(self, dataset_id: str, entity_ids: List[str]) -> int:
+        """
+        Remove entities from a dataset.
+        
+        Args:
+            dataset_id: Dataset identifier
+            entity_ids: List of entity hash IDs to remove
+            
+        Returns:
+            Number of entities successfully removed
+        """
+        # Load dataset
+        dataset = self.load_dataset(dataset_id)
+        if not dataset:
+            raise ValueError(f"Dataset '{dataset_id}' not found")
+        
+        removed_count = 0
+        for entity_id in entity_ids:
+            if dataset.remove_item(entity_id):
+                self.entity_registry.remove_entity_from_dataset(entity_id, dataset_id)
+                removed_count += 1
+        
+        # Save updated dataset
+        if removed_count > 0:
+            self.save_dataset(dataset)
+        
+        return removed_count
+    
+    def get_dataset_entities(self, dataset_id: str) -> List[str]:
+        """
+        Get all entity IDs in a dataset.
+        
+        Args:
+            dataset_id: Dataset identifier
+            
+        Returns:
+            List of entity hash IDs
+        """
+        # Try entity registry first
+        entity_ids = self.entity_registry.get_dataset_entities(dataset_id)
+        if entity_ids:
+            return entity_ids
+        
+        # Fall back to loading dataset
+        dataset = self.load_dataset(dataset_id)
+        if dataset and isinstance(dataset.content, list):
+            return dataset.content
+        
+        return []
+    
+    def get_dataset_entity_info(self, dataset_id: str) -> List[Dict[str, Any]]:
+        """
+        Get detailed information about all entities in a dataset.
+        
+        Args:
+            dataset_id: Dataset identifier
+            
+        Returns:
+            List of entity information dictionaries
+        """
+        entity_ids = self.get_dataset_entities(dataset_id)
+        entity_info = []
+        
+        for entity_id in entity_ids:
+            info = self.entity_registry.get_entity(entity_id)
+            if info:
+                entity_info.append({
+                    "entity_id": entity_id,
+                    "type": info.get("type"),
+                    "original_id": info.get("original_id"),
+                    "metadata": info.get("metadata", {})
+                })
+        
+        return entity_info
+    
+    def sync_dataset_entities(self, dataset_id: str) -> Tuple[int, int]:
+        """
+        Synchronize dataset content with entity registry.
+        
+        This ensures the dataset content matches what's in the entity registry
+        and vice versa.
+        
+        Args:
+            dataset_id: Dataset identifier
+            
+        Returns:
+            Tuple of (entities_added, entities_removed)
+        """
+        # Load dataset
+        dataset = self.load_dataset(dataset_id)
+        if not dataset:
+            raise ValueError(f"Dataset '{dataset_id}' not found")
+        
+        if not isinstance(dataset.content, list):
+            return (0, 0)
+        
+        # Get entities from registry
+        registry_entities = set(self.entity_registry.get_dataset_entities(dataset_id))
+        dataset_entities = set(dataset.content)
+        
+        # Find differences
+        to_add = registry_entities - dataset_entities
+        to_remove = dataset_entities - registry_entities
+        
+        # Update dataset content
+        for entity_id in to_add:
+            dataset.add_item(entity_id)
+        
+        for entity_id in to_remove:
+            dataset.remove_item(entity_id)
+        
+        # Save if changed
+        if to_add or to_remove:
+            self.save_dataset(dataset)
+        
+        return (len(to_add), len(to_remove))

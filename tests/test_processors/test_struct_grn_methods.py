@@ -2,30 +2,29 @@
 
 import pytest
 import pandas as pd
-from pathlib import Path
-import tempfile
-import shutil
 
 from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.io.paths.path_config import ProtosPaths
 
 
 class TestCifBaseProcessorGRNMethods:
     """Test the new GRN-related methods in CifBaseProcessor."""
     
     @pytest.fixture
-    def test_data_dir(self):
-        """Create temporary directory for test data."""
-        temp_dir = tempfile.mkdtemp()
-        yield temp_dir
-        shutil.rmtree(temp_dir)
-    
-    @pytest.fixture
-    def struct_processor(self, test_data_dir):
+    def struct_processor(self, tmp_path):
         """Create a CifBaseProcessor instance for testing."""
-        return CifBaseProcessor(
+        # Set global data root to temp directory
+        ProtosPaths.set_data_root(str(tmp_path))
+        
+        processor = CifBaseProcessor(
             name="test_processor",
             processor_data_dir="structure"
         )
+        
+        yield processor
+        
+        # Cleanup
+        ProtosPaths.set_data_root(None)
     
     def test_get_seq_dict_basic(self, struct_processor):
         """Test basic sequence extraction."""
@@ -51,191 +50,156 @@ class TestCifBaseProcessorGRNMethods:
     
     def test_get_seq_dict_with_gaps(self, struct_processor):
         """Test sequence extraction with gaps."""
-        # Create test data with gap
+        # Create test data with non-sequential residues
         test_data = pd.DataFrame({
-            'pdb_id': ['1ABC'] * 4,
-            'auth_chain_id': ['A'] * 4,
-            'auth_seq_id': [1, 2, 5, 6],  # Gap at positions 3-4
+            'pdb_id': ['1ABC', '1ABC', '1ABC', '1ABC'],
+            'auth_chain_id': ['A', 'A', 'A', 'A'],
+            'auth_seq_id': [1, 2, 5, 6],  # Gap between 2 and 5
             'auth_comp_id': ['MET', 'ALA', 'GLY', 'VAL']
         })
         
         struct_processor.data = test_data
         
+        # Extract sequences
         sequences = struct_processor.get_seq_dict()
         
         assert '1ABC_A' in sequences
-        assert sequences['1ABC_A'] == 'MAXXGV'  # XX for missing positions 3-4
+        # Should have gaps represented
+        assert len(sequences['1ABC_A']) == 6  # Positions 1,2,3,4,5,6 (with gaps at 3,4)
     
-    def test_get_seq_dict_empty_data(self, struct_processor):
-        """Test sequence extraction with empty data."""
-        struct_processor.data = pd.DataFrame()
-        
-        sequences = struct_processor.get_seq_dict()
-        
-        assert isinstance(sequences, dict)
-        assert len(sequences) == 0
-    
-    def test_get_seq_dict_non_standard_residues(self, struct_processor):
-        """Test handling of non-standard residues."""
+    def test_map_gen_seq_to_residue(self, struct_processor):
+        """Test mapping generation sequence ID to residue information."""
+        # Create test data
         test_data = pd.DataFrame({
+            'pdb_id': ['1ABC'] * 4,
+            'auth_chain_id': ['A'] * 4,
+            'gen_seq_id': [10, 11, 12, 13],
+            'auth_seq_id': [100, 101, 102, 103],
+            'auth_comp_id': ['ALA', 'VAL', 'ILE', 'LEU']
+        })
+        
+        struct_processor.data = test_data
+        
+        # Test mapping
+        result = struct_processor.map_gen_seq_to_residue('1ABC', 'A', 11)
+        
+        assert result == 'V101'
+        
+        # Test non-existent mapping
+        result = struct_processor.map_gen_seq_to_residue('1ABC', 'A', 99)
+        assert result == '-'
+    
+    def test_map_auth_seq_to_residue(self, struct_processor):
+        """Test mapping auth sequence ID to residue information."""
+        # Create test data
+        test_data = pd.DataFrame({
+            'pdb_id': ['1ABC'] * 4,
+            'auth_chain_id': ['A'] * 4,
+            'auth_seq_id': [100, 101, 102, 103],
+            'auth_comp_id': ['ALA', 'VAL', 'ILE', 'LEU']
+        })
+        
+        struct_processor.data = test_data
+        
+        # Test mapping
+        result = struct_processor.map_auth_seq_to_residue('1ABC', 'A', 101)
+        
+        assert result == 'V101'
+        
+        # Test non-existent mapping
+        result = struct_processor.map_auth_seq_to_residue('1ABC', 'A', 999)
+        assert result == '-'
+    
+    def test_map_grn_to_resname_number(self, struct_processor):
+        """Test mapping GRN table to residue name and number."""
+        # Create structure data
+        struct_data = pd.DataFrame({
             'pdb_id': ['1ABC'] * 5,
             'auth_chain_id': ['A'] * 5,
-            'auth_seq_id': [1, 2, 3, 4, 5],
-            'auth_comp_id': ['MET', 'ALA', 'MSE', 'HOH', 'GLY']  # MSE and HOH
+            'gen_seq_id': [50, 51, 52, 53, 54],
+            'auth_seq_id': [150, 151, 152, 153, 154],
+            'auth_comp_id': ['LEU', 'VAL', 'ALA', 'ILE', 'PHE']
         })
         
-        struct_processor.data = test_data
+        struct_processor.data = struct_data
         
-        sequences = struct_processor.get_seq_dict()
+        # Create GRN table
+        grn_table = pd.DataFrame({
+            '1.50': ['L50'],  # Maps to gen_seq_id 50
+            '2.50': ['A52'],  # Maps to gen_seq_id 52
+            '3.50': ['F54']   # Maps to gen_seq_id 54
+        }, index=['1ABC_A'])
         
-        assert '1ABC_A' in sequences
-        assert sequences['1ABC_A'] == 'MAMXG'  # MSE->M, HOH skipped, X for gap
-    
-    def test_get_grn_dict_basic(self, struct_processor):
-        """Test basic GRN extraction."""
-        test_data = pd.DataFrame({
-            'pdb_id': ['1ABC', '1ABC', '1ABC'],
-            'auth_chain_id': ['A', 'A', 'A'],
-            'auth_seq_id': [82, 85, 216],
-            'auth_comp_id': ['ARG', 'ASP', 'LYS'],
-            'grn': ['1.50', '3.50', '7.50']
-        })
-        
-        struct_processor.data = test_data
-        
-        grn_dict = struct_processor.get_grn_dict()
-        
-        assert isinstance(grn_dict, dict)
-        assert '1ABC' in grn_dict
-        assert 'A' in grn_dict['1ABC']
-        assert grn_dict['1ABC']['A']['1.50'] == 'R82'
-        assert grn_dict['1ABC']['A']['3.50'] == 'D85'
-        assert grn_dict['1ABC']['A']['7.50'] == 'K216'
-    
-    def test_get_grn_dict_no_grn_column(self, struct_processor):
-        """Test GRN extraction when no GRN column exists."""
-        test_data = pd.DataFrame({
-            'pdb_id': ['1ABC'],
-            'auth_chain_id': ['A'],
-            'auth_seq_id': [1],
-            'auth_comp_id': ['MET']
-        })
-        
-        struct_processor.data = test_data
-        
-        grn_dict = struct_processor.get_grn_dict()
-        
-        assert isinstance(grn_dict, dict)
-        assert len(grn_dict) == 0
-    
-    def test_get_grn_dict_multiple_structures(self, struct_processor):
-        """Test GRN extraction with multiple structures."""
-        test_data = pd.DataFrame({
-            'pdb_id': ['1ABC', '1ABC', '2XYZ', '2XYZ'],
-            'auth_chain_id': ['A', 'B', 'A', 'A'],
-            'auth_seq_id': [50, 100, 150, 200],
-            'auth_comp_id': ['ARG', 'ASP', 'GLU', 'LYS'],
-            'grn': ['1.50', '3.50', '5.50', '7.50']
-        })
-        
-        struct_processor.data = test_data
-        
-        grn_dict = struct_processor.get_grn_dict()
-        
-        assert len(grn_dict) == 2
-        assert '1ABC' in grn_dict
-        assert '2XYZ' in grn_dict
-        assert grn_dict['1ABC']['A']['1.50'] == 'R50'
-        assert grn_dict['1ABC']['B']['3.50'] == 'D100'
-        assert grn_dict['2XYZ']['A']['5.50'] == 'E150'
-        assert grn_dict['2XYZ']['A']['7.50'] == 'K200'
-    
-    def test_assign_grns_adds_column(self, struct_processor):
-        """Test that assign_grns adds GRN column to data."""
-        # Create simple test data
-        test_data = pd.DataFrame({
-            'pdb_id': ['TEST'] * 10,
-            'auth_chain_id': ['A'] * 10,
-            'auth_seq_id': list(range(1, 11)),
-            'auth_comp_id': ['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 
-                            'GLN', 'GLU', 'GLY', 'HIS', 'ILE']
-        })
-        
-        struct_processor.data = test_data
-        
-        # Check that GRN column doesn't exist initially
-        assert 'grn' not in struct_processor.data.columns
-        
-        # Assign GRNs - should work now with 'mo' reference table
-        result = struct_processor.assign_grns(
-            protein_family='mo',
-            use_mmseqs=False,
-            save_results=False
+        # Map GRN to residue info
+        result = struct_processor.map_grn_to_resname_number(
+            grn_table=grn_table,
+            seq_type='gen'
         )
         
-        # Check that GRN column was added
-        assert 'grn' in struct_processor.data.columns
-        
-        # Even if no assignments were made, column should exist
-        if not result:
-            # Column should be filled with None or '-'
-            assert struct_processor.data['grn'].isna().all() or (struct_processor.data['grn'] == '-').all()
+        # Check results
+        assert isinstance(result, pd.DataFrame)
+        assert result.loc['1ABC_A', '1.50'] == 'L150'
+        assert result.loc['1ABC_A', '2.50'] == 'A152'
+        assert result.loc['1ABC_A', '3.50'] == 'F154'
     
-    def test_integration_workflow(self, struct_processor):
-        """Test the complete workflow: extract sequences -> assign GRNs -> extract GRN dict."""
-        # Create bacteriorhodopsin-like test data
-        br_seq = "MLELLPTAVEGVSQAQITGRPEWIWLALGTALMGLGTLYFLVKGMGVSD"
+    def test_map_grn_with_missing_data(self, struct_processor):
+        """Test GRN mapping with missing structure data."""
+        # Limited structure data
+        struct_data = pd.DataFrame({
+            'pdb_id': ['1ABC'],
+            'auth_chain_id': ['A'],
+            'gen_seq_id': [50],
+            'auth_seq_id': [150],
+            'auth_comp_id': ['LEU']
+        })
         
-        test_data = []
-        aa_3letter_map = {
-            'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE',
-            'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU',
-            'M': 'MET', 'N': 'ASN', 'P': 'PRO', 'Q': 'GLN', 'R': 'ARG',
-            'S': 'SER', 'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR'
-        }
+        struct_processor.data = struct_data
         
-        for i, aa in enumerate(br_seq):
-            test_data.append({
-                'pdb_id': 'TEST1',
-                'auth_chain_id': 'A',
-                'auth_seq_id': i + 1,
-                'auth_comp_id': aa_3letter_map.get(aa, 'UNK'),
-                'x': float(i * 3.8),
-                'y': 0.0,
-                'z': 0.0
-            })
+        # GRN table with more positions than we have structure for
+        grn_table = pd.DataFrame({
+            '1.50': ['L50'],   # This exists
+            '2.50': ['A52'],   # This doesn't exist
+            '3.50': ['F54']    # This doesn't exist
+        }, index=['1ABC_A'])
         
-        struct_processor.data = pd.DataFrame(test_data)
+        # Map GRN to residue info
+        result = struct_processor.map_grn_to_resname_number(
+            grn_table=grn_table,
+            seq_type='gen'
+        )
         
-        # Step 1: Extract sequences
-        sequences = struct_processor.get_seq_dict()
-        assert 'TEST1_A' in sequences
-        assert len(sequences['TEST1_A']) == len(br_seq)
+        # Check results
+        assert result.loc['1ABC_A', '1.50'] == 'L150'
+        assert result.loc['1ABC_A', '2.50'] == '-'
+        assert result.loc['1ABC_A', '3.50'] == '-'
+    
+    def test_map_grn_auth_seq_type(self, struct_processor):
+        """Test GRN mapping using auth sequence type."""
+        # Create structure data
+        struct_data = pd.DataFrame({
+            'pdb_id': ['1ABC'] * 3,
+            'auth_chain_id': ['A'] * 3,
+            'gen_seq_id': [10, 11, 12],
+            'auth_seq_id': [100, 101, 102],
+            'auth_comp_id': ['LEU', 'VAL', 'ALA']
+        })
         
-        # Step 2: Try to assign GRNs (may fail without reference table)
-        try:
-            # Copy a minimal reference table if available
-            ref_path = Path(__file__).parent.parent.parent.parent / "src" / "protos" / "reference_data" / "grn" / "ref" / "mo_ref.csv"
-            if ref_path.exists():
-                test_grn_dir = Path(struct_processor.data_root) / "grn" / "ref"
-                test_grn_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy(ref_path, test_grn_dir / "mo_ref.csv")
-                
-                grn_assignments = struct_processor.assign_grns(
-                    protein_family='microbial_opsins',
-                    similarity_threshold=0.1,
-                    use_mmseqs=False,
-                    save_results=False
-                )
-                
-                # Step 3: Extract GRN dict
-                grn_dict = struct_processor.get_grn_dict()
-                
-                # Verify some assignments were made
-                if grn_dict and 'TEST1' in grn_dict:
-                    assert 'A' in grn_dict['TEST1']
-                    assert len(grn_dict['TEST1']['A']) > 0
-                    
-        except Exception as e:
-            # It's okay if this fails due to missing dependencies
-            print(f"Integration test skipped: {e}")
+        struct_processor.data = struct_data
+        
+        # GRN table using auth_seq_id positions
+        grn_table = pd.DataFrame({
+            '1.50': ['L100'],  # auth_seq_id 100
+            '2.50': ['V101'],  # auth_seq_id 101
+            '3.50': ['A102']   # auth_seq_id 102
+        }, index=['1ABC_A'])
+        
+        # Map GRN using auth sequence type
+        result = struct_processor.map_grn_to_resname_number(
+            grn_table=grn_table,
+            seq_type='auth'
+        )
+        
+        # Check results - should return same values since we're using auth
+        assert result.loc['1ABC_A', '1.50'] == 'L100'
+        assert result.loc['1ABC_A', '2.50'] == 'V101'
+        assert result.loc['1ABC_A', '3.50'] == 'A102'

@@ -23,6 +23,7 @@ from typing import Dict, List, Union, Optional, Any, Literal
 import warnings
 
 from protos.core.base_processor import BaseProcessor
+from protos.io.data_access import generate_entity_id
 
 # Check for optional dependencies
 _TORCH_AVAILABLE = False
@@ -226,14 +227,16 @@ class EmbeddingProcessor(BaseProcessor):
     def embed_sequences(self,
                        sequences: Union[str, List[str], Dict[str, str]],
                        embedding_type: EmbeddingType = "mean",
-                       save_dataset: Optional[str] = None) -> Union["torch.Tensor", Dict[str, "torch.Tensor"]]:
+                       save_dataset: Optional[str] = None,
+                       register_entities: bool = True) -> Union["torch.Tensor", Dict[str, "torch.Tensor"]]:
         """
-        Generate embeddings for protein sequences.
+        Generate embeddings for protein sequences with entity support.
         
         Args:
             sequences: Single sequence, list of sequences, or dict mapping IDs to sequences
             embedding_type: Type of embedding ('mean', 'cls', 'per_residue')
             save_dataset: If provided, save embeddings as a dataset
+            register_entities: Whether to register embeddings as entities
             
         Returns:
             Single tensor or dict of tensors depending on input
@@ -262,7 +265,12 @@ class EmbeddingProcessor(BaseProcessor):
         
         # Save if requested
         if save_dataset:
-            self._save_embeddings_dataset(embeddings, seq_dict, save_dataset, embedding_type)
+            self._save_embeddings_dataset(embeddings, seq_dict, save_dataset, embedding_type, 
+                                        register_entities=register_entities)
+        
+        # Register entities if requested (even without saving dataset)
+        elif register_entities:
+            self._register_embedding_entities(embeddings, seq_dict, embedding_type)
         
         # Return appropriate format
         return embeddings["seq_0"] if is_single else embeddings
@@ -336,8 +344,9 @@ class EmbeddingProcessor(BaseProcessor):
                                 embeddings: Dict[str, "torch.Tensor"],
                                 sequences: Dict[str, str],
                                 dataset_name: str,
-                                embedding_type: str):
-        """Save embeddings as a dataset."""
+                                embedding_type: str,
+                                register_entities: bool = True):
+        """Save embeddings as a dataset with entity support."""
         # Create dataset directory
         dataset_path = os.path.join(self.data_path, "datasets", dataset_name)
         os.makedirs(dataset_path, exist_ok=True)
@@ -371,6 +380,10 @@ class EmbeddingProcessor(BaseProcessor):
             "num_sequences": len(sequences),
             "path": dataset_path
         })
+        
+        # Register entities if requested
+        if register_entities:
+            self._register_embedding_entities(embeddings, sequences, embedding_type, dataset_name)
         
         self.logger.info(f"Saved embeddings dataset: {dataset_name}")
     
@@ -498,3 +511,122 @@ class EmbeddingProcessor(BaseProcessor):
         if _TORCH_AVAILABLE and torch.cuda.is_available():
             torch.cuda.empty_cache()
         self.logger.info("Cleared model cache")
+    
+    # Entity support methods
+    def _register_embedding_entities(self, 
+                                   embeddings: Dict[str, "torch.Tensor"],
+                                   sequences: Dict[str, str],
+                                   embedding_type: str,
+                                   dataset_name: Optional[str] = None):
+        """Register embeddings as entities."""
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            
+            for seq_id in embeddings.keys():
+                # Use same entity ID as the source sequence
+                entity_id = generate_entity_id(seq_id)
+                
+                # Get embedding info
+                embedding = embeddings[seq_id]
+                if _TORCH_AVAILABLE:
+                    embedding_shape = list(embedding.shape)
+                else:
+                    embedding_shape = []
+                
+                # Register entity
+                global_registry.entity_registry.register_entity(
+                    entity_id=entity_id,
+                    entity_type="embedding",
+                    original_id=seq_id,
+                    file_path=None,  # Embeddings are in datasets/memory
+                    metadata={
+                        "model": self.model_name,
+                        "embedding_type": embedding_type,
+                        "shape": embedding_shape,
+                        "dataset": dataset_name,
+                        "sequence_length": len(sequences.get(seq_id, ""))
+                    },
+                    datasets=[dataset_name] if dataset_name else []
+                )
+            
+            self.logger.info(f"Registered {len(embeddings)} embedding entities")
+        except Exception as e:
+            self.logger.warning(f"Could not register embedding entities: {e}")
+    
+    def load_embedding_entity(self, identifier: str) -> Optional["torch.Tensor"]:
+        """
+        Load a single embedding entity.
+        
+        Args:
+            identifier: Sequence identifier (name or entity hash)
+            
+        Returns:
+            Embedding tensor or None if not found
+        """
+        if not _TORCH_AVAILABLE:
+            raise RuntimeError("Cannot load embeddings without torch installed")
+        
+        # Resolve identifier
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_id = global_registry.entity_registry.resolve_identifier(identifier, format_type="embedding")
+            
+            # Get original ID
+            original_id = global_registry.entity_registry.get_original_id(entity_id)
+            if not original_id:
+                original_id = identifier
+        except:
+            original_id = identifier
+        
+        # Check if we have embeddings loaded
+        if hasattr(self, '_loaded_embeddings'):
+            for dataset_embeddings in self._loaded_embeddings.values():
+                if original_id in dataset_embeddings:
+                    return dataset_embeddings[original_id]
+        
+        # Try to find which dataset contains this embedding
+        try:
+            global_registry = GlobalRegistry()
+            entity_info = global_registry.entity_registry.get_entity(entity_id)
+            if entity_info and 'embedding' in entity_info.get('formats', {}):
+                dataset = entity_info['formats']['embedding']['metadata'].get('dataset')
+                if dataset:
+                    # Load the dataset
+                    embeddings = self.load_embeddings(dataset)
+                    if original_id in embeddings:
+                        return embeddings[original_id]
+        except:
+            pass
+        
+        self.logger.warning(f"Embedding entity not found: {identifier}")
+        return None
+    
+    def list_embedding_entities(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all embedding entities.
+        
+        Args:
+            dataset: Optional dataset to filter by
+            
+        Returns:
+            List of sequence IDs (not hash IDs!)
+        """
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_ids = global_registry.entity_registry.list_entities(
+                format_type="embedding",
+                dataset=dataset
+            )
+            
+            # Convert to original IDs
+            original_ids = []
+            for entity_id in entity_ids:
+                original_id = global_registry.entity_registry.get_original_id(entity_id)
+                if original_id:
+                    original_ids.append(original_id)
+            return original_ids
+        except:
+            return []

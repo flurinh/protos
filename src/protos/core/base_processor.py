@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 
 # Import Dataset class and manager
 try:
-    from protos.io.data_access import Dataset
+    from protos.io.data_access import Dataset, EntityRegistry, GlobalRegistry, generate_entity_id
     from protos.core.dataset_manager import DatasetManager
     _HAS_DATASET_MODULE = True
 except ImportError:
@@ -972,3 +972,270 @@ class BaseProcessor(ABC):
                 return True
                 
         return False
+    
+    # Entity Management Methods
+    
+    def list_entities(self, dataset: Optional[str] = None, return_type: str = "names") -> List[str]:
+        """
+        List all entities, optionally filtered by dataset.
+        
+        Args:
+            dataset: Optional dataset ID to filter by
+            return_type: "names" (default) for original IDs, "hashes" for entity IDs
+            
+        Returns:
+            List of entity identifiers (original names by default)
+        """
+        if _HAS_DATASET_MODULE:
+            # Try to get global registry
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            entity_ids = global_registry.entity_registry.list_entities(
+                format_type=self._get_processor_type(),
+                dataset=dataset
+            )
+            
+            if return_type == "names":
+                # Return original IDs for user-friendliness
+                original_ids = []
+                for entity_id in entity_ids:
+                    original_id = global_registry.entity_registry.get_original_id(entity_id)
+                    if original_id:
+                        original_ids.append(original_id)
+                return original_ids
+            else:
+                # Return hash IDs if specifically requested
+                return entity_ids
+        return []
+    
+    def load_entity(self, identifier: str) -> Any:
+        """
+        Load a single entity by its identifier.
+        
+        Args:
+            identifier: Entity identifier (biological name or hash ID)
+            
+        Returns:
+            Entity data or None if not found
+        """
+        # Resolve identifier to hash ID
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            entity_id = global_registry.entity_registry.resolve_identifier(
+                identifier, 
+                format_type=self._get_processor_type()
+            )
+        else:
+            # Fallback - assume it's already a hash or generate one
+            entity_id = identifier if (len(identifier) == 10 and identifier.isalnum()) else generate_entity_id(identifier)
+        
+        # Now load using the resolved hash ID
+        return self._load_entity_by_hash(entity_id)
+    
+    def _load_entity_by_hash(self, entity_id: str) -> Any:
+        """
+        Internal method to load entity by hash ID.
+        
+        Args:
+            entity_id: Entity hash ID
+            
+        Returns:
+            Entity data or None if not found
+        """
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            entity_info = global_registry.entity_registry.get_entity(entity_id)
+            
+            if entity_info:
+                # Get file path from entity info
+                file_path = entity_info.get('file_path')
+                if file_path and os.path.exists(file_path):
+                    # Determine format from extension
+                    _, ext = os.path.splitext(file_path)
+                    format_map = {
+                        '.csv': 'csv',
+                        '.pkl': 'pkl',
+                        '.pickle': 'pkl',
+                        '.json': 'json',
+                        '.npy': 'npy',
+                        '.npz': 'npz',
+                        '.fasta': 'fasta',
+                        '.fa': 'fasta',
+                        '.cif': 'cif',
+                        '.mmcif': 'cif'
+                    }
+                    file_format = format_map.get(ext.lower())
+                    
+                    if file_format in ['csv', 'pkl', 'json', 'npy', 'npz']:
+                        # Use load_data for standard formats
+                        return self.load_data(entity_id, format=file_format)
+                    else:
+                        # Processor-specific loading needed
+                        return None
+        return None
+    
+    def save_entity(self, 
+                   data: Any, 
+                   original_id: Optional[str] = None,
+                   metadata: Optional[Dict[str, Any]] = None,
+                   datasets: Optional[List[str]] = None) -> str:
+        """
+        Save entity data and return its hash ID.
+        
+        Args:
+            data: Data to save
+            original_id: Original identifier (e.g., PDB ID)
+            metadata: Additional metadata
+            datasets: List of dataset IDs this entity belongs to
+            
+        Returns:
+            Entity hash ID
+        """
+        # Generate entity ID
+        if original_id:
+            # Universal entity ID - no prefix!
+            entity_id = generate_entity_id(original_id)
+        else:
+            # Generate from content
+            if isinstance(data, pd.DataFrame):
+                content = data.to_string()
+            elif isinstance(data, dict):
+                content = json.dumps(data, sort_keys=True)
+            elif isinstance(data, str):
+                content = data
+            else:
+                content = str(data)
+            # For content-based IDs, still no prefix for universality
+            entity_id = generate_entity_id(content)
+        
+        # Determine format
+        if isinstance(data, pd.DataFrame):
+            file_format = 'csv'
+        elif isinstance(data, (dict, list)):
+            file_format = 'json'
+        elif isinstance(data, np.ndarray):
+            file_format = 'npy'
+        else:
+            file_format = 'pkl'
+        
+        # Save data using standard save_data method
+        self.save_data(entity_id, data, file_format)
+        
+        # Register entity
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            
+            # Get file path
+            file_path = self._get_dataset_path(entity_id, f".{file_format}")
+            
+            global_registry.entity_registry.register_entity(
+                entity_id=entity_id,
+                entity_type=self._get_processor_type(),
+                original_id=original_id,
+                file_path=file_path,
+                metadata=metadata,
+                datasets=datasets
+            )
+        
+        return entity_id
+    
+    def entity_exists(self, entity_id: str) -> bool:
+        """
+        Check if an entity exists.
+        
+        Args:
+            entity_id: Entity hash ID
+            
+        Returns:
+            True if entity exists
+        """
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            return global_registry.entity_registry.entity_exists(entity_id)
+        return False
+    
+    def get_entity_metadata(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get metadata for an entity.
+        
+        Args:
+            entity_id: Entity hash ID
+            
+        Returns:
+            Entity metadata or None if not found
+        """
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            entity_info = global_registry.entity_registry.get_entity(entity_id)
+            if entity_info:
+                # Get metadata for this processor's format
+                formats = entity_info.get('formats', {})
+                format_type = self._get_processor_type()
+                if format_type in formats:
+                    return formats[format_type].get('metadata', {})
+        return None
+    
+    def find_entity_by_original_id(self, original_id: str) -> Optional[str]:
+        """
+        Find entity hash ID by original ID.
+        
+        Args:
+            original_id: Original identifier (e.g., PDB ID)
+            
+        Returns:
+            Entity hash ID or None if not found
+        """
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            return global_registry.entity_registry.find_entity_by_original_id(
+                original_id, 
+                format_type=self._get_processor_type()
+            )
+        return None
+    
+    def load_entities(self, entity_ids: List[str]) -> Dict[str, Any]:
+        """
+        Load multiple entities.
+        
+        Args:
+            entity_ids: List of entity hash IDs
+            
+        Returns:
+            Dictionary mapping entity IDs to their data
+        """
+        results = {}
+        for entity_id in entity_ids:
+            data = self.load_entity(entity_id)
+            if data is not None:
+                results[entity_id] = data
+        return results
+    
+    def add_entity_to_dataset(self, entity_id: str, dataset_id: str) -> bool:
+        """
+        Add an entity to a dataset.
+        
+        Args:
+            entity_id: Entity hash ID
+            dataset_id: Dataset ID
+            
+        Returns:
+            True if successful
+        """
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            return global_registry.entity_registry.add_entity_to_dataset(entity_id, dataset_id)
+        return False
+    
+    def get_dataset_entities(self, dataset_id: str) -> List[str]:
+        """
+        Get all entity IDs in a dataset.
+        
+        Args:
+            dataset_id: Dataset ID
+            
+        Returns:
+            List of entity hash IDs
+        """
+        if _HAS_DATASET_MODULE:
+            global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
+            return global_registry.entity_registry.get_dataset_entities(dataset_id)
+        return []
