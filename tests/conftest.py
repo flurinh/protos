@@ -15,6 +15,21 @@ from pathlib import Path
 # Add the project root to the path so we can import protos
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
+# Import ProtosPaths for global configuration
+from protos.io.paths.path_config import ProtosPaths
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_test_paths():
+    """Configure ProtosPaths to use test-data directory for all tests."""
+    # Set global data root to tests/test-data
+    test_data_root = Path(__file__).parent / "test-data"
+    ProtosPaths.set_data_root(str(test_data_root))
+    
+    yield
+    
+    # Reset after tests
+    ProtosPaths.set_data_root(None)
+
 @pytest.fixture
 def sample_grn_data():
     """Create a sample GRN table for testing."""

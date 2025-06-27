@@ -38,7 +38,10 @@ def temp_data_dir():
 
 def test_basic_initialization(temp_data_dir):
     """Test basic processor initialization."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    # Set global data root for this test
+    ProtosPaths.set_data_root(temp_data_dir)
+    
+    processor = TestProcessor(name="test")
     
     assert processor.name == "test"
     assert processor.data_root == temp_data_dir
@@ -50,7 +53,8 @@ def test_basic_initialization(temp_data_dir):
 
 def test_save_load_csv(temp_data_dir):
     """Test saving and loading CSV files."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="test")
     
     # Create test data
     df = pd.DataFrame({
@@ -73,7 +77,8 @@ def test_save_load_csv(temp_data_dir):
 
 def test_save_load_json(temp_data_dir):
     """Test saving and loading JSON files."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="test")
     
     # Create test data
     data = {"a": 1, "b": [2, 3, 4], "c": {"nested": True}}
@@ -93,7 +98,8 @@ def test_save_load_json(temp_data_dir):
 
 def test_save_load_pickle(temp_data_dir):
     """Test saving and loading pickle files."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="test")
     
     # Create test data with numpy arrays
     data = {
@@ -113,7 +119,8 @@ def test_save_load_pickle(temp_data_dir):
 
 def test_list_datasets(temp_data_dir):
     """Test listing datasets."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="test")
     
     # Initially empty
     assert processor.list_datasets() == []
@@ -131,7 +138,8 @@ def test_list_datasets(temp_data_dir):
 
 def test_delete_dataset(temp_data_dir):
     """Test deleting a dataset."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="test")
     
     # Save a dataset
     processor.save_data("to_delete", {"data": "test"}, file_format="json")
@@ -149,20 +157,22 @@ def test_delete_dataset(temp_data_dir):
 
 def test_processor_type_inference(temp_data_dir):
     """Test automatic processor type inference."""
+    ProtosPaths.set_data_root(temp_data_dir)
     # SimpleProcessor should use "simple" as processor type
-    processor = SimpleProcessor(name="test", data_root=temp_data_dir)
+    processor = SimpleProcessor(name="test")
     assert processor.processor_data_dir == "simple"
     assert os.path.exists(os.path.join(temp_data_dir, "simple"))
 
 
 def test_registry_persistence(temp_data_dir):
     """Test that registry persists between processor instances."""
+    ProtosPaths.set_data_root(temp_data_dir)
     # First processor saves data
-    proc1 = TestProcessor(name="test", data_root=temp_data_dir, processor_data_dir="test")
+    proc1 = TestProcessor(name="test", processor_data_dir="test")
     proc1.save_data("persistent", {"value": 42}, file_format="json")
     
     # Second processor should see the data
-    proc2 = TestProcessor(name="test", data_root=temp_data_dir, processor_data_dir="test")
+    proc2 = TestProcessor(name="test", processor_data_dir="test")
     assert "persistent" in proc2.dataset_registry
     # Check if file exists directly instead of using is_dataset_available
     dataset_path = os.path.join(proc2.data_path, "datasets", "persistent.json")
@@ -175,7 +185,8 @@ def test_registry_persistence(temp_data_dir):
 
 def test_error_handling(temp_data_dir):
     """Test error handling."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="test")
     
     # Loading non-existent file
     with pytest.raises(FileNotFoundError):
@@ -192,25 +203,27 @@ def test_error_handling(temp_data_dir):
 
 def test_path_handling(temp_data_dir):
     """Test path handling with the unified system."""
-    processor = TestProcessor(name="test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="test")
     
     # Verify paths
     assert processor.data_root == temp_data_dir
     assert processor.data_path == os.path.join(temp_data_dir, "test")
     assert os.path.isabs(processor.data_path)
     
-    # Test relative path conversion
-    rel_processor = TestProcessor(name="test2", data_root="./relative")
+    # Test relative path conversion - set a relative path globally
+    ProtosPaths.set_data_root("./relative")
+    rel_processor = TestProcessor(name="test2")
     assert os.path.isabs(rel_processor.data_root)
     assert os.path.isabs(rel_processor.data_path)
 
 
 def test_custom_processor_dir(temp_data_dir):
     """Test custom processor directory."""
+    ProtosPaths.set_data_root(temp_data_dir)
     # Create processor with a known processor type
     processor = TestProcessor(
         name="custom",
-        data_root=temp_data_dir,
         processor_data_dir="test"  # Use a known processor type
     )
     
@@ -221,7 +234,8 @@ def test_custom_processor_dir(temp_data_dir):
 
 def test_metadata_tracking(temp_data_dir):
     """Test metadata tracking."""
-    processor = TestProcessor(name="meta_test", data_root=temp_data_dir)
+    ProtosPaths.set_data_root(temp_data_dir)
+    processor = TestProcessor(name="meta_test")
     
     # Check processor metadata
     assert processor.metadata["processor_type"] == "TestProcessor"

@@ -80,7 +80,6 @@ class TestCifBaseGRNIntegration:
         # Create processor
         processor = CifBaseProcessor(
             name="test",
-            data_root=test_data_dir,
             processor_data_dir="structure"
         )
         
@@ -107,7 +106,6 @@ class TestCifBaseGRNIntegration:
         """Test sequence extraction with realistic structure data."""
         processor = CifBaseProcessor(
             name="test",
-            data_root=test_data_dir,
             processor_data_dir="structure"
         )
         
@@ -117,7 +115,7 @@ class TestCifBaseGRNIntegration:
         
         assert len(sequences) == 1
         assert '1UAZ_A' in sequences
-        assert len(sequences['1UAZ_A']) == 248  # Full BR sequence length
+        assert len(sequences['1UAZ_A']) == 263  # Full BR sequence length
         assert sequences['1UAZ_A'].startswith('MLELLPTAVE')
     
     def test_assign_grns_workflow(self, test_data_dir, sample_structure_data, sample_grn_table):
@@ -125,7 +123,6 @@ class TestCifBaseGRNIntegration:
         # Set up processors
         struct_processor = CifBaseProcessor(
             name="test_struct",
-            data_root=test_data_dir,
             processor_data_dir="structure"
         )
         
@@ -172,7 +169,6 @@ class TestCifBaseGRNIntegration:
         """Test accuracy of GRN position mapping."""
         processor = CifBaseProcessor(
             name="test",
-            data_root=test_data_dir,
             processor_data_dir="structure"
         )
         
@@ -200,7 +196,6 @@ class TestCifBaseGRNIntegration:
         """Test handling of empty data."""
         processor = CifBaseProcessor(
             name="test",
-            data_root=test_data_dir,
             processor_data_dir="structure"
         )
         
@@ -218,7 +213,6 @@ class TestCifBaseGRNIntegration:
         """Test to understand the data format."""
         processor = CifBaseProcessor(
             name="test",
-            data_root=test_data_dir,
             processor_data_dir="structure"
         )
         

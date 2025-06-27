@@ -81,7 +81,10 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
     missing_std_grns = [grn for grn in grns_str_std if grn not in present_grns]
 
     # Missing SEQNRs
-    missing = [x for x in missing_gene_numbers_int if (x > first_gene_number_int) & (x < last_gene_number_int)]
+    if first_gene_number_int is not None and last_gene_number_int is not None:
+        missing = [x for x in missing_gene_numbers_int if (x > first_gene_number_int) & (x < last_gene_number_int)]
+    else:
+        missing = []
 
     grns, missing = assign_missing_std_grns(missing_std_grns, present_seq_nr_grn_list, query_seq, missing, grns_str_std)
 

@@ -25,7 +25,6 @@ def processor(test_structure_data):
     """Create a CifBaseProcessor instance for testing with real data paths."""
     processor = CifBaseProcessor(
         name="test_processor",
-        data_root=str(test_structure_data["root"]),
         processor_data_dir="structure",
         structure_dir="mmcif",
         dataset_dir="structure_dataset"

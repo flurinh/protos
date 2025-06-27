@@ -46,6 +46,10 @@ def calculate_missing_gene_numbers(all_gene_numbers, aligned_or_expanded_grns):
 
 def calculate_missing_ntail_grns(aligned_grns, missing_gene_numbers, grns_float):
     """Calculate N-terminal tail GRN assignments."""
+    # Handle empty cases
+    if not grns_float or not aligned_grns:
+        return [], 0
+    
     beginning_tm1_float = grns_float[0]
     first_grn = list(aligned_grns.values())[0]
     first_grn_float = parse_grn_str2float(first_grn)
@@ -68,7 +72,7 @@ def calculate_missing_ntail_grns(aligned_grns, missing_gene_numbers, grns_float)
 
 def calculate_missing_ctail_grns(aligned_grns, missing_gene_numbers, query_gene_len, grns_float):
     """Calculate C-terminal tail GRN assignments."""
-    if not aligned_grns:
+    if not aligned_grns or not grns_float:
         return [], None
     
     ending_tmx_float = grns_float[-1]

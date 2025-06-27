@@ -164,10 +164,16 @@ class TestProtosPathsSimplified:
     
     def test_environment_variable(self, temp_data_dir):
         """Test that environment variable is respected."""
-        # Set environment variable
-        os.environ['PROTOS_DATA_ROOT'] = temp_data_dir
+        # Save current global setting
+        original_global = ProtosPaths.get_global_data_root()
         
         try:
+            # Clear global setting so environment variable takes effect
+            ProtosPaths._global_data_root = None
+            
+            # Set environment variable
+            os.environ['PROTOS_DATA_ROOT'] = temp_data_dir
+            
             # Get default should use environment variable
             default_root = get_default_data_root()
             assert default_root == temp_data_dir
@@ -177,7 +183,11 @@ class TestProtosPathsSimplified:
             assert paths.data_root == temp_data_dir
         finally:
             # Clean up
-            del os.environ['PROTOS_DATA_ROOT']
+            if 'PROTOS_DATA_ROOT' in os.environ:
+                del os.environ['PROTOS_DATA_ROOT']
+            # Restore original global setting
+            if original_global:
+                ProtosPaths.set_data_root(original_global)
     
     def test_grn_ref_subdirectory(self, temp_data_dir):
         """Test special handling of GRN ref subdirectory."""

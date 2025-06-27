@@ -45,12 +45,11 @@ def test_basic_initialization(temp_data_dir):
     """Test basic GRN processor initialization."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         processor_data_dir="grn"
     )
     
     assert processor.name == "test_grn"
-    assert processor.data_root == temp_data_dir
+    # data_root comes from global configuration now
     assert processor.processor_data_dir == "grn"
     assert os.path.exists(processor.data_path)
     assert processor.dataset is None
@@ -62,7 +61,6 @@ def test_save_load_grn_table(temp_data_dir, sample_grn_table):
     """Test saving and loading GRN tables."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         processor_data_dir="grn",
         preload=False
     )
@@ -72,14 +70,13 @@ def test_save_load_grn_table(temp_data_dir, sample_grn_table):
     processor.save_grn_table("test_grn_table")
     
     # Verify file exists in the correct location
-    # BaseProcessor saves to datasets subdirectory
-    table_path = os.path.join(processor.data_path, "datasets", "test_grn_table.csv")
+    # GRN processor saves to tables subdirectory
+    table_path = os.path.join(processor.data_path, "tables", "test_grn_table.csv")
     assert os.path.exists(table_path)
     
     # Create new processor to test loading
     processor2 = GRNBaseProcessor(
         name="test_grn2",
-        data_root=temp_data_dir,
         processor_data_dir="grn",
         preload=False
     )
@@ -102,7 +99,6 @@ def test_get_residue_by_grn(temp_data_dir, sample_grn_table):
     """Test getting residue information by GRN position."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -128,7 +124,6 @@ def test_grn_lookup_methods(temp_data_dir, sample_grn_table):
     """Test GRN lookup methods."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -153,7 +148,6 @@ def test_filter_grn_columns(temp_data_dir, sample_grn_table):
     """Test filtering data by GRN columns."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -176,7 +170,6 @@ def test_merge_grn_tables(temp_data_dir):
     """Test merging multiple GRN tables."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -212,7 +205,6 @@ def test_dot_notation_handling(temp_data_dir):
     """Test handling of dot notation (3.50 vs 3x50)."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -242,7 +234,6 @@ def test_empty_grn_table(temp_data_dir):
     """Test handling of empty GRN table."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -264,7 +255,6 @@ def test_dataset_listing(temp_data_dir, sample_grn_table):
     """Test listing available GRN datasets."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -286,7 +276,6 @@ def test_na_handling(temp_data_dir, sample_grn_table):
     """Test handling of NA values in GRN tables."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     
@@ -312,7 +301,6 @@ def test_grn_table_format_validation(temp_data_dir):
     """Test GRN table format validation and loading."""
     processor = GRNBaseProcessor(
         name="test_grn",
-        data_root=temp_data_dir,
         preload=False
     )
     

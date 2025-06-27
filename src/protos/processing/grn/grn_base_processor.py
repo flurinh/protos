@@ -39,7 +39,6 @@ class GRNBaseProcessor(BaseProcessor):
     def __init__(self,
                  name="grn_processor",
                  dataset=None,
-                 data_root=None,
                  processor_data_dir="grn",
                  path=None,
                  preload=True):
@@ -49,29 +48,26 @@ class GRNBaseProcessor(BaseProcessor):
         Args:
             name: Processor instance name
             dataset: Dataset ID to load (or list of datasets to merge)
-            data_root: Root directory for all data
             processor_data_dir: Subdirectory for GRN data
-            path: Legacy path parameter (deprecated, use data_root instead)
+            path: Legacy path parameter (deprecated)
             preload: Whether to load the dataset on initialization
         """
         # Handle legacy path parameter
         if path is not None:
             import logging
-            logging.warning("The 'path' parameter is deprecated, use 'data_root' and 'processor_data_dir' instead")
-            # Extract data_root and processor_data_dir from path
+            logging.warning("The 'path' parameter is deprecated, use 'processor_data_dir' instead")
+            # Extract processor_data_dir from path
             if os.path.isabs(path):
-                data_root = os.path.dirname(path)
                 processor_data_dir = os.path.basename(path)
             else:
                 parts = path.rstrip('/').split('/')
                 if len(parts) >= 2:
-                    data_root = '/'.join(parts[:-1])
                     processor_data_dir = parts[-1]
                 else:
                     processor_data_dir = path
         
         # Initialize BaseProcessor
-        super().__init__(name=name, data_root=data_root, processor_data_dir=processor_data_dir)
+        super().__init__(name=name, processor_data_dir=processor_data_dir)
         
         # Initialize GRN-specific attributes
         self.dataset = None
@@ -397,8 +393,42 @@ class GRNBaseProcessor(BaseProcessor):
         self.grns = normalized_grns
         
         # Use the normalized GRNs to select columns from the data
+        # First try direct match, then try flexible matching for dot notation
+        columns_to_select = []
+        for grn in self.grns:
+            if grn in original_columns:
+                columns_to_select.append(grn)
+            else:
+                # Try flexible matching for dot notation (1.50 matches 1.5, 1.05 matches 1.5)
+                matched = False
+                if '.' in grn and grn not in ['n.', 'c.'] and not (len(grn.split('.')[0]) == 2 and len(grn.split('.')[1]) == 3):
+                    # Standard dot notation - try different formats
+                    parts = grn.split('.')
+                    if len(parts) == 2:
+                        helix = parts[0]
+                        position = parts[1].lstrip('0')  # Remove leading zeros
+                        
+                        # Try variations: 1.50 -> 1.5, 1.05 -> 1.5
+                        variations = [
+                            f"{helix}.{position}",  # 1.5
+                            f"{helix}.{int(position):02d}",  # 1.50
+                            f"{helix}.{int(position):01d}",  # 1.5 (redundant but safe)
+                        ]
+                        
+                        for var in variations:
+                            if var in original_columns:
+                                columns_to_select.append(var)
+                                matched = True
+                                break
+                
+                if not matched:
+                    # Column not found, this will raise an error
+                    columns_to_select.append(grn)
+        
         try:
-            self.data = self.data[self.grns]
+            self.data = self.data[columns_to_select]
+            # Update self.grns to match actual column names
+            self.grns = list(self.data.columns)
         except KeyError as e:
             self.logger.error(f"Failed to match column names: {e}")
             raise KeyError(f"Cannot match GRN columns. Data columns: {original_columns}, Requested: {self.grns}")

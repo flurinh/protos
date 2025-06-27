@@ -1,6 +1,6 @@
 {
-  "test_sequence_1": {
-    "path": "sequence/test_file_1.dat",
+  "test_sequence_dataset": {
+    "path": "sequence/test_data.dat",
     "metadata": {
       "processor_type": "sequence",
       "test": true

@@ -15,7 +15,9 @@ from protos.loaders.download_structures import download_protein_structures
 from protos.loaders.alphafold_utils import download_alphafold_structures
 from protos.loaders.uniprot_utils import map_uniprot_to_pdb
 from protos.io.paths.path_config import ProtosPaths, DataSource, get_structure_path, join_path
+from protos.io.paths import path_config
 from protos.io.fasta_utils import read_fasta, write_fasta
+from Bio.PDB import PDBList
 import pandas as pd
 
 
@@ -34,13 +36,24 @@ class MockResponse:
 def test_paths():
     """Create and return a ProtosPaths instance with a temporary directory."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        paths = ProtosPaths(
-            user_data_root=temp_dir,
-            create_dirs=True,
-            validate=True
-        )
-        yield paths, temp_dir
-        # Clean up is handled by TemporaryDirectory
+        # Save current global setting
+        original_global = ProtosPaths.get_global_data_root()
+        
+        try:
+            # Set global data root for this test
+            ProtosPaths.set_data_root(temp_dir)
+            
+            paths = ProtosPaths(
+                create_dirs=True,
+                validate=True
+            )
+            yield paths, temp_dir
+        finally:
+            # Restore original global setting
+            if original_global:
+                ProtosPaths.set_data_root(original_global)
+            else:
+                ProtosPaths._global_data_root = None
 
 
 def test_download_protein_structures_path_integration(test_paths):
@@ -49,13 +62,13 @@ def test_download_protein_structures_path_integration(test_paths):
     paths, _ = test_paths
     
     # Get structure directory from ProtosPaths
-    mmcif_dir = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+    mmcif_dir = paths.get_structure_subdir_path("structure_dir")
     
     # Verify directory was created
     assert os.path.exists(mmcif_dir)
     
     # Mock the PDBList's retrieve_pdb_file method
-    with patch('Bio.PDB.PDBList.retrieve_pdb_file') as mock_retrieve:
+    with patch.object(PDBList, 'retrieve_pdb_file') as mock_retrieve:
         # Set up the mock to indicate successful download
         mock_retrieve.return_value = join_path(mmcif_dir, "test1.cif")
         
@@ -75,7 +88,7 @@ def test_download_alphafold_structures_path_integration(test_paths):
     paths, _ = test_paths
     
     # Get structure directory from ProtosPaths and add alphafold subdirectory
-    struct_dir = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+    struct_dir = paths.get_structure_subdir_path("structure_dir")
     mmcif_dir = join_path(struct_dir, "alphafold_structures")
     
     # Create directory using ProtosPaths approach
@@ -110,7 +123,7 @@ def test_download_alphafold_multiple_models(test_paths):
     paths, temp_dir = test_paths
     
     # Use ProtosPaths to get standard structure directory
-    struct_dir = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+    struct_dir = paths.get_structure_subdir_path("structure_dir")
     af_dir = join_path(struct_dir, "alphafold_structures")
     os.makedirs(af_dir, exist_ok=True)
     
@@ -141,10 +154,10 @@ def test_download_pdb_error_handling(test_paths):
     paths, _ = test_paths
     
     # Use ProtosPaths to get standard structure directory
-    mmcif_dir = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+    mmcif_dir = paths.get_structure_subdir_path("structure_dir")
     
     # Mock the PDBList's retrieve_pdb_file method to simulate failure
-    with patch('Bio.PDB.PDBList.retrieve_pdb_file') as mock_retrieve:
+    with patch.object(PDBList, 'retrieve_pdb_file') as mock_retrieve:
         # Set up the mock to indicate failed download
         mock_retrieve.return_value = None
         
@@ -162,7 +175,7 @@ def test_download_alphafold_error_handling(test_paths):
     paths, _ = test_paths
     
     # Use ProtosPaths to get standard structure directory and add alphafold subdirectory
-    struct_dir = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+    struct_dir = paths.get_structure_subdir_path("structure_dir")
     af_dir = join_path(struct_dir, "alphafold_structures")
     os.makedirs(af_dir, exist_ok=True)
     
@@ -240,32 +253,41 @@ def test_map_uniprot_to_pdb_empty_result():
 
 def test_get_structure_path_function():
     """Test the get_structure_path function for proper path resolution"""
-    # Test with default parameters
-    with patch('protos.io.paths.path_config._DEFAULT_PATH_RESOLVER') as mock_resolver:
-        # Setup the mock resolver
-        mock_resolver.get_structure_subdir_path.return_value = "/mock/path/to/structure/dir"
-        
-        # Call the function
-        pdb_id = "1XYZ"
-        path = get_structure_path(pdb_id)
-        
-        # Verify the resolver was called correctly
-        mock_resolver.get_structure_subdir_path.assert_called_once_with('structure_dir', DataSource.AUTO)
-        
-        # Get the path separator for the current OS
-        sep = os.path.sep
-        expected_path = f"/mock/path/to/structure/dir{sep}1XYZ.cif".replace('/', sep)
-        
-        # Verify the returned path
-        assert path == expected_path
-        
-        # Test with custom structure directory
-        custom_dir = "/custom/structure/dir"
-        path = get_structure_path(pdb_id, structure_dir=custom_dir)
-        
-        # Verify path is constructed with custom directory
-        expected_custom_path = f"{custom_dir}{sep}1XYZ.cif".replace('/', sep)
-        assert path == expected_custom_path
+    # Save current global setting
+    original_global = ProtosPaths.get_global_data_root()
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        try:
+            # Clear the default resolver to force new one with our settings
+            path_config._DEFAULT_PATH_RESOLVER = None
+            
+            # Set a temporary global data root
+            ProtosPaths.set_data_root(temp_dir)
+            
+            # Test with default parameters
+            pdb_id = "1XYZ"
+            path = get_structure_path(pdb_id)
+            
+            # Verify the returned path
+            expected_path = os.path.join(temp_dir, "structure", "mmcif", "1XYZ.cif")
+            assert path == expected_path
+            
+            # Test with custom structure directory
+            custom_dir = os.path.join(temp_dir, "custom", "structure", "dir")
+            os.makedirs(custom_dir, exist_ok=True)
+            path = get_structure_path(pdb_id, structure_dir=custom_dir)
+            
+            # Verify path is constructed with custom directory
+            expected_custom_path = os.path.join(custom_dir, "1XYZ.cif")
+            assert path == expected_custom_path
+        finally:
+            # Clear the default resolver again
+            path_config._DEFAULT_PATH_RESOLVER = None
+            # Restore original global setting
+            if original_global:
+                ProtosPaths.set_data_root(original_global)
+            else:
+                ProtosPaths._global_data_root = None
 
 
 def test_download_with_different_formats(test_paths):
@@ -274,10 +296,10 @@ def test_download_with_different_formats(test_paths):
     paths, _ = test_paths
     
     # Use ProtosPaths to get standard structure directory
-    mmcif_dir = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+    mmcif_dir = paths.get_structure_subdir_path("structure_dir")
     
     # Mock the PDBList's retrieve_pdb_file method
-    with patch('Bio.PDB.PDBList.retrieve_pdb_file') as mock_retrieve:
+    with patch.object(PDBList, 'retrieve_pdb_file') as mock_retrieve:
         # Set up the mock to indicate successful download
         mock_retrieve.return_value = join_path(mmcif_dir, "1xyz.cif")
         
@@ -314,7 +336,7 @@ def test_end_to_end_download_workflow(test_paths):
     paths, _ = test_paths
     
     # Use ProtosPaths to get standard structure directory
-    mmcif_dir = paths.get_structure_subdir_path("structure_dir", DataSource.USER)
+    mmcif_dir = paths.get_structure_subdir_path("structure_dir")
     af_dir = join_path(mmcif_dir, "alphafold_structures")
     os.makedirs(af_dir, exist_ok=True)
     
@@ -331,7 +353,7 @@ def test_end_to_end_download_workflow(test_paths):
         with patch('protos.loaders.uniprot_utils.check_id_mapping_results_ready', return_value=True):
             with patch('protos.loaders.uniprot_utils.get_id_mapping_results_link', return_value="mock_link"):
                 with patch('protos.loaders.uniprot_utils.get_id_mapping_results_search') as mock_search:
-                    with patch('Bio.PDB.PDBList.retrieve_pdb_file') as mock_retrieve:
+                    with patch.object(PDBList, 'retrieve_pdb_file') as mock_retrieve:
                         with patch('requests.get') as mock_get:
                             # Setup mock mapping results - one with PDB structure, one without
                             mock_search.return_value = {

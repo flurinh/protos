@@ -48,7 +48,6 @@ class TestGRNProcessorWithRealData:
         # Initialize processor
         self.processor = GRNBaseProcessor(
             name="test_grn_real",
-            data_root=str(self.test_data_dir)
         )
         
         yield
@@ -195,7 +194,7 @@ class TestGRNProcessorWithRealData:
             subset = self.processor.data.copy()
         
         # Change data root to temp directory
-        self.processor.data_root = str(self.data_root)
+        # data_root is now managed globally
         self.processor.data_path = self.data_root / self.processor.processor_data_dir
         self.processor.data_path.mkdir(parents=True, exist_ok=True)
         
@@ -207,7 +206,6 @@ class TestGRNProcessorWithRealData:
         # Create new processor and load
         new_processor = GRNBaseProcessor(
             name="test_reload",
-            data_root=str(self.data_root)
         )
         new_processor.load_grn_table("test_subset")
         
@@ -295,7 +293,7 @@ class TestGRNProcessorWithRealData:
         part3 = self.processor.data.iloc[2*third-5:].copy()  # Some overlap
         
         # Save parts
-        self.processor.data_root = str(self.data_root)
+        # data_root is now managed globally
         self.processor.data_path = self.data_root / self.processor.processor_data_dir
         self.processor.data_path.mkdir(parents=True, exist_ok=True)
         
@@ -309,7 +307,6 @@ class TestGRNProcessorWithRealData:
         # Test merging
         merge_processor = GRNBaseProcessor(
             name="test_merge",
-            data_root=str(self.data_root)
         )
         merge_processor.load_and_merge_grn_tables(["part1", "part2", "part3"])
         

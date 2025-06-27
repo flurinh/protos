@@ -1,4 +1,11 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Command
+import sys
+import subprocess
+import os
+
+this_dir = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(this_dir, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(
     name="protos",
@@ -6,12 +13,12 @@ setup(
     author="flurinh",
     author_email="hidberf@gmail.com",
     description="A protein data processing library",
-    long_description=open("README.md").read(),
+    long_description=long_description,
     long_description_content_type="text/markdown",
     url="[Repository URL]",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    include_package_data=True,  # Include non-Python files
+    include_package_data=True,
     package_data={
         "protos": [
             "reference_data/README.md",
@@ -35,7 +42,7 @@ setup(
         "scipy>=1.8.0",
         "plotly>=5.6.0",
         "biopython>=1.79",
-        "requests>=2.27.0", 
+        "requests>=2.27.0",
         "h5py>=3.6.0",
         "pytest>=7.0.0",
         "tqdm>=4.63.0",
@@ -46,4 +53,29 @@ setup(
         "seaborn>=0.11.2",
         "openpyxl>=3.1.5"
     ],
+    extras_require={
+        "embedding": [
+            "transformers>=4.20.0",
+        ],
+        "gpu": [
+            "transformers>=4.20.0",
+            "accelerate>=0.20.0",
+            "sentencepiece>=0.1.96",
+        ],
+        "dev": [
+            "black>=22.0.0",
+            "isort>=5.10.0",
+            "mypy>=0.950",
+            "flake8>=4.0.0",
+        ],
+        "all": [
+            "transformers>=4.20.0",
+            "accelerate>=0.20.0",
+            "sentencepiece>=0.1.96",
+            "black>=22.0.0",
+            "isort>=5.10.0",
+            "mypy>=0.950",
+            "flake8>=4.0.0",
+        ]
+    }
 )

@@ -44,7 +44,6 @@ class CifBaseProcessor(BaseProcessor):
     def __init__(
             self,
             name="cif_processor",
-            data_root=None,
             processor_data_dir="structure",
             structure_dir="mmcif",
             dataset_dir="structure_dataset",
@@ -61,14 +60,13 @@ class CifBaseProcessor(BaseProcessor):
         
         Args:
             name: Processor instance name
-            data_root: Root directory for all data
             processor_data_dir: Subdirectory for structure data
             structure_dir: Subdirectory for mmCIF files
             dataset_dir: Subdirectory for dataset files
             alignments_dir: Subdirectory for alignment files
             pdb_ids_file: File containing PDB IDs to load
             limit: Maximum number of PDB files to process
-            path: Legacy path parameter (deprecated, use data_root instead)
+            path: Legacy path parameter (deprecated)
             preload: Whether to load pdb_ids on initialization
             remove_hetatm: Whether to remove HETATM records
             allow_exception: Whether to allow exceptions during processing
@@ -76,21 +74,19 @@ class CifBaseProcessor(BaseProcessor):
         # Handle legacy path parameter
         if path is not None:
             import logging
-            logging.warning("The 'path' parameter is deprecated, use 'data_root' and 'processor_data_dir' instead")
-            # Extract data_root from path
+            logging.warning("The 'path' parameter is deprecated, use 'processor_data_dir' instead")
+            # Extract processor_data_dir from path
             if os.path.isabs(path):
-                data_root = os.path.dirname(path)
                 processor_data_dir = os.path.basename(path)
             else:
                 parts = path.rstrip('/').split('/')
                 if len(parts) >= 2:
-                    data_root = '/'.join(parts[:-1])
                     processor_data_dir = parts[-1]
                 else:
                     processor_data_dir = path
         
         # Initialize BaseProcessor
-        super().__init__(name=name, data_root=data_root, processor_data_dir=processor_data_dir)
+        super().__init__(name=name, processor_data_dir=processor_data_dir)
         
         # Store the subdirectories
         self.structure_dir = structure_dir
@@ -1852,7 +1848,6 @@ class CifBaseProcessor(BaseProcessor):
         # Initialize GRN processor
         grn_processor = GRNBaseProcessor(
             name=f"{self.name}_grn",
-            data_root=self.data_root,
             processor_data_dir=self.processor_data_dir.replace('structure', 'grn')
         )
         
@@ -1861,6 +1856,7 @@ class CifBaseProcessor(BaseProcessor):
             # Auto-detect based on protein family
             table_map = {
                 'microbial_opsins': 'mo_ref',
+                'mo': 'mo_ref',
                 'gpcr_a': 'gpcrdb_ref',
                 'gpcr': 'gpcrdb_ref'
             }
@@ -2004,12 +2000,12 @@ class CifBaseProcessor(BaseProcessor):
                 self.logger.error(f"Failed to assign GRNs to {seq_id}: {e}")
         
         # Step 3: Add GRN annotations to structure data
+        # Always add GRN column to indicate that GRN assignment was attempted
+        if 'grn' not in self.data.columns:
+            self.data['grn'] = None
+            
         if grn_assignments:
             self.logger.info("Adding GRN annotations to structure data...")
-            
-            # Add GRN column if not exists
-            if 'grn' not in self.data.columns:
-                self.data['grn'] = None
             
             # Process each chain's GRN assignments
             annotated_count = 0

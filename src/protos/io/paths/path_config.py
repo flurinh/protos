@@ -65,6 +65,40 @@ class ProtosPaths:
     data directory approach.
     """
     
+    # Class-level configuration
+    _global_data_root: Optional[str] = None
+    
+    @classmethod
+    def set_data_root(cls, data_root: Optional[str]) -> None:
+        """
+        Set the global data root for all ProtosPaths instances.
+        
+        This allows configuring the data directory once for the entire session,
+        particularly useful for testing where all paths should point to test-data.
+        
+        Args:
+            data_root: Path to set as global data root, or None to clear
+        """
+        cls._global_data_root = data_root
+        if data_root:
+            logger.info(f"Global data root set to: {data_root}")
+        else:
+            logger.info("Global data root cleared")
+        
+        # Reset the default resolver so it picks up the new global setting
+        global _DEFAULT_PATH_RESOLVER
+        _DEFAULT_PATH_RESOLVER = None
+    
+    @classmethod
+    def get_global_data_root(cls) -> Optional[str]:
+        """
+        Get the globally configured data root.
+        
+        Returns:
+            The global data root if set, None otherwise
+        """
+        return cls._global_data_root
+    
     def __init__(self, 
                  data_root: Optional[str] = None,
                  user_data_root: Optional[str] = None,  # For backward compatibility
@@ -90,8 +124,14 @@ class ProtosPaths:
             # Use user_data_root if provided, otherwise data_root
             data_root = data_root or user_data_root
         
-        # Set data root from parameter or default
-        self.data_root = data_root or get_default_data_root()
+        # Set data root with priority: parameter > global setting > env var > default
+        if data_root:
+            self.data_root = data_root
+        elif self._global_data_root:
+            self.data_root = self._global_data_root
+        else:
+            self.data_root = get_default_data_root()
+        
         self.data_root = os.path.expanduser(self.data_root)
         
         # Make path absolute if it's not already
@@ -179,15 +219,14 @@ class ProtosPaths:
             
         Returns:
             Full path to the processor directory
-            
-        Raises:
-            ValueError: If processor type is not recognized
         """
         if source != DataSource.AUTO:
             logger.debug(f"DataSource parameter '{source}' is deprecated and ignored")
             
+        # If processor type is not in the mapping, use it directly as directory name
         if processor_type not in self.processor_dirs:
-            raise ValueError(f"Unknown processor type: {processor_type}")
+            logger.debug(f"Unknown processor type '{processor_type}', using as directory name")
+            return join_path(self.data_root, processor_type)
             
         return join_path(self.data_root, self.processor_dirs[processor_type])
     

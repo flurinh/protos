@@ -120,6 +120,7 @@ GRN_UNKNOWN_SYMBOL = 'X'  # Symbol for unknown residues
 # GRN format specifications
 GRN_PATTERNS = {
     'standard': r'^(\d+)x(\d+)$',  # e.g., 1x50
+    'standard_dot': r'^([1-8])\.(\d+)$',  # e.g., 1.50 (dot notation)
     'n_term': r'^n\.(\d+)$',       # e.g., n.10
     'c_term': r'^c\.(\d+)$',       # e.g., c.5
     'loop': r'^([1-8])([1-8])\.(\d{3})$'  # e.g., 12.003, 65.011
@@ -128,6 +129,7 @@ GRN_PATTERNS = {
 # Documentation for GRN formats
 GRN_FORMAT_DOCS = {
     'standard': "Standard GRN format: <helix>x<position> (e.g., 1x50)",
+    'standard_dot': "Standard GRN format with dot notation: <helix>.<position> (e.g., 1.50)",
     'n_term': "N-terminal format: n.<position> (e.g., n.10)",
     'c_term': "C-terminal format: c.<position> (e.g., c.5)",
     'loop': """Loop region format: <closer helix><further helix>.<distance> where:

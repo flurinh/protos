@@ -26,6 +26,50 @@ Atomic tasks (no breakdown needed):
 
 <!-- PROJECT TASKS -->
 
+<task id="path-refactoring" status="in_progress" priority="critical">
+  <description>Refactor path system to use centralized configuration instead of passing paths everywhere</description>
+  <subtasks>
+    <task id="path-refactoring.1" status="completed" priority="high">
+      <description>Add global configuration support to ProtosPaths</description>
+    </task>
+    <task id="path-refactoring.2" status="completed" priority="high">
+      <description>Clean BaseProcessor to remove test-specific logic</description>
+      <subtasks>
+        <task id="path-refactoring.2.1" status="completed" priority="high">
+          <description>Remove test logic from __init__ and registry methods</description>
+        </task>
+        <task id="path-refactoring.2.2" status="completed" priority="high">
+          <description>Remove test logic from load_data and save_data methods</description>
+        </task>
+      </subtasks>
+    </task>
+    <task id="path-refactoring.3" status="completed" priority="high">
+      <description>Remove data_root parameter from BaseProcessor</description>
+    </task>
+    <task id="path-refactoring.4" status="completed" priority="high">
+      <description>Create test configuration fixture in conftest.py</description>
+    </task>
+    <task id="path-refactoring.5" status="completed" priority="high">
+      <description>Update BaseProcessor tests to use global config</description>
+    </task>
+    <task id="path-refactoring.6" status="completed" priority="high">
+      <description>Update all processor subclasses to remove data_root</description>
+    </task>
+    <task id="path-refactoring.7" status="completed" priority="high">
+      <description>Update all tests across codebase</description>
+    </task>
+    <task id="path-refactoring.8" status="completed" priority="high">
+      <description>Update CI/CD configuration for new path system</description>
+    </task>
+    <task id="path-refactoring.9" status="pending" priority="medium">
+      <description>Remove DataSource enum and simplify paths</description>
+    </task>
+    <task id="path-refactoring.10" status="pending" priority="medium">
+      <description>Update documentation and examples</description>
+    </task>
+  </subtasks>
+</task>
+
 <task id="grn-struct-testing" status="in_progress" priority="critical">
   <description>Ensure GRN processor, struct processor and their integration work seamlessly with real data</description>
   <subtasks>

@@ -36,7 +36,6 @@ class SeqProcessor(BaseProcessor):
     """
     
     def __init__(self, name: str = "seq_processor", 
-                 data_root: Optional[str] = None,
                  processor_data_dir: str = "sequence",
                  **kwargs):
         """
@@ -44,13 +43,11 @@ class SeqProcessor(BaseProcessor):
         
         Args:
             name: Processor name
-            data_root: Root data directory
             processor_data_dir: Subdirectory for sequence data
             **kwargs: Additional arguments for BaseProcessor
         """
         super().__init__(
             name=name,
-            data_root=data_root,
             processor_data_dir=processor_data_dir,
             **kwargs
         )

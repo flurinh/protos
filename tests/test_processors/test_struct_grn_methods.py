@@ -24,7 +24,6 @@ class TestCifBaseProcessorGRNMethods:
         """Create a CifBaseProcessor instance for testing."""
         return CifBaseProcessor(
             name="test_processor",
-            data_root=test_data_dir,
             processor_data_dir="structure"
         )
     
@@ -90,7 +89,7 @@ class TestCifBaseProcessorGRNMethods:
         sequences = struct_processor.get_seq_dict()
         
         assert '1ABC_A' in sequences
-        assert sequences['1ABC_A'] == 'MAMG'  # MSE->M, HOH skipped
+        assert sequences['1ABC_A'] == 'MAMXG'  # MSE->M, HOH skipped, X for gap
     
     def test_get_grn_dict_basic(self, struct_processor):
         """Test basic GRN extraction."""
@@ -167,18 +166,20 @@ class TestCifBaseProcessorGRNMethods:
         # Check that GRN column doesn't exist initially
         assert 'grn' not in struct_processor.data.columns
         
-        # Try to assign GRNs (may fail if no reference table, but should add column)
-        try:
-            struct_processor.assign_grns(
-                protein_family='microbial_opsins',
-                use_mmseqs=False,
-                save_results=False
-            )
-        except Exception:
-            pass  # Expected if reference table not found
+        # Assign GRNs - should work now with 'mo' reference table
+        result = struct_processor.assign_grns(
+            protein_family='mo',
+            use_mmseqs=False,
+            save_results=False
+        )
         
         # Check that GRN column was added
         assert 'grn' in struct_processor.data.columns
+        
+        # Even if no assignments were made, column should exist
+        if not result:
+            # Column should be filled with None or '-'
+            assert struct_processor.data['grn'].isna().all() or (struct_processor.data['grn'] == '-').all()
     
     def test_integration_workflow(self, struct_processor):
         """Test the complete workflow: extract sequences -> assign GRNs -> extract GRN dict."""

@@ -1,9 +1,27 @@
 {
-  "test_structure_1": {
-    "path": "structure/test_file_1.dat",
+  "test_structure_dataset": {
+    "path": "structure/test_data.dat",
     "metadata": {
       "processor_type": "structure",
       "test": true
+    }
+  },
+  "1uaz": {
+    "path": "structure/mmcif/1uaz.cif",
+    "format": "cif",
+    "description": "Test structure 1UAZ",
+    "metadata": {
+      "processor_type": "structure",
+      "pdb_id": "1uaz"
+    }
+  },
+  "3ddl": {
+    "path": "structure/mmcif/3ddl.cif",
+    "format": "cif",
+    "description": "Test structure 3DDL",
+    "metadata": {
+      "processor_type": "structure",
+      "pdb_id": "3ddl"
     }
   },
   "structure/1ubq": {
@@ -12,8 +30,7 @@
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-25T16:33:58.997273",
-    "directory": "structures"
+    "last_updated": "2025-06-27T14:00:09.286512"
   },
   "structure/1tqn": {
     "type": "structure",
@@ -21,8 +38,7 @@
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-25T16:33:59.124985",
-    "directory": "structures"
+    "last_updated": "2025-06-27T14:00:09.398182"
   },
   "structure/3nir": {
     "type": "structure",
@@ -30,7 +46,6 @@
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-25T16:33:59.171373",
-    "directory": "structures"
+    "last_updated": "2025-06-27T14:00:09.445723"
   }
 }

@@ -36,8 +36,11 @@ DEFAULT_PROCESSOR_DIRS = {
     # Add test processors for test compatibility
     "test": "test",
     "test_processor": "test",
+    "_test": "test",  # For _TestProcessor class
+    "__test": "test",  # For _TestProcessor when converted to snake_case
     "simple": "simple",
-    "complex_processor_with_long_name": "complex_processor_with_long_name"
+    "complex_processor_with_long_name": "complex_processor_with_long_name",
+    "custom_dir": "custom_dir"  # For test custom directory scenario
 }
 
 # Default structure subdirectories

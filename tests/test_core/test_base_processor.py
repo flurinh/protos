@@ -30,24 +30,14 @@ from protos.io.paths.path_config import ProtosPaths, DataSource
 class _TestProcessor(BaseProcessor):
     """Concrete processor implementation for testing."""
     
-    def __init__(self, name="test", data_root=None, processor_data_dir=None, config=None):
+    def __init__(self, name="test", processor_data_dir=None, config=None):
         """Initialize test processor."""
-        # If processor_data_dir is custom_dir, don't pass it to parent (special handling in BaseProcessor)
-        if processor_data_dir == "custom_dir":
-            # Let BaseProcessor handle the custom_dir case
-            super().__init__(
-                name=name, 
-                data_root=data_root, 
-                processor_data_dir=processor_data_dir, 
-                config=config
-            )
-        else:
-            super().__init__(
-                name=name, 
-                data_root=data_root, 
-                processor_data_dir=processor_data_dir, 
-                config=config
-            )
+        # Simply pass all parameters to parent
+        super().__init__(
+            name=name, 
+            processor_data_dir=processor_data_dir, 
+            config=config
+        )
 
 
 class TestBaseProcessorInitialization:
@@ -55,12 +45,12 @@ class TestBaseProcessorInitialization:
     
     def test_basic_initialization(self, test_data_root):
         """Test basic processor initialization with defaults."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         assert processor.name == "test"
         assert processor.data_root == str(test_data_root)
-        assert processor.processor_data_dir == "test"
-        assert processor.data_path == os.path.join(str(test_data_root), "test")
+        assert processor.processor_data_dir == "__test"  # _TestProcessor -> __test via snake_case conversion
+        assert processor.data_path == os.path.join(str(test_data_root), "test")  # But maps to "test" directory
         assert processor.data is None
         assert isinstance(processor.dataset_registry, dict)
         assert processor.metadata["processor_type"] == "_TestProcessor"
@@ -71,7 +61,6 @@ class TestBaseProcessorInitialization:
         custom_config = {"param1": "value1", "param2": "value2"}
         processor = _TestProcessor(
             name="custom",
-            data_root=str(test_data_root),
             processor_data_dir="custom_dir",
             config=custom_config
         )
@@ -89,7 +78,7 @@ class TestBaseProcessorInitialization:
         class SimpleProcessor(BaseProcessor):
             pass
         
-        processor = SimpleProcessor(name="test", data_root=str(test_data_root))
+        processor = SimpleProcessor(name="test")
         assert processor.processor_data_dir == "simple"
         assert processor.metadata["processor_type"] == "SimpleProcessor"
         
@@ -97,20 +86,15 @@ class TestBaseProcessorInitialization:
         class ComplexProcessorWithLongName(BaseProcessor):
             pass
         
-        processor = ComplexProcessorWithLongName(name="test", data_root=str(test_data_root))
+        processor = ComplexProcessorWithLongName(name="test")
         assert processor.processor_data_dir == "complex_processor_with_long_name"
         
     def test_path_initialization_modes(self, test_data_root):
         """Test different path initialization modes."""
-        # Test with absolute path
-        processor = _TestProcessor(data_root=str(test_data_root))
+        # Test that processor uses global configuration
+        processor = _TestProcessor()
         assert os.path.isabs(processor.data_path)
-        
-        # Test with relative path (should be made absolute)
-        rel_path = os.path.relpath(str(test_data_root))
-        processor = _TestProcessor(data_root=rel_path)
-        assert os.path.isabs(processor.data_root)
-        assert os.path.isabs(processor.data_path)
+        assert processor.data_root == str(test_data_root)
 
 
 class TestDatasetRegistry:
@@ -118,12 +102,17 @@ class TestDatasetRegistry:
     
     def test_empty_registry(self, test_data_root):
         """Test that registry starts empty."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        # Clean up any existing registry from previous tests
+        registry_path = test_data_root / "test" / "registry.json"
+        if registry_path.exists():
+            registry_path.unlink()
+        
+        processor = _TestProcessor()
         assert processor.dataset_registry == {}
         
     def test_register_dataset(self, test_data_root):
         """Test registering a dataset in the registry."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Register a dataset
         metadata = {"type": "test", "columns": ["id", "name", "value"]}
@@ -149,7 +138,7 @@ class TestDatasetRegistry:
         
     def test_load_registry_from_file(self, test_data_root):
         """Test loading registry from file."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Create a registry file manually
         registry_data = {
@@ -171,12 +160,12 @@ class TestDatasetRegistry:
     def test_registry_persistence(self, test_data_root):
         """Test that registry persists across processor instances."""
         # First processor saves dataset
-        processor1 = _TestProcessor(data_root=str(test_data_root), processor_data_dir="persist_test")
+        processor1 = _TestProcessor(processor_data_dir="persist_test")
         df = pd.DataFrame({"a": [1, 2, 3]})
         processor1.save_data("persistent_dataset", df, file_format="csv")
         
         # Second processor should see the dataset
-        processor2 = _TestProcessor(data_root=str(test_data_root), processor_data_dir="persist_test")
+        processor2 = _TestProcessor(processor_data_dir="persist_test")
         assert "persistent_dataset" in processor2.dataset_registry
         assert processor2.is_dataset_available("persistent_dataset")
 
@@ -186,7 +175,7 @@ class TestDataOperations:
     
     def test_save_load_csv(self, test_data_root):
         """Test saving and loading CSV files."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Create test DataFrame
         df = pd.DataFrame({
@@ -212,7 +201,7 @@ class TestDataOperations:
         
     def test_save_load_json(self, test_data_root):
         """Test saving and loading JSON files."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Create test data
         data = {
@@ -235,7 +224,7 @@ class TestDataOperations:
         
     def test_save_load_pickle(self, test_data_root):
         """Test saving and loading pickle files."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Create test data with numpy arrays
         data = {
@@ -258,7 +247,7 @@ class TestDataOperations:
         
     def test_format_inference(self, test_data_root):
         """Test automatic format inference from file extension."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Save files with different formats
         df = pd.DataFrame({"a": [1, 2, 3]})
@@ -278,21 +267,21 @@ class TestDataOperations:
         
     def test_save_without_data(self, test_data_root):
         """Test error when saving without data."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         with pytest.raises(ValueError):
             processor.save_data("test_no_data")
             
     def test_load_nonexistent(self, test_data_root):
         """Test error when loading nonexistent dataset."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         with pytest.raises(FileNotFoundError):
             processor.load_data("nonexistent_dataset")
             
     def test_unsupported_format(self, test_data_root):
         """Test error with unsupported file format."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         with pytest.raises(ValueError):
             processor.save_data("test_unsupported", {"a": 1}, file_format="xyz")
@@ -303,7 +292,12 @@ class TestDatasetManagement:
     
     def test_list_datasets(self, test_data_root):
         """Test listing available datasets."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        # Create a processor with a unique name to avoid registry conflicts
+        processor = _TestProcessor(name="list_test", processor_data_dir="list_test")
+        
+        # Clear any existing registry entries
+        processor.dataset_registry = {}
+        processor._save_dataset_registry()
         
         # Initially empty
         datasets = processor.list_datasets()
@@ -329,7 +323,7 @@ class TestDatasetManagement:
         
     def test_get_dataset_info(self, test_data_root):
         """Test getting information about a specific dataset."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Save a dataset
         df = pd.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]})
@@ -348,7 +342,7 @@ class TestDatasetManagement:
         
     def test_delete_dataset(self, test_data_root):
         """Test deleting datasets."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Save a dataset
         processor.save_data("to_delete", pd.DataFrame({"a": [1, 2, 3]}))
@@ -373,7 +367,7 @@ class TestDatasetManagement:
         
     def test_is_dataset_available(self, test_data_root):
         """Test checking dataset availability."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Save a dataset
         processor.save_data("available", pd.DataFrame({"a": [1]}))
@@ -398,12 +392,10 @@ class _TestProcessorInteroperability:
         # Create processors for different types
         grn_processor = _TestProcessor(
             name="grn_test", 
-            data_root=str(test_data_root),
             processor_data_dir="grn"
         )
         struct_processor = _TestProcessor(
             name="struct_test", 
-            data_root=str(test_data_root),
             processor_data_dir="structure"
         )
         
@@ -428,9 +420,9 @@ class _TestProcessorInteroperability:
         """Test that processors maintain separate data directories."""
         # Create multiple processors
         processors = [
-            _TestProcessor(name="proc1", data_root=str(test_data_root), processor_data_dir="proc1"),
-            _TestProcessor(name="proc2", data_root=str(test_data_root), processor_data_dir="proc2"),
-            _TestProcessor(name="proc3", data_root=str(test_data_root), processor_data_dir="proc3")
+            _TestProcessor(name="proc1", processor_data_dir="proc1"),
+            _TestProcessor(name="proc2", processor_data_dir="proc2"),
+            _TestProcessor(name="proc3", processor_data_dir="proc3")
         ]
         
         # Save datasets with same name in each processor
@@ -454,7 +446,6 @@ class TestMetadataHandling:
         """Test processor metadata initialization and updates."""
         processor = _TestProcessor(
             name="metadata_test",
-            data_root=str(test_data_root),
             config={"custom_param": "value"}
         )
         
@@ -472,7 +463,7 @@ class TestMetadataHandling:
         
     def test_dataset_metadata_in_registry(self, test_data_root):
         """Test that dataset metadata is properly stored in registry."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Save dataset
         df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
@@ -492,7 +483,7 @@ class TestPathHandling:
     
     def test_unified_data_root(self, test_data_root):
         """Test that processor uses unified data root correctly."""
-        processor = _TestProcessor(data_root=str(test_data_root))
+        processor = _TestProcessor()
         
         # Verify paths use the single data root
         assert processor.data_root == str(test_data_root)
@@ -512,24 +503,31 @@ class TestPathHandling:
         assert "deprecated" in caplog.text.lower()
         
     def test_relative_to_absolute_path_conversion(self):
-        """Test that relative paths are converted to absolute."""
-        processor = _TestProcessor(data_root="./test_data")
+        """Test that paths are always absolute."""
+        processor = _TestProcessor()
         
-        # Should convert to absolute path
+        # Should always be absolute paths from global configuration
         assert os.path.isabs(processor.data_root)
         assert os.path.isabs(processor.data_path)
         
     def test_environment_variable_expansion(self):
-        """Test that environment variables in paths are expanded."""
+        """Test that global configuration can be set via environment variable."""
+        # Save current global setting
+        original = ProtosPaths.get_global_data_root()
+        
+        # Clear global setting so env var will be used
+        ProtosPaths.set_data_root(None)
+        
         # Set a test environment variable
-        os.environ["TEST_DATA_ROOT"] = "/tmp/test_protos"
+        os.environ["PROTOS_DATA_ROOT"] = "/tmp/test_protos_env"
         
         try:
-            processor = _TestProcessor(data_root=os.path.expandvars("$TEST_DATA_ROOT/data"))
-            # Path should be expanded
-            assert "/tmp/test_protos/data" in processor.data_root
-            assert "$TEST_DATA_ROOT" not in processor.data_root
+            processor = _TestProcessor()
+            # Should use environment variable
+            assert processor.data_root == "/tmp/test_protos_env"
         finally:
             # Clean up
-            if "TEST_DATA_ROOT" in os.environ:
-                del os.environ["TEST_DATA_ROOT"]
+            if "PROTOS_DATA_ROOT" in os.environ:
+                del os.environ["PROTOS_DATA_ROOT"]
+            # Restore original setting
+            ProtosPaths.set_data_root(original)

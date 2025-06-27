@@ -67,14 +67,20 @@ def parse_grn_float2str(grn: float = 7.521):
     # C tail (values above 101)
     elif grn >= 101:
         grn = 'c.' + str(int(grn - 100))
-    # TM
+    # TM - use dot notation
     else:
-        grn = 'x'.join(str(grn).split('.'))
-        if len(grn.split('x')[0]) == 2:
-            if (len(grn) == 4)  and (grn[-1] != '0'):
-                grn += '0'
-        elif len(grn) == 3:
-            grn += '0'
+        # Convert float to dot notation (e.g., 7.52 -> '7.52')
+        helix = int(grn)
+        position = int(round((grn - helix) * 100))
+        
+        # Handle loop notation (e.g., 12.005)
+        if helix >= 10:
+            # This is a loop GRN
+            helix_pair = str(helix)
+            grn = f"{helix_pair}.{position:03d}"
+        else:
+            # Standard GRN with dot notation
+            grn = f"{helix}.{position:02d}"
     return grn
 
 

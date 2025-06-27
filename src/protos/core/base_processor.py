@@ -45,7 +45,6 @@ class BaseProcessor(ABC):
     
     def __init__(self, 
                  name: str,
-                 data_root: Optional[str] = None,
                  processor_data_dir: Optional[str] = None,
                  config: Optional[Dict[str, Any]] = None):
         """
@@ -53,7 +52,6 @@ class BaseProcessor(ABC):
         
         Args:
             name: Processor instance name for identification
-            data_root: Root directory for all data (default: ~/protos_data/)
             processor_data_dir: Subdirectory for this processor type
             config: Additional configuration parameters
         """
@@ -62,70 +60,27 @@ class BaseProcessor(ABC):
         
         # Use new path module if available, otherwise fall back to legacy path handling
         if _HAS_PATH_MODULE:
-            # Get processor type from class name
-            processor_type = self._get_processor_type()
-            
-            # Set processor data directory
-            self.processor_data_dir = processor_data_dir or processor_type
-            
-            # For test processors or integration test cases, use simple path construction
-            if (self.__class__.__name__ in ['TestProcessor', '_TestProcessor'] and "test_" in name) or "test_" in name or "integration" in name.lower():
-                # For test_environment_variable test, we need to honor any environment variables 
-                # set specifically for testing rather than using provided data_root
-                if "test_proc" == name and os.environ.get(ENV_DATA_ROOT) and os.environ.get(ENV_DATA_ROOT).startswith("/custom"):
-                    # This is specifically for the test_environment_variable test
-                    custom_root = os.environ.get(ENV_DATA_ROOT)
-                    self.path_resolver = ProtosPaths(data_root=custom_root, create_dirs=False, validate=False)
-                    self.data_root = custom_root
-                    self.data_path = os.path.join(self.data_root, processor_data_dir or processor_type)
-                else:
-                    # Test fixture processing - create path resolver without affecting actual paths
-                    self.path_resolver = ProtosPaths(data_root=data_root, create_dirs=True, validate=False)
-                    
-                    # For test fixtures, handle temp directory or direct paths
-                    if data_root is not None and os.path.isabs(data_root):
-                        # Using temp directory with direct path exactly as provided 
-                        self.data_root = data_root
-                        self.data_path = os.path.join(self.data_root, processor_data_dir or processor_type)
-                    else:
-                        # Default simple path for standard old_tests
-                        self.data_root = "data"
-                        self.data_path = os.path.join(self.data_root, processor_data_dir or processor_type)
-                    
-                    # Ensure directory exists if using real paths
-                    if os.path.isabs(self.data_root):
-                        ensure_directory(self.data_path)
-            
-            # Special case for TestProcessor test_initialization test
-            elif processor_data_dir == 'custom_dir':
-                # Special handling for custom_dir test in test_initialization 
-                # This needs to produce exactly the path expected by the test
-                self.data_root = data_root
-                self.data_path = os.path.join(self.data_root, processor_data_dir)
-                # Create minimal path resolver
-                self.path_resolver = ProtosPaths(data_root=data_root, create_dirs=True, validate=False)
-                
-                # Ensure directory exists if using real paths
-                if os.path.isabs(self.data_root):
-                    ensure_directory(self.data_path)
-            
-            # Non-test processor or environment variable provided
-            elif data_root is not None or os.environ.get(ENV_DATA_ROOT):
-                # Create path resolver with provided root
-                self.path_resolver = ProtosPaths(data_root=data_root, create_dirs=True, validate=False)
-                # Get full data path
-                self.data_root = self.path_resolver.data_root  # This will be the actual root path used
-                self.data_path = self.path_resolver.get_processor_path(processor_type)
-                # Ensure directory exists
-                ensure_directory(self.data_path)
+            # Set processor data directory first if provided
+            if processor_data_dir:
+                self.processor_data_dir = processor_data_dir
+                processor_type = processor_data_dir
             else:
-                # For fallback cases without data_root, use default path system
-                self.path_resolver = ProtosPaths(create_dirs=True, validate=False)
-                self.data_root = self.path_resolver.data_root
-                self.data_path = self.path_resolver.get_processor_path(processor_type)
+                # Get processor type from class name
+                processor_type = self._get_processor_type()
+                self.processor_data_dir = processor_type
+            
+            # Create path resolver without any parameters - uses global configuration
+            self.path_resolver = ProtosPaths(create_dirs=True, validate=False)
+            
+            # Get paths from resolver
+            self.data_root = self.path_resolver.data_root
+            self.data_path = self.path_resolver.get_processor_path(processor_type)
+            
+            # Ensure directory exists
+            ensure_directory(self.data_path)
         else:
             # Legacy path handling
-            self.data_root = data_root or os.environ.get('PROTOS_DATA_ROOT', 'data')
+            self.data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
             self.processor_data_dir = processor_data_dir or self._get_default_data_dir()
             
             # Ensure full path exists
@@ -226,12 +181,8 @@ class BaseProcessor(ABC):
     
     def _load_dataset_registry(self) -> Dict[str, Dict[str, Any]]:
         """Load dataset registry from disk or create if not exists."""
-        # For test classes, always use the direct data_path
-        if "test_" in self.name.lower() or self.__class__.__name__ in ['TestProcessor', '_TestProcessor']:
-            # In old_tests, look for registry directly in the specified data path
-            registry_path = os.path.join(self.data_path, 'registry.json')
-        elif _HAS_PATH_MODULE:
-            # Normal case - use path resolver
+        if _HAS_PATH_MODULE:
+            # Use path resolver
             registry_path = self.path_resolver.get_registry_path(self._get_processor_type())
         else:
             # Legacy case
@@ -250,28 +201,12 @@ class BaseProcessor(ABC):
     
     def _save_dataset_registry(self) -> None:
         """Save dataset registry to disk."""
-        # For test classes, always use the direct data_path 
-        if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            # In old_tests, save registry directly in the specified data path
-            # For directories - need to ensure dataset directories are created
-            datasets_dir = os.path.join(self.data_path, 'datasets')
-            os.makedirs(datasets_dir, exist_ok=True)
-            
-            # For each directory in test_*.py, ensure they exist
-            for dir_name in ['properties', 'structures', 'grn', 'embeddings']:
-                os.makedirs(os.path.join(self.data_path, dir_name), exist_ok=True)
-            
-            # Save registry file
-            registry_path = os.path.join(self.data_path, 'registry.json')
-        elif _HAS_PATH_MODULE:
-            # Normal case - use path resolver
+        if _HAS_PATH_MODULE:
+            # Use path resolver
             registry_path = self.path_resolver.get_registry_path(self._get_processor_type())
         else:
             # Legacy case
             registry_path = os.path.join(self.data_path, 'registry.json')
-            
-        # Always ensure the directory exists
-        os.makedirs(os.path.dirname(registry_path), exist_ok=True)
             
         try:
             # Ensure parent directory exists
@@ -408,49 +343,6 @@ class BaseProcessor(ABC):
         Returns:
             Full path to the dataset file
         """
-        # Special handling for test classes
-        if "test_" in self.name.lower() or "TestProcessor" == self.__class__.__name__:
-            # Backward compatibility test (patch applied)
-            if not hasattr(self, "path_resolver"):
-                return os.path.join(self.data_path, f"{dataset_id}{file_extension or ''}")
-            
-            # Get the caller function name
-            caller_fn = inspect.stack()[1].function if len(inspect.stack()) > 1 else ""
-            
-            # Check for special test cases that need specific file paths
-            if caller_fn == "test_delete_dataset" or caller_fn == "delete_dataset":
-                # For delete test, use the path where the data was actually saved
-                return os.path.join(self.data_path, "datasets", f"{dataset_id}{file_extension or ''}")
-            
-            elif caller_fn == "test_dataset_path_resolution":
-                # For path resolution test, ensure temp_dir is in the path
-                if hasattr(self, 'data_root') and os.path.isabs(self.data_root):
-                    return os.path.join(self.data_root, "test_processor", "datasets", f"{dataset_id}{file_extension or ''}")
-            
-            elif caller_fn == "test_save_load_data" or caller_fn == "save_data" or caller_fn == "load_data":
-                # For save/load test we need consistent paths
-                call_stack = inspect.stack()
-                in_save_load_test = any(frame.function == "test_save_load_data" for frame in call_stack)
-                
-                if in_save_load_test and hasattr(self, 'data_root') and os.path.isabs(self.data_root):
-                    # Use a path directly in the temp directory
-                    return os.path.join(self.data_root, f"{dataset_id}{file_extension or ''}")
-            
-            elif caller_fn == "test_is_dataset_available" or caller_fn == "is_dataset_available":
-                # For availability test, use expected test path
-                if hasattr(self, 'data_root') and os.path.isabs(self.data_root):
-                    return os.path.join(self.data_root, f"{dataset_id}{file_extension or ''}")
-            
-            # Check if dataset is in registry with a directory
-            if dataset_id in self.dataset_registry and 'directory' in self.dataset_registry[dataset_id]:
-                custom_dir = self.dataset_registry[dataset_id]['directory']
-                # Format consistently for test expectations
-                return os.path.join(self.data_path, f"{dataset_id}{file_extension or ''}")
-            
-            # Default test path
-            return os.path.join(self.data_path, "datasets", f"{dataset_id}{file_extension or ''}")
-                
-        # Regular path resolution for non-test cases
         # Check if dataset exists in registry
         if dataset_id in self.dataset_registry:
             # Use path from registry if available
@@ -538,24 +430,9 @@ class BaseProcessor(ABC):
         # Add timestamp
         self.dataset_registry[dataset_id]['last_updated'] = datetime.now().isoformat()
         
-        # Special handling for test classes
-        if "test_" in self.name.lower() or "TestProcessor" == self.__class__.__name__:
-            # Check the class and fixture name to determine directory
-            if "grn" in self.name.lower():
-                self.dataset_registry[dataset_id]['directory'] = 'grn'
-            elif "struct" in self.name.lower() or "structure" in dataset_id.lower():
-                self.dataset_registry[dataset_id]['directory'] = 'structures'
-            elif "emb" in self.name.lower() or "embedding" in dataset_id.lower():
-                self.dataset_registry[dataset_id]['directory'] = 'embeddings'
-            elif "prop" in self.name.lower() or "property" in dataset_id.lower():
-                self.dataset_registry[dataset_id]['directory'] = 'properties'
-            else:
-                # Default for standard test processors
-                self.dataset_registry[dataset_id]['directory'] = self.processor_data_dir
-        
         # Add file path if provided
         if file_path:
-            if _HAS_PATH_MODULE and not "test_" in self.name.lower():
+            if _HAS_PATH_MODULE:
                 # Get processor type and directory structure 
                 processor_type = self._get_processor_type()
                 dataset_dir = None
@@ -632,114 +509,44 @@ class BaseProcessor(ABC):
             FileNotFoundError: If dataset file doesn't exist
             ValueError: If format is unsupported
         """
-        # For test classes or integration old_tests - need to be careful about file paths
-        if "test_" in self.name.lower() or "integration" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            # Special case - check if this is a subdirectory path
-            if '/' in dataset_id:
-                # For integration old_tests - use direct path construction
-                subdir, real_id = dataset_id.split('/', 1)
-                if file_format:
-                    # Try both the direct reference directory and the default subpath
-                    direct_path = os.path.join(self.data_path, subdir, f"{real_id}.{file_format}")
-                    tables_path = os.path.join(self.data_path, "tables", subdir, f"{real_id}.{file_format}")
-                    reference_path = os.path.join(self.data_path, subdir, f"{real_id}.{file_format}")
-                    
-                    # Check which path exists
-                    if os.path.exists(direct_path):
-                        file_path = direct_path
-                    elif os.path.exists(tables_path):
-                        file_path = tables_path
-                    elif os.path.exists(reference_path):
-                        file_path = reference_path
-                    else:
-                        file_path = direct_path
-                else:
-                    # Try common extensions
-                    for ext in ['csv', 'pkl', 'json']:
-                        # Try multiple locations
-                        direct_path = os.path.join(self.data_path, subdir, f"{real_id}.{ext}")
-                        tables_path = os.path.join(self.data_path, "tables", subdir, f"{real_id}.{ext}")
-                        reference_path = os.path.join(self.data_path, subdir, f"{real_id}.{ext}")
-                        
-                        if os.path.exists(direct_path):
-                            file_path = direct_path
-                            file_format = ext
-                            break
-                        elif os.path.exists(tables_path):
-                            file_path = tables_path
-                            file_format = ext
-                            break
-                        elif os.path.exists(reference_path):
-                            file_path = reference_path
-                            file_format = ext
-                            break
-                    else:
-                        # If no extensions worked, use a default
-                        file_path = os.path.join(self.data_path, subdir, real_id)
-            else:
-                # Get full file path for dataset
-                file_extension = f".{file_format}" if file_format else None
-                
-                # Try both with and without datasets/ subdirectory
-                # First check if it's in the datasets/ subdirectory
-                datasets_path = os.path.join(self.data_path, "datasets", f"{dataset_id}{file_extension or ''}")
-                direct_path = os.path.join(self.data_path, f"{dataset_id}{file_extension or ''}")
-                
-                # Check which path exists (prioritize datasets/ for test consistency)
-                if os.path.exists(datasets_path):
-                    file_path = datasets_path
-                elif os.path.exists(direct_path):
-                    file_path = direct_path
-                else:
-                    # Default to what _get_dataset_path would return
-                    file_path = self._get_dataset_path(dataset_id, file_extension)
-        else:
-            # Normal case - use _get_dataset_path
-            file_extension = f".{file_format}" if file_format else None
+        # Get full file path for dataset
+        file_extension = f".{file_format}" if file_format else None
+        
+        # Check if this is a path with a subdirectory
+        if '/' in dataset_id:
+            # Special handling for paths like "reference/test_grn"
+            subdir, real_id = dataset_id.split('/', 1)
+            processor_type = self._get_processor_type()
             
-            # Check if this is a path with a subdirectory
-            if '/' in dataset_id:
-                # Special handling for paths like "reference/test_grn"
-                subdir, real_id = dataset_id.split('/', 1)
-                processor_type = self._get_processor_type()
-                
-                # Try with tables subdirectory first
-                if processor_type == 'grn':
-                    tables_path = os.path.join(self.data_path, "tables", subdir, f"{real_id}{file_extension or ''}")
-                    if os.path.exists(tables_path):
-                        return tables_path
-                    # Also try direct path
+            # Try with tables subdirectory first for GRN processor
+            if processor_type == 'grn':
+                tables_path = os.path.join(self.data_path, "tables", subdir, f"{real_id}{file_extension or ''}")
+                if os.path.exists(tables_path):
+                    file_path = tables_path
+                else:
+                    # Try direct path
                     direct_path = os.path.join(self.data_path, subdir, f"{real_id}{file_extension or ''}")
                     if os.path.exists(direct_path):
-                        return direct_path
-            
-            # If special cases didn't apply, use standard path resolution
+                        file_path = direct_path
+                    else:
+                        # Default path
+                        file_path = tables_path
+            else:
+                # For other processors, use direct path
+                file_path = os.path.join(self.data_path, subdir, f"{real_id}{file_extension or ''}")
+        else:
+            # Standard case - use _get_dataset_path
             file_path = self._get_dataset_path(dataset_id, file_extension)
             
         # Check if file exists
         if not os.path.exists(file_path):
-            # For test classes or integration old_tests, also check in the datasets/ subdirectory
-            if "test_" in self.name.lower() or "integration" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-                datasets_path = os.path.join(self.data_path, "datasets", f"{dataset_id}")
-                if file_format:
-                    test_path = f"{datasets_path}.{file_format}"
-                    if os.path.exists(test_path):
-                        file_path = test_path
-                else:
-                    # Try common extensions in the datasets/ subdirectory
-                    for ext in ['csv', 'pkl', 'json']:
-                        test_path = f"{datasets_path}.{ext}"
-                        if os.path.exists(test_path):
-                            file_path = test_path
-                            file_format = ext
-                            break
-            
             # Try alternative extensions if format not specified
-            if not os.path.exists(file_path) and not file_format:
+            if not file_format:
                 for ext in ['.csv', '.pkl', '.json']:
                     alt_path = self._get_dataset_path(dataset_id, ext)
                     if os.path.exists(alt_path):
                         file_path = alt_path
+                        file_format = ext[1:]  # Remove the dot
                         break
             
             # If still not found, raise error
@@ -908,13 +715,7 @@ class BaseProcessor(ABC):
         # Get full file path for dataset
         file_extension = f".{file_format}"
         
-        # Special handling for test classes
-        if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            # For test fixtures, use the datasets/ subdirectory for consistent location
-            datasets_dir = os.path.join(self.data_path, "datasets")
-            os.makedirs(datasets_dir, exist_ok=True)
-            file_path = os.path.join(datasets_dir, f"{dataset_id}{file_extension}")
-        elif _HAS_PATH_MODULE:
+        if _HAS_PATH_MODULE:
             # Use standardized path resolution if available
             processor_type = self._get_processor_type()
             # Get the path
@@ -1029,13 +830,9 @@ class BaseProcessor(ABC):
                         f.write(f"{sequence[i:i+60]}\n")
                 
         else:
-            # Default to binary write
-            if isinstance(data, bytes):
-                with open(file_path, 'wb') as f:
-                    f.write(data)
-            else:
-                with open(file_path, 'w') as f:
-                    f.write(str(data))
+            # Raise error for unsupported formats
+            supported = ['csv', 'pkl', 'pickle', 'json', 'npy', 'npz', 'fasta', 'fas']
+            raise ValueError(f"Unsupported file format: {file_format}. Supported formats: {supported}")
     
     def list_datasets(self) -> List[Dict[str, Any]]:
         """
@@ -1044,33 +841,7 @@ class BaseProcessor(ABC):
         Returns:
             List of dataset information dictionaries
         """
-        # Special handling for test fixtures - filter for only relevant datasets
-        if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            # For test_list_datasets_across_directories, filter to match expected directory
-            expected_dir = None
-            
-            # Check for each fixture type and match expected directory
-            if "grn" in self.name.lower():
-                expected_dir = "grn"
-            elif "struct" in self.name.lower():
-                expected_dir = "structures"
-            elif "emb" in self.name.lower():
-                expected_dir = "embeddings"
-            elif "prop" in self.name.lower():
-                expected_dir = "properties"
-            
-            # If we have a directory filter, use it
-            if expected_dir:
-                return [
-                    {
-                        "id": dataset_id,
-                        **{k: v for k, v in metadata.items() if k != 'path'}
-                    }
-                    for dataset_id, metadata in self.dataset_registry.items()
-                    if dataset_id.startswith(expected_dir) or metadata.get('directory') == expected_dir
-                ]
-        
-        # Standard case - return all datasets
+        # Return all datasets in the registry
         return [
             {
                 "id": dataset_id,
@@ -1165,33 +936,38 @@ class BaseProcessor(ABC):
         # Use dataset manager if available for standardized datasets
         if self.dataset_manager is not None:
             # First check if it's available as a standardized dataset
-            if self.dataset_manager.is_dataset_available(dataset_id):
-                return True
-        
-        # For test fixtures - try in datasets/ subdirectory first
-        if "test_" in self.name.lower() or self.__class__.__name__ == 'TestProcessor':
-            datasets_dir = os.path.join(self.data_path, "datasets")
-            
-            # Check with various extensions
-            for ext in ['', '.csv', '.pkl', '.json']:
-                file_path = os.path.join(datasets_dir, f"{dataset_id}{ext}")
-                if os.path.exists(file_path):
+            try:
+                if self.dataset_manager.is_dataset_available(dataset_id):
                     return True
+            except KeyError:
+                # Registry format mismatch, continue with other checks
+                pass
                     
-            # Also check direct path without datasets/ subdirectory
-            for ext in ['', '.csv', '.pkl', '.json']:
-                file_path = os.path.join(self.data_path, f"{dataset_id}{ext}")
-                if os.path.exists(file_path):
-                    return True
-                    
-        # Check registry first for non-test cases
+        # Check registry first
         if dataset_id in self.dataset_registry:
+            # Get filename from registry
+            filename = self.dataset_registry[dataset_id].get('filename')
+            if filename:
+                # Filename already includes subdirectory
+                file_path = os.path.join(self.data_path, filename)
+                if os.path.exists(file_path):
+                    return True
+            
+            # Try using _get_dataset_path as fallback
             file_path = self._get_dataset_path(dataset_id)
             return os.path.exists(file_path)
         
-        # Try common extensions
+        # Try common extensions in datasets directory
+        datasets_dir = os.path.join(self.data_path, "datasets")
         for ext in ['.csv', '.pkl', '.json']:
-            file_path = self._get_dataset_path(dataset_id, ext)
+            file_path = os.path.join(datasets_dir, f"{dataset_id}{ext}")
+            if os.path.exists(file_path):
+                return True
+        
+        # Try common extensions in base directory
+        for ext in ['.csv', '.pkl', '.json']:
+            # Try base directory directly
+            file_path = os.path.join(self.data_path, f"{dataset_id}{ext}")
             if os.path.exists(file_path):
                 return True
                 

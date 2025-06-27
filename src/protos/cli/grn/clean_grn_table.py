@@ -69,14 +69,11 @@ def process_table(input_path, output_path, use_processor=True):
     """
     if use_processor:
         # Use GRNBaseProcessor for loading
-        data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
         processor = GRNBaseProcessor(
             name='clean_grn',
-            data_root=data_root,
-            processor_data_dir='grn',
-            dataset=input_path,
-            preload=True
+            processor_data_dir='grn'
         )
+        processor.load_grn_table(input_path)
         df = processor.data
     else:
         # Load directly from file path

@@ -10,13 +10,64 @@ Protos is a Python library designed to **standardize and execute complex computa
 
 The core function of Protos is to manage multi-step analyses by breaking them down into defined tasks handled by modular components.
 
+## 🔧 Installation
+
+### Prerequisites
+
+- **Python 3.10+** is required
+- **CUDA 11.8** (only for GPU installation)
+- **Conda** (recommended for environment management)
+
+### ✅ Minimal Installation (CPU-only)
+
+This installs only the core Protos functionality without GPU acceleration or AI models:
+
+```bash
+pip install -e .
+```
+
+This is sufficient for:
+- Structure processing (PDB/mmCIF files)
+- Sequence analysis and alignments
+- GRN (Generic Residue Numbering) operations
+- Basic property calculations
+
+### 🚀 GPU Installation with AI Capabilities
+
+For GPU acceleration and AI features (protein embeddings, graph neural networks):
+
+```bash
+# 1. Create a fresh conda environment
+conda create -n protos python=3.10 -y
+conda activate protos
+
+# 2. Install CUDA runtime (required for GPU support)
+conda install -c nvidia cuda-runtime=11.8.0
+
+# 3. Install PyTorch with CUDA 11.8 support
+pip install torch==2.6.0 torchvision --index-url https://download.pytorch.org/whl/cu118
+
+
+
+# 4. Install PyTorch Geometric (for graph neural networks)
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.6.0+cu118.html
+
+# 5. Install Protos with GPU extras
+pip install -e ".[gpu]"
+```
+
+This enables:
+- **EmbeddingProcessor**: Generate protein embeddings using ESM-2, Ankh models
+- **GPU-accelerated computations**: Faster processing for large datasets
+- **Graph neural networks**: PyTorch Geometric support for structure-based ML
+- **Multi-GPU support**: Via the accelerate library
+
 ## Recent Updates (2025-06-25)
 
 - **GRN Notation**: Now uses dot notation (e.g., `1.50`) as standard; x notation (e.g., `1x50`) is deprecated
 - **New Features**: Added GRN-Structure integration methods to CifBaseProcessor
 - **Bug Fixes**: Fixed path resolution, sequence extraction, and data type compatibility issues
 - **Testing**: Added comprehensive real-data tests for GRN and structure processors
-- See [RECENT_UPDATES.md](docs/RECENT_UPDATES.md) for detailed changes
 
 ## Core Architecture: Processors & Interoperability
 
@@ -567,6 +618,58 @@ git clone https://github.com/your-organization/protos.git
 cd protos
 pip install -e .
 ```
+
+### 🛠️ Optional Extras
+
+#### Development Tools
+For code quality and development tools:
+
+```bash
+pip install -e ".[dev]"
+```
+
+This includes:
+- **black**: Code formatting
+- **isort**: Import sorting
+- **mypy**: Type checking
+- **flake8**: Linting
+
+#### CPU-only Embedding Support
+If you want embedding capabilities without GPU:
+
+```bash
+pip install -e ".[embedding]"
+```
+
+This installs transformers library for CPU-based embeddings (slower but works without GPU).
+
+#### Complete Installation
+To install everything (GPU support + dev tools):
+
+```bash
+# Follow GPU installation steps above, then:
+pip install -e ".[all]"
+```
+
+### ⚠️ Installation Notes
+
+1. **Why the specific versions?**
+   - PyTorch 2.4.0 is required for PyTorch Geometric compatibility
+   - CUDA 11.8 provides the best stability across different GPUs
+   - These versions are tested and confirmed to work together
+
+2. **Verifying GPU installation:**
+   ```python
+   import torch
+   print(f"PyTorch version: {torch.__version__}")
+   print(f"CUDA available: {torch.cuda.is_available()}")
+   print(f"CUDA version: {torch.version.cuda}")
+   ```
+
+3. **Common issues:**
+   - If you get CPU PyTorch instead of GPU, ensure you use the `--index-url` flag
+   - PyG installation may fail without the correct `-f` wheel URL
+   - On Windows, use WSL2 for best compatibility
 
 ### Environment Variables
 

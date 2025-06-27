@@ -33,7 +33,21 @@
       "Bash(rm:*)",
       "Bash(cat:*)",
       "Bash(pip show:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/test_embedding_processor.py -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/test_embedding_processor_models.py::TestModelOutputFormats::test_edge_cases -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/test_embedding_processor_models.py::TestModelOutputFormats::test_special_sequences -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/test_embedding_processor_advanced.py::TestEmbeddingProcessorPerResidue::test_per_residue_embeddings -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/test_embedding_output_format.py::TestEmbeddingOutputFormat::test_residue_mapping_correspondence -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/test_embedding_output_format.py::TestPracticalUsage::test_embedding_grn_alignment -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_embedding/test_embedding_output_format.py::TestPracticalUsage::test_get_residue_embeddings_method -xvs)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/ -v --tb=no)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_core/ -v --tb=no)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_io/ -v --tb=no)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/ -v --tb=no)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_grn/ -v --tb=no)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_structure/ -v --tb=no)",
+      "Bash(/home/hidberf/miniconda/envs/protos/bin/python -m pytest tests/test_processors/test_sequence/ -v --tb=no 2 >& 1)"
     ],
     "deny": []
   }

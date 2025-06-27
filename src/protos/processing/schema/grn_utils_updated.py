@@ -62,16 +62,19 @@ def parse_grn_str2float(grn: str) -> float:
             position = int(grn.split('c.')[1])
             return 100.0 + 0.01 * position
             
-        # Loop region with format AB.CCC
-        elif '.' in grn and len(grn.split('.')[1]) == 3:
-            # Parse helix pair and distance
-            helix_pair = grn.split('.')[0]
-            distance = int(grn.split('.')[1]) / 1000.0
+        # Check for dot notation (need to distinguish between loops and standard dot notation)
+        elif '.' in grn:
+            helix_part = grn.split('.')[0]
+            position_part = grn.split('.')[1]
             
-            if len(helix_pair) == 2:
+            # Loop region with format AB.CCC (2 digits before dot, 3 after)
+            if len(helix_part) == 2 and len(position_part) == 3:
+                # Parse helix pair and distance
+                distance = int(position_part) / 1000.0
+                
                 # Extract closer and further helix
-                closer_helix = int(helix_pair[0])
-                further_helix = int(helix_pair[1])
+                closer_helix = int(helix_part[0])
+                further_helix = int(helix_part[1])
                 
                 # Create float representation:
                 # Integer part: 10*smaller_helix + larger_helix
@@ -81,10 +84,17 @@ def parse_grn_str2float(grn: str) -> float:
                 
                 # Calculate the float representation
                 return float(f"{helix_min}{helix_max}") + distance
+            
+            # Standard dot notation (1 digit before dot, 1-2 after) e.g., 1.50
+            elif len(helix_part) == 1:
+                helix = int(helix_part)
+                position = int(position_part)
+                return helix + position / 100.0
+            
             else:
-                raise ValueError(f"Invalid loop format: {grn}, expected format: AB.CCC")
+                raise ValueError(f"Invalid dot notation format: {grn}")
                 
-        # Standard GRN format (TM regions)
+        # Standard GRN format with x notation (TM regions)
         elif 'x' in grn:
             # Parse helix and position
             helix_str, position_str = grn.split('x')
@@ -187,9 +197,11 @@ def normalize_grn_format(grn: str) -> str:
         >>> normalize_grn_format('12.5')
         '12.005'
         >>> normalize_grn_format('1x50')
-        '1x50'
+        '1.50'
         >>> normalize_grn_format('1.50')
-        '1x50'
+        '1.50'
+        >>> normalize_grn_format('1.5')
+        '1.50'
     """
     # Check if already in standard format
     for pattern_name, pattern_str in GRN_PATTERNS.items():
@@ -212,13 +224,22 @@ def normalize_grn_format(grn: str) -> str:
         distance = int(match.group(3))
         return f"{helix_pair}.{distance:03d}"
     
-    # Standard GRN with dot instead of x (e.g., '1.50')
+    # Standard GRN with x notation (e.g., '1x50')
+    std_x_pattern = re.compile(r'^([1-8])x(\d+)$')
+    match = std_x_pattern.match(grn)
+    if match:
+        helix = match.group(1)
+        position = int(match.group(2))
+        return f"{helix}.{position:02d}"
+    
+    # Standard GRN with dot notation - normalize to 2-digit format (e.g., '1.5' -> '1.50')
     std_dot_pattern = re.compile(r'^([1-8])\.(\d+)$')
     match = std_dot_pattern.match(grn)
     if match and len(match.group(1)) == 1:
         helix = match.group(1)
         position = int(match.group(2))
-        return f"{helix}x{position:02d}"
+        # Normalize to 2-digit format (1.5 -> 1.50, 1.50 -> 1.50)
+        return f"{helix}.{position:02d}"
     
     # Return as is if can't normalize
     return grn
@@ -285,6 +306,26 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
                     return False, f"Non-numeric values in GRN: {grn}"
                 
                 return True, "Valid standard GRN format"
+                
+            # Standard dot notation rules
+            elif pattern_name == 'standard_dot':
+                # Additional validation for standard dot format
+                helix_str, position_str = grn.split('.')
+                try:
+                    helix = int(helix_str)
+                    position = int(position_str)
+                    
+                    # Check helix range (typically 1-8 for GPCRs)
+                    if not (1 <= helix <= 8):
+                        return False, f"Invalid helix number: {helix} (expected 1-8)"
+                        
+                    # Check position (typically 1-99)
+                    if not (1 <= position <= 99):
+                        return False, f"Invalid position number: {position} (expected 1-99)"
+                except ValueError:
+                    return False, f"Non-numeric values in GRN: {grn}"
+                
+                return True, "Valid standard GRN format (dot notation)"
                 
             # Loop GRN rules
             elif pattern_name == 'loop':

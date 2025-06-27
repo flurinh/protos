@@ -1,0 +1,11 @@
+{
+  "id": "test_mo",
+  "name": "Test Microbial Opsins",
+  "description": "Test dataset for GRN-Structure integration",
+  "type": "structure",
+  "pdb_ids": [
+    "1UAZ",
+    "3DDL",
+    "4PXK"
+  ]
+}

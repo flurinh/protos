@@ -84,7 +84,6 @@ class TestGRNSorting:
         """Test sorting columns in the processor."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -118,7 +117,6 @@ class TestGRNFiltering:
         """Test filtering by protein IDs."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -138,7 +136,6 @@ class TestGRNFiltering:
         """Test filtering by occurrence threshold."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -166,7 +163,6 @@ class TestGRNSequenceDict:
         """Test getting sequence dictionary from GRN table."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -220,7 +216,6 @@ class TestGRNIntervals:
         """Test getting GRN intervals."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -245,7 +240,6 @@ class TestGRNIntervals:
         """Test applying GRN interval to filter data."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -372,7 +366,6 @@ class TestGRNDict:
         """Test getting GRN dictionary."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -409,7 +402,6 @@ class TestGRNMaps:
         """Test getting GRN maps."""
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         
@@ -449,7 +441,6 @@ class TestRemoveDuplicates:
         
         processor = GRNBaseProcessor(
             name="test_grn",
-            data_root=temp_data_dir,
             preload=False
         )
         

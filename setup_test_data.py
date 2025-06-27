@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 # Import only the simplified path configuration
-from protos.io.paths.path_config_simplified import ProtosPaths
+from protos.io.paths.path_config import ProtosPaths
 
 
 def setup_test_data():

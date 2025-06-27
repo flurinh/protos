@@ -1,0 +1,34 @@
+{
+  "dataset1": {
+    "format": "csv",
+    "rows": 2,
+    "columns": [
+      "a"
+    ],
+    "saved_at": "2025-06-27T13:53:39.661949",
+    "processor_type": "list_test",
+    "last_updated": "2025-06-27T13:53:39.661961",
+    "filename": "datasets/dataset1.csv",
+    "directory": "datasets"
+  },
+  "dataset2": {
+    "format": "json",
+    "rows": 1,
+    "columns": null,
+    "saved_at": "2025-06-27T13:53:39.678820",
+    "processor_type": "list_test",
+    "last_updated": "2025-06-27T13:53:39.678847",
+    "filename": "datasets/dataset2.json",
+    "directory": "datasets"
+  },
+  "dataset3": {
+    "format": "pkl",
+    "rows": 1,
+    "columns": null,
+    "saved_at": "2025-06-27T13:53:39.695608",
+    "processor_type": "list_test",
+    "last_updated": "2025-06-27T13:53:39.695626",
+    "filename": "datasets/dataset3.pkl",
+    "directory": "datasets"
+  }
+}

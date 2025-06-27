@@ -137,7 +137,7 @@ class TestGRNAssignmentCore:
         present_seq_nr_grn_list = [('M1', '1.50'), ('W20', '7.50')]
         missing = [2, 3, 4, 5, 10, 11, 12]
         query_seq = "MDWLVGYGFGGKLMNP"
-        grn_config = {'tm1': ['1.50'], 'tm7': ['7.50']}
+        grn_config = {'tm1': ['1.28', '1.64'], 'tm7': ['7.30', '7.56']}
         grns_str = ['1.50', '2.50', '3.50', '4.50', '5.50', '6.50', '7.50']
         
         n_loop, gaps, c_loop = annotate_gaps_and_loops(
@@ -285,20 +285,29 @@ class TestGRNAssignmentIntegration:
     
     def test_grn_processor_with_reference_table(self, temp_data_dir, reference_grn_table):
         """Test GRN processor with reference table."""
-        # Save reference table
-        ref_path = os.path.join(temp_data_dir, 'grn', 'ref')
-        reference_grn_table.to_csv(os.path.join(ref_path, 'test_ref.csv'))
+        # Set temp directory as data root for this test
+        from protos.io.paths.path_config import ProtosPaths
+        original_root = ProtosPaths.get_global_data_root()
+        ProtosPaths.set_data_root(temp_data_dir)
         
-        # Create processor
-        processor = GRNBaseProcessor(
-            name='test_ref',
-            data_root=temp_data_dir,
-            processor_data_dir='grn/ref',
-            preload=False
-        )
-        
-        # Load the reference table
-        processor.load_grn_table('test_ref')
+        try:
+            # Save reference table
+            ref_path = os.path.join(temp_data_dir, 'grn', 'ref')
+            reference_grn_table.to_csv(os.path.join(ref_path, 'test_ref.csv'))
+            
+            # Create processor
+            processor = GRNBaseProcessor(
+                name='test_ref',
+                processor_data_dir='grn',
+                preload=False
+            )
+            
+            # Load the reference table from ref subdirectory
+            processor.load_grn_table('ref/test_ref')
+        finally:
+            # Restore original data root
+            if original_root:
+                ProtosPaths.set_data_root(original_root)
         
         assert not processor.data.empty
         assert len(processor.data) == 4
@@ -310,9 +319,9 @@ class TestGRNAssignmentIntegration:
         # This is a conceptual test showing the workflow
         # In practice, would need actual sequence alignment tools
         
-        # 1. Save reference table
+        # 1. Save reference table with unique name
         ref_path = os.path.join(temp_data_dir, 'grn', 'ref')
-        reference_grn_table.to_csv(os.path.join(ref_path, 'test_ref.csv'))
+        reference_grn_table.to_csv(os.path.join(ref_path, 'test_ref_assignment.csv'))
         
         # 2. Create test FASTA
         fasta_content = ">QUERY1\nMDWLVGYGFGGKLMNPQRST\n>QUERY2\nMAWLIGYAFGGRLMNPQKST"

@@ -47,8 +47,7 @@ class TestGRNBaseProcessorRealData:
         
         # Initialize processor
         self.processor = GRNBaseProcessor(
-            name="test_grn_real",
-            data_root=str(self.test_data_dir)
+            name="test_grn_real"
         )
         
         yield
@@ -174,7 +173,7 @@ class TestGRNBaseProcessorRealData:
         original_data = self.processor.data.copy()
         
         # Change data root to temp directory for saving
-        self.processor.data_root = str(self.data_root)
+        # data_root is now managed globally
         self.processor.data_path = self.data_root / self.processor.processor_data_dir
         self.processor.data_path.mkdir(parents=True, exist_ok=True)
         
@@ -184,7 +183,6 @@ class TestGRNBaseProcessorRealData:
         # Create new processor to load saved data
         new_processor = GRNBaseProcessor(
             name="test_reload",
-            data_root=str(self.data_root)
         )
         new_processor.load_grn_table("test_real_save")
         
@@ -203,7 +201,7 @@ class TestGRNBaseProcessorRealData:
             part2 = self.processor.data.iloc[mid_point-2:].copy()  # Some overlap
             
             # Save as separate datasets
-            self.processor.data_root = str(self.data_root)
+            # data_root is now managed globally
             self.processor.data_path = self.data_root / self.processor.processor_data_dir
             self.processor.data_path.mkdir(parents=True, exist_ok=True)
             
@@ -213,8 +211,7 @@ class TestGRNBaseProcessorRealData:
             # Create new processor and load/merge
             new_processor = GRNBaseProcessor(
                 name="test_merge",
-                data_root=str(self.data_root)
-            )
+                )
             new_processor.load_and_merge_grn_tables(["test_part1", "test_part2"])
             
             # Should have all proteins from both parts
