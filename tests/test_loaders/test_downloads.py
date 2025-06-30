@@ -5,6 +5,7 @@ in the loaders directory, integrated with the protos path system.
 
 import pytest
 import requests
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from protos.loaders.download_structures import download_protein_structures
@@ -29,20 +30,15 @@ class MockResponse:
 
 
 @pytest.fixture
-def test_processor(tmp_path):
+def test_processor():
     """Create a test processor for download tests."""
-    # Set global data root
-    ProtosPaths.set_data_root(str(tmp_path))
-    
+    # ProtosPaths already configured in conftest.py to use tests/test-data
     processor = BaseProcessor(
         name="test_downloader",
         processor_data_dir="structure"
     )
     
-    yield processor
-    
-    # Cleanup
-    ProtosPaths.set_data_root(None)
+    return processor
 
 
 class TestDownloadStructures:
@@ -52,15 +48,30 @@ class TestDownloadStructures:
         """Test basic download functionality"""
         pdb_ids = ["1ABC", "2DEF"]
         
+        # Use processor's structure directory (managed by ProtosPaths)
+        target_dir = test_processor.path_structure_dir
+        
         # Mock PDBList to avoid actual downloads
+        def mock_retrieve_side_effect(pdb_id, **kwargs):
+            # Create a mock file in the expected location
+            pdb_id = pdb_id.lower()
+            mock_file = target_dir / f"{pdb_id}.cif"
+            mock_file.write_text(f"# Mock CIF file for {pdb_id}")
+            return str(mock_file)
+        
         with patch.object(PDBList, 'retrieve_pdb_file') as mock_retrieve:
-            mock_retrieve.return_value = "mock_path"
+            mock_retrieve.side_effect = mock_retrieve_side_effect
             
-            # Use processor's data directory for downloads
-            download_protein_structures(
+            # Use processor's data directory for downloads, use overwrite to force download
+            successful, failed = download_protein_structures(
                 pdb_ids,
-                target_folder=test_processor.data_path
+                target_folder=str(target_dir),
+                overwrite=True
             )
+            
+            # Check results - convert to lowercase as our function does that
+            assert successful == [pid.lower() for pid in pdb_ids]
+            assert failed == []
             
             # Check that retrieve was called for each PDB ID
             assert mock_retrieve.call_count == len(pdb_ids)
@@ -69,17 +80,29 @@ class TestDownloadStructures:
         """Test download with some failures"""
         pdb_ids = ["1ABC", "INVALID", "2DEF"]
         
-        def mock_retrieve_side_effect(pdb_id, **kwargs):
-            if pdb_id == "INVALID":
-                raise Exception("Invalid PDB ID")
-            return f"mock_path_{pdb_id}"
+        # Use processor's structure directory (managed by ProtosPaths)
+        target_dir = test_processor.path_structure_dir
         
-        with patch.object(PDBList, 'retrieve_pdb_file', side_effect=mock_retrieve_side_effect):
-            # Download will skip failures
-            download_protein_structures(
+        def mock_retrieve_side_effect(pdb_id, **kwargs):
+            if pdb_id.upper() == "INVALID":
+                raise Exception("Invalid PDB ID")
+            # Create a mock file in the expected location
+            pdb_id = pdb_id.lower()
+            mock_file = target_dir / f"{pdb_id}.cif"
+            mock_file.write_text(f"# Mock CIF file for {pdb_id}")
+            return str(mock_file)
+        
+        with patch.object(PDBList, 'retrieve_pdb_file', side_effect=mock_retrieve_side_effect) as mock_retrieve:
+            # Download will skip failures, use overwrite to test actual download behavior
+            successful, failed = download_protein_structures(
                 pdb_ids,
-                target_folder=test_processor.data_path
+                target_folder=str(target_dir),
+                overwrite=True
             )
+            
+            # Check results - convert to lowercase as our function does that
+            assert successful == ["1abc", "2def"]
+            assert failed == ["invalid"]
             
             # Check that retrieve was called for all
             assert mock_retrieve.call_count == len(pdb_ids)
@@ -87,10 +110,12 @@ class TestDownloadStructures:
     def test_download_structures_empty_list(self, test_processor):
         """Test download with empty list"""
         # Download empty list should not fail
-        download_protein_structures(
+        successful, failed = download_protein_structures(
             [],
             target_folder=test_processor.data_path
         )
+        assert successful == []
+        assert failed == []
     
     @pytest.mark.parametrize("file_format", ['mmCif', 'pdb', 'xml', 'mmtf'])
     def test_download_structures_formats(self, test_processor, file_format):
@@ -102,7 +127,8 @@ class TestDownloadStructures:
             
             download_protein_structures(
                 pdb_ids,
-                target_folder=test_processor.data_path
+                target_folder=test_processor.data_path,
+                overwrite=True
             )
             
             # Check that retrieve was called
@@ -112,29 +138,37 @@ class TestDownloadStructures:
         """Test download with overwrite option"""
         pdb_ids = ["1ABC"]
         
-        # Save a mock file first
-        test_processor.save_data('1ABC', {'pdb_id': '1ABC'}, format='json')
-        
-        # Verify the data was saved
-        loaded_data = test_processor.load_data('1ABC', format='json')
-        assert loaded_data == {'pdb_id': '1ABC'}
-        
         with patch.object(PDBList, 'retrieve_pdb_file') as mock_retrieve:
             mock_retrieve.return_value = "mock_path"
             
-            # Download twice to test overwrite behavior
+            # First download - should call retrieve (file doesn't exist)
             download_protein_structures(
                 pdb_ids,
-                target_folder=test_processor.data_path
+                target_folder=test_processor.data_path,
+                overwrite=True
             )
             
-            # Download again 
+            # Should have been called once
+            assert mock_retrieve.call_count == 1
+            
+            # Second download with overwrite=False (default) - should not call retrieve (file exists)
             download_protein_structures(
                 pdb_ids,
-                target_folder=test_processor.data_path
+                target_folder=test_processor.data_path,
+                overwrite=False
             )
             
-            # Should have been called twice
+            # Should still be called only once (skipped second time)
+            assert mock_retrieve.call_count == 1
+            
+            # Third download with overwrite=True - should call retrieve again
+            download_protein_structures(
+                pdb_ids,
+                target_folder=test_processor.data_path,
+                overwrite=True
+            )
+            
+            # Should now be called twice (forced overwrite)
             assert mock_retrieve.call_count == 2
 
 
@@ -197,7 +231,7 @@ class TestAlphafoldUtils:
         
         # Test with max_models parameter
         download_alphafold_structures(
-            uniprot_id,
+            uniprot_ids[0],
             max_models=3,
             output_dir=test_processor.data_path
         )
@@ -215,118 +249,147 @@ class TestAlphafoldUtils:
 class TestUniprotMapping:
     """Test UniProt to PDB mapping functionality"""
     
-    @patch('requests.get')
-    def test_map_uniprot_to_pdb_basic(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.session')
+    @patch('requests.post')
+    def test_map_uniprot_to_pdb_basic(self, mock_post, mock_session):
         """Test basic UniProt to PDB mapping"""
-        # Mock UniProt API response
-        mock_response_data = {
-            "results": [
-                {
-                    "from": "P12345",
-                    "to": {
-                        "primaryAccession": "P12345",
-                        "uniProtKBCrossReferences": [
-                            {
-                                "database": "PDB",
-                                "id": "1ABC"
-                            },
-                            {
-                                "database": "PDB",
-                                "id": "2DEF"
-                            }
-                        ]
-                    }
-                }
-            ]
-        }
-        
-        mock_get.return_value = MagicMock(
+        # Mock job submission
+        mock_post.return_value = MagicMock(
             status_code=200,
-            json=lambda: mock_response_data
+            json=lambda: {"jobId": "test-job-123"}
         )
+        
+        # Mock status check (ready)
+        mock_status_response = MagicMock(
+            status_code=200,
+            json=lambda: {"results": "https://rest.uniprot.org/idmapping/results/test-job-123"}
+        )
+        
+        # Mock details call (for redirectURL)
+        mock_details_response = MagicMock(
+            status_code=200,
+            json=lambda: {"redirectURL": "https://rest.uniprot.org/idmapping/results/test-job-123"}
+        )
+        
+        # Mock results
+        mock_results_response = MagicMock(
+            status_code=200,
+            headers={"x-total-results": "2"},
+            json=lambda: {
+                "results": [
+                    {
+                        "from": "P12345",
+                        "to": "1ABC"
+                    },
+                    {
+                        "from": "P12345", 
+                        "to": "2DEF"
+                    }
+                ]
+            }
+        )
+        
+        mock_session.get.side_effect = [mock_status_response, mock_details_response, mock_results_response]
         
         result = map_uniprot_to_pdb(["P12345"])
         
-        assert "P12345" in result
-        assert result["P12345"] == ["1ABC", "2DEF"]
+        # Result should be a DataFrame
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        assert all(result['uid'] == 'P12345')
+        assert set(result['pdb_id']) == {'1ABC', '2DEF'}
     
-    @patch('requests.get')
-    def test_map_uniprot_to_pdb_no_structures(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.session')
+    @patch('requests.post')
+    def test_map_uniprot_to_pdb_no_structures(self, mock_post, mock_session):
         """Test mapping for UniProt ID with no PDB structures"""
-        mock_response_data = {
-            "results": [
-                {
-                    "from": "P12345",
-                    "to": {
-                        "primaryAccession": "P12345",
-                        "uniProtKBCrossReferences": []
-                    }
-                }
-            ]
-        }
-        
-        mock_get.return_value = MagicMock(
+        # Mock job submission
+        mock_post.return_value = MagicMock(
             status_code=200,
-            json=lambda: mock_response_data
+            json=lambda: {"jobId": "test-job-456"}
         )
+        
+        # Mock status check (ready)
+        mock_status_response = MagicMock(
+            status_code=200,
+            json=lambda: {"results": "https://rest.uniprot.org/idmapping/results/test-job-456"}
+        )
+        
+        # Mock details call (for redirectURL)
+        mock_details_response = MagicMock(
+            status_code=200,
+            json=lambda: {"redirectURL": "https://rest.uniprot.org/idmapping/results/test-job-456"}
+        )
+        
+        # Mock empty results
+        mock_results_response = MagicMock(
+            status_code=200,
+            headers={"x-total-results": "0"},
+            json=lambda: {"results": []}
+        )
+        
+        mock_session.get.side_effect = [mock_status_response, mock_details_response, mock_results_response]
         
         result = map_uniprot_to_pdb(["P12345"])
         
-        assert "P12345" in result
-        assert result["P12345"] == []
+        # Result should be an empty DataFrame
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 0
     
-    @patch('requests.get')
-    def test_map_uniprot_to_pdb_multiple(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.session')
+    @patch('requests.post')
+    def test_map_uniprot_to_pdb_multiple(self, mock_post, mock_session):
         """Test mapping for multiple UniProt IDs"""
-        mock_response_data = {
-            "results": [
-                {
-                    "from": "P12345",
-                    "to": {
-                        "primaryAccession": "P12345",
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": "1ABC"}
-                        ]
-                    }
-                },
-                {
-                    "from": "Q67890",
-                    "to": {
-                        "primaryAccession": "Q67890",
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": "2DEF"},
-                            {"database": "PDB", "id": "3GHI"}
-                        ]
-                    }
-                }
-            ]
-        }
-        
-        mock_get.return_value = MagicMock(
+        # Mock job submission
+        mock_post.return_value = MagicMock(
             status_code=200,
-            json=lambda: mock_response_data
+            json=lambda: {"jobId": "test-job-789"}
         )
+        
+        # Mock status check (ready)
+        mock_status_response = MagicMock(
+            status_code=200,
+            json=lambda: {"results": "https://rest.uniprot.org/idmapping/results/test-job-789"}
+        )
+        
+        # Mock details call (for redirectURL)
+        mock_details_response = MagicMock(
+            status_code=200,
+            json=lambda: {"redirectURL": "https://rest.uniprot.org/idmapping/results/test-job-789"}
+        )
+        
+        # Mock results for multiple IDs
+        mock_results_response = MagicMock(
+            status_code=200,
+            headers={"x-total-results": "3"},
+            json=lambda: {
+                "results": [
+                    {"from": "P12345", "to": "1ABC"},
+                    {"from": "Q67890", "to": "2DEF"},
+                    {"from": "Q67890", "to": "3GHI"}
+                ]
+            }
+        )
+        
+        mock_session.get.side_effect = [mock_status_response, mock_details_response, mock_results_response]
         
         result = map_uniprot_to_pdb(["P12345", "Q67890"])
         
-        assert len(result) == 2
-        assert result["P12345"] == ["1ABC"]
-        assert result["Q67890"] == ["2DEF", "3GHI"]
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 3
+        assert len(result[result['uid'] == 'P12345']) == 1
+        assert len(result[result['uid'] == 'Q67890']) == 2
+        assert set(result[result['uid'] == 'Q67890']['pdb_id']) == {'2DEF', '3GHI'}
     
-    @patch('requests.get')
-    def test_map_uniprot_to_pdb_error_handling(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.session')
+    @patch('requests.post')
+    def test_map_uniprot_to_pdb_error_handling(self, mock_post, mock_session):
         """Test error handling in UniProt mapping"""
-        # Test HTTP error
-        mock_get.return_value = MagicMock(status_code=500)
+        # Test HTTP error on job submission
+        mock_post.side_effect = requests.HTTPError("Server error")
         
-        result = map_uniprot_to_pdb(["P12345"])
-        assert result == {}
-        
-        # Test request exception
-        mock_get.side_effect = requests.RequestException("Network error")
-        
-        result = map_uniprot_to_pdb(["P12345"])
-        assert result == {}
+        with pytest.raises(requests.HTTPError):
+            map_uniprot_to_pdb(["P12345"])
 
 
 class TestIntegratedDownloadWorkflow:

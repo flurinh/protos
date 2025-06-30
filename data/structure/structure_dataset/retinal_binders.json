@@ -1,0 +1,15 @@
+{
+  "id": "retinal_binders",
+  "name": "retinal_binders",
+  "description": "Structure dataset with 1 PDB IDs",
+  "type": "structure",
+  "content": [
+    "af5tm"
+  ],
+  "metadata": {
+    "converted_from_legacy_json": true,
+    "source_file": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/datasets.json"
+  },
+  "creation_date": "2025-06-29T20:59:09.560122",
+  "last_modified": "2025-06-29T20:59:09.560139"
+}

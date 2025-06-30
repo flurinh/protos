@@ -4,6 +4,7 @@ Tests specific functionalities without requiring network access.
 """
 
 import pytest
+from pathlib import Path
 from unittest.mock import patch, MagicMock, call
 import requests
 
@@ -16,18 +17,14 @@ from Bio.PDB import PDBList
 
 
 @pytest.fixture
-def functional_processor(tmp_path):
+def functional_processor():
     """Create a processor for functional testing."""
-    ProtosPaths.set_data_root(str(tmp_path))
-    
     processor = BaseProcessor(
         name="test_functional",
         processor_data_dir="downloads"
     )
     
     yield processor
-    
-    ProtosPaths.set_data_root(None)
 
 
 class TestPDBDownloadFunctionality:
@@ -35,65 +32,92 @@ class TestPDBDownloadFunctionality:
     
     @patch.object(PDBList, 'retrieve_pdb_file')
     def test_download_with_custom_server(self, mock_retrieve, functional_processor):
-        """Test downloading from custom PDB server"""
-        mock_retrieve.return_value = "mock_file.cif"
+        """Test downloading functionality (custom server not supported)"""
+        # Note: The current implementation doesn't support custom servers
+        # This test verifies basic download functionality
+        
+        # Use processor's structure directory
+        target_dir = Path(functional_processor.data_path) / "mmcif"
+        
+        # Mock to create actual file
+        def mock_retrieve_side_effect(pdb_id, **kwargs):
+            pdb_id = pdb_id.lower()
+            mock_file = target_dir / f"{pdb_id}.cif"
+            mock_file.write_text(f"# Mock CIF file for {pdb_id}")
+            return str(mock_file)
+        
+        mock_retrieve.side_effect = mock_retrieve_side_effect
         
         pdb_ids = ["1ABC"]
-        custom_server = "https://custom.pdb.server"
         
-        result = download_protein_structures(
+        successful, failed = download_protein_structures(
             pdb_ids,
-            target_folder=functional_processor.data_path,
-            pdb_server=custom_server
+            target_folder=str(target_dir)
         )
         
-        # Verify custom server was used
-        call_args = mock_retrieve.call_args
-        assert 'pdir' in call_args[1]
-        assert len(result) == 1
+        # Should have downloaded successfully
+        mock_retrieve.assert_called_once()
+        assert successful == ["1abc"]  # Lowercase
+        assert failed == []
     
     @patch.object(PDBList, 'retrieve_pdb_file')
     def test_download_obsolete_structures(self, mock_retrieve, functional_processor):
         """Test handling of obsolete PDB structures"""
+        # Use processor's structure directory
+        target_dir = Path(functional_processor.data_path) / "mmcif"
+        
         # Simulate obsolete structure behavior
         def mock_retrieve_obsolete(pdb_id, **kwargs):
             if pdb_id.lower() == "obsolete":
                 raise Exception("Obsolete PDB ID")
-            return f"mock_{pdb_id}.cif"
+            pdb_id = pdb_id.lower()
+            mock_file = target_dir / f"{pdb_id}.cif"
+            mock_file.write_text(f"# Mock CIF file for {pdb_id}")
+            return str(mock_file)
         
         mock_retrieve.side_effect = mock_retrieve_obsolete
         
         pdb_ids = ["1ABC", "OBSOLETE", "2DEF"]
         
-        result = download_protein_structures(
+        successful, failed = download_protein_structures(
             pdb_ids,
-            target_folder=functional_processor.data_path,
-            file_format='mmCif'
+            target_folder=str(target_dir)
         )
         
-        # Should skip obsolete structures
-        assert len(result) == 2
-        assert "1ABC" in result
-        assert "2DEF" in result
-        assert "OBSOLETE" not in result
+        # Should have some successes and failures
+        assert len(successful) == 2
+        assert "1abc" in successful  # Lowercase
+        assert "2def" in successful  # Lowercase
+        assert "obsolete" in failed  # Lowercase
     
     @patch.object(PDBList, 'retrieve_pdb_file')
     def test_case_insensitive_pdb_ids(self, mock_retrieve, functional_processor):
         """Test that PDB IDs are handled case-insensitively"""
-        mock_retrieve.return_value = "mock_file.cif"
+        # Use processor's structure directory
+        target_dir = Path(functional_processor.data_path) / "mmcif"
+        
+        def mock_retrieve_side_effect(pdb_id, **kwargs):
+            pdb_id = pdb_id.lower()
+            mock_file = target_dir / f"{pdb_id}.cif"
+            mock_file.write_text(f"# Mock CIF file for {pdb_id}")
+            return str(mock_file)
+        
+        mock_retrieve.side_effect = mock_retrieve_side_effect
         
         # Mix of cases
         pdb_ids = ["1abc", "2DEF", "3GhI"]
         
-        result = download_protein_structures(
+        successful, failed = download_protein_structures(
             pdb_ids,
-            target_folder=functional_processor.data_path
+            target_folder=str(target_dir)
         )
         
-        # All should be downloaded
-        assert len(result) == 3
+        # All should be downloaded - all lowercase
+        assert len(successful) == 3
+        assert set(successful) == {"1abc", "2def", "3ghi"}
+        assert failed == []
         
-        # Check calls were made with lowercase
+        # Check calls were made
         calls = mock_retrieve.call_args_list
         assert len(calls) == 3
 
@@ -111,19 +135,19 @@ class TestAlphaFoldFunctionality:
         )
         
         uniprot_id = "P12345"
-        version = 4
         
-        result = download_alphafold_structures(
-            [uniprot_id],
-            target_folder=functional_processor.data_path,
-            version=version
+        # Function doesn't return anything, just downloads
+        download_alphafold_structures(
+            uniprot_id,
+            max_models=1,
+            output_dir=functional_processor.data_path
         )
         
         # Check URL was constructed correctly
         call_url = mock_get.call_args[0][0]
-        assert f"v{version}" in call_url
+        assert "model_v1" in call_url
         assert uniprot_id in call_url
-        assert call_url.endswith(".pdb")
+        assert call_url.endswith(".cif")
     
     @patch('requests.get')
     def test_alphafold_confidence_download(self, mock_get, functional_processor):
@@ -147,15 +171,17 @@ class TestAlphaFoldFunctionality:
         
         # This would require modifying download_alphafold_structures
         # to support confidence downloads, so we'll just test the concept
-        uniprot_ids = ["P12345"]
+        uniprot_id = "P12345"
         
-        result = download_alphafold_structures(
-            uniprot_ids,
-            target_folder=functional_processor.data_path
+        # Function doesn't return anything
+        download_alphafold_structures(
+            uniprot_id,
+            max_models=1,
+            output_dir=functional_processor.data_path
         )
         
-        assert len(result) == 1
-        assert "P12345" in result
+        # Just verify the call was made
+        assert mock_get.called
     
     @patch('requests.get')
     def test_alphafold_batch_size_handling(self, mock_get, functional_processor):
@@ -166,112 +192,148 @@ class TestAlphaFoldFunctionality:
             raise_for_status=lambda: None
         )
         
-        # Large batch
-        uniprot_ids = [f"P{i:05d}" for i in range(100)]
+        # The function only handles one ID at a time
+        # Test with just one ID
+        uniprot_id = "P00001"
         
-        result = download_alphafold_structures(
-            uniprot_ids,
-            target_folder=functional_processor.data_path
+        download_alphafold_structures(
+            uniprot_id,
+            max_models=3,
+            output_dir=functional_processor.data_path
         )
         
-        # All should be attempted
-        assert len(result) == 100
-        assert mock_get.call_count == 100
+        # Should try 3 models
+        assert mock_get.call_count == 3
 
 
 class TestUniProtFunctionality:
     """Test UniProt mapping specific functionalities"""
     
-    @patch('requests.get')
-    def test_uniprot_batch_mapping(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.session')
+    @patch('requests.post')
+    def test_uniprot_batch_mapping(self, mock_post, mock_session):
         """Test batch mapping of UniProt IDs"""
-        # Mock response for multiple IDs
-        mock_response = {
-            "results": [
-                {
-                    "from": f"P{i:05d}",
-                    "to": {
-                        "primaryAccession": f"P{i:05d}",
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": f"{i}ABC"}
-                        ]
-                    }
-                }
-                for i in range(1, 6)
-            ]
-        }
-        
-        mock_get.return_value = MagicMock(
+        # Mock job submission
+        mock_post.return_value = MagicMock(
             status_code=200,
-            json=lambda: mock_response
+            json=lambda: {"jobId": "test-job-batch"}
         )
+        
+        # Mock status check (ready)
+        mock_status_response = MagicMock(
+            status_code=200,
+            json=lambda: {"results": "https://rest.uniprot.org/idmapping/results/test-job-batch"}
+        )
+        
+        # Mock details call
+        mock_details_response = MagicMock(
+            status_code=200,
+            json=lambda: {"redirectURL": "https://rest.uniprot.org/idmapping/results/test-job-batch"}
+        )
+        
+        # Mock results with multiple mappings
+        mock_results_response = MagicMock(
+            status_code=200,
+            headers={"x-total-results": "5"},
+            json=lambda: {
+                "results": [
+                    {"from": f"P{i:05d}", "to": f"{i}ABC"}
+                    for i in range(1, 6)
+                ]
+            }
+        )
+        
+        mock_session.get.side_effect = [mock_status_response, mock_details_response, mock_results_response]
         
         uniprot_ids = [f"P{i:05d}" for i in range(1, 6)]
         result = map_uniprot_to_pdb(uniprot_ids)
         
+        # Result is a DataFrame
         assert len(result) == 5
-        for i in range(1, 6):
-            assert f"P{i:05d}" in result
-            assert f"{i}ABC" in result[f"P{i:05d}"]
+        assert all(result['uid'].isin(uniprot_ids))
+        assert all(result['pdb_id'].str.contains('ABC'))
     
-    @patch('requests.get')
-    def test_uniprot_obsolete_mapping(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.session')
+    @patch('requests.post')
+    def test_uniprot_obsolete_mapping(self, mock_post, mock_session):
         """Test handling of obsolete UniProt entries"""
-        mock_response = {
-            "results": [
-                {
-                    "from": "P12345",
-                    "to": {
-                        "primaryAccession": "P99999",  # Different ID (merged/obsolete)
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": "1ABC"}
-                        ]
-                    }
-                }
-            ]
-        }
-        
-        mock_get.return_value = MagicMock(
+        # Mock job submission
+        mock_post.return_value = MagicMock(
             status_code=200,
-            json=lambda: mock_response
+            json=lambda: {"jobId": "test-job-obsolete"}
         )
+        
+        # Mock the API responses
+        mock_status_response = MagicMock(
+            status_code=200,
+            json=lambda: {"results": "https://rest.uniprot.org/idmapping/results/test-job-obsolete"}
+        )
+        
+        mock_details_response = MagicMock(
+            status_code=200,
+            json=lambda: {"redirectURL": "https://rest.uniprot.org/idmapping/results/test-job-obsolete"}
+        )
+        
+        # Mock results with obsolete mapping
+        mock_results_response = MagicMock(
+            status_code=200,
+            headers={"x-total-results": "1"},
+            json=lambda: {
+                "results": [
+                    {"from": "P12345", "to": "1ABC"}
+                ]
+            }
+        )
+        
+        mock_session.get.side_effect = [mock_status_response, mock_details_response, mock_results_response]
         
         result = map_uniprot_to_pdb(["P12345"])
         
-        # Should map using the 'from' ID
-        assert "P12345" in result
-        assert "1ABC" in result["P12345"]
+        # Should have the mapping
+        assert len(result) == 1
+        assert result.iloc[0]['uid'] == "P12345"
+        assert result.iloc[0]['pdb_id'] == "1ABC"
     
-    @patch('requests.get')
-    def test_uniprot_api_pagination(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.session')
+    @patch('requests.post')
+    def test_uniprot_api_pagination(self, mock_post, mock_session):
         """Test handling of paginated UniProt API responses"""
-        # This would test if the function handles pagination correctly
-        # For now, we'll test with a standard response
-        mock_response = {
-            "results": [
-                {
-                    "from": "P12345",
-                    "to": {
-                        "primaryAccession": "P12345",
-                        "uniProtKBCrossReferences": []
-                    }
-                }
-            ]
-        }
-        
-        mock_get.return_value = MagicMock(
+        # Mock job submission
+        mock_post.return_value = MagicMock(
             status_code=200,
-            json=lambda: mock_response
+            json=lambda: {"jobId": "test-job-pagination"}
         )
         
-        # Test with many IDs that might trigger pagination
-        uniprot_ids = [f"P{i:05d}" for i in range(50)]
+        # Mock the API responses
+        mock_status_response = MagicMock(
+            status_code=200,
+            json=lambda: {"results": "https://rest.uniprot.org/idmapping/results/test-job-pagination"}
+        )
         
-        # Current implementation might not handle pagination
-        # but we test the concept
-        result = map_uniprot_to_pdb(uniprot_ids[:1])  # Test with subset
+        mock_details_response = MagicMock(
+            status_code=200,
+            json=lambda: {"redirectURL": "https://rest.uniprot.org/idmapping/results/test-job-pagination"}
+        )
         
-        assert isinstance(result, dict)
+        # Mock results - just test with a small subset
+        mock_results_response = MagicMock(
+            status_code=200,
+            headers={"x-total-results": "1"},
+            json=lambda: {
+                "results": [
+                    {"from": "P00001", "to": "1ABC"}
+                ]
+            }
+        )
+        
+        mock_session.get.side_effect = [mock_status_response, mock_details_response, mock_results_response]
+        
+        # Test with just one ID
+        result = map_uniprot_to_pdb(["P00001"])
+        
+        # Should return a DataFrame
+        import pandas as pd
+        assert isinstance(result, pd.DataFrame)
 
 
 class TestDownloadCaching:
@@ -302,35 +364,45 @@ class TestDownloadCaching:
     @patch.object(PDBList, 'retrieve_pdb_file')
     def test_skip_cached_downloads(self, mock_retrieve, functional_processor):
         """Test skipping already downloaded files"""
-        # Save existing files info
-        existing_files = {
-            '1ABC': {'path': 'mmcif/1abc.cif', 'size': 12345},
-            '2DEF': {'path': 'mmcif/2def.cif', 'size': 67890}
-        }
+        # Use processor's structure directory
+        target_dir = Path(functional_processor.data_path) / "mmcif"
         
-        functional_processor.save_data('existing_structures', existing_files, format='json')
+        # Create existing files
+        existing_files = ['1abc', '2def']
+        for pdb_id in existing_files:
+            existing_file = target_dir / f"{pdb_id}.cif"
+            existing_file.write_text(f"# Existing CIF file for {pdb_id}")
         
-        # Mock download function to check existing files
+        # Mock download function that creates files for new downloads
         def mock_download_with_cache_check(pdb_id, **kwargs):
-            # In real implementation, would check if file exists
-            if pdb_id in ['1ABC', '2DEF']:
-                # Simulate skipping existing files
-                return f"existing_{pdb_id}.cif"
-            return f"new_{pdb_id}.cif"
+            pdb_id = pdb_id.lower()
+            # For new files, create them
+            if pdb_id not in existing_files:
+                new_file = target_dir / f"{pdb_id}.cif"
+                new_file.write_text(f"# New CIF file for {pdb_id}")
+                return str(new_file)
+            # For existing files, return the path
+            return str(target_dir / f"{pdb_id}.cif")
         
         mock_retrieve.side_effect = mock_download_with_cache_check
         
         # Download mix of existing and new
         pdb_ids = ['1ABC', '2DEF', '3GHI']
         
-        result = download_protein_structures(
+        # download_protein_structures with overwrite=False (default)
+        successful, failed = download_protein_structures(
             pdb_ids,
-            target_folder=functional_processor.data_path,
-            overwrite=False
+            target_folder=str(target_dir)
         )
         
-        # All should be in result
-        assert len(result) == 3
+        # All should be successful - our function detects existing files
+        assert len(successful) == 3
+        assert set(successful) == {'1abc', '2def', '3ghi'}
+        assert failed == []
+        
+        # Check that retrieve was only called for the new file
+        # Since our updated function checks for existing files
+        assert mock_retrieve.call_count == 1  # Only called for 3GHI
 
 
 class TestDownloadValidation:

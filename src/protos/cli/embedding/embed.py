@@ -1,92 +1,203 @@
+"""
+CLI command for generating embeddings using the entity system.
+
+This command now uses the modern EmbeddingProcessor with entity tracking.
+"""
+
 import argparse
 import torch
-from protos.embedding.emb_processor import EMBProcessor, EMBModelManager
-from protos.io.fasta_utils import read_fasta
+import logging
+from typing import List, Optional
+
+from protos.processing.embedding.embedding_processor import EmbeddingProcessor
+from protos.processing.sequence.seq_processor import SeqProcessor
+from protos.io.data_access import GlobalRegistry
+
+logger = logging.getLogger(__name__)
 
 
-def embed_sequences(name, max_length=1000, emb_model='ankh_large', batch_size=15000, overwrite=False):
+def embed_sequences(
+    name: str,
+    max_length: int = 1000,
+    model_name: str = 'esm2_t6_8M',
+    batch_size: int = 32,
+    overwrite: bool = False,
+    sequence_ids: Optional[List[str]] = None
+):
     """
-    Generate embeddings for protein sequences in a FASTA file.
+    Generate embeddings for protein sequences using the entity system.
     
     Args:
-        name (str): Name of the dataset (used to locate the FASTA file and name the output)
-        max_length (int, optional): Maximum sequence length to process. Defaults to 1000.
-        emb_model (str, optional): Embedding model to use ('ankh_large' or 'esm2'). Defaults to 'ankh_large'.
-        batch_size (int, optional): Batch size for processing. Defaults to 15000.
-        overwrite (bool, optional): Whether to overwrite existing embeddings. Defaults to False.
+        name: Name for the embedding processor instance
+        max_length: Maximum sequence length to process
+        model_name: Embedding model to use
+        batch_size: Batch size for processing
+        overwrite: Whether to overwrite existing embeddings
+        sequence_ids: Specific sequence IDs to embed (if None, embed all registered sequences)
     """
-    fasta_path = f'data/fasta/processed/{name}.fasta'
-    seq_dict = read_fasta(fasta_path)
-
-    # Filter sequences by maximum length
-    seq_dict = {k: v for k, v in seq_dict.items() if len(v) < max_length}
+    # Initialize processors
+    seq_proc = SeqProcessor(name=f"{name}_seq")
+    emb_proc = EmbeddingProcessor(name=name, model_name=model_name)
     
-    dataset_name = f"{name}_{emb_model}"
-
-    # Initialize model manager and processor
-    model_manager = EMBModelManager(emb_model)
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Setting device to {device}")
-    embp = EMBProcessor(model_manager, device=device)
-
-    # Load existing dataset if available
-    if dataset_name in embp.list_available_datasets():
-        embp.load_dataset(dataset_name)
-        print("Loaded existing dataset...")
-        embedded_seq_ids = embp.get_embedded_seq_ids()  # Using the helper method
-        # Exclude already embedded sequences
-        seq_dict = {k: v for k, v in seq_dict.items() if k not in embedded_seq_ids}
-
-    print("Starting embedding...")
-
-    # Define batch processing parameters
-    total_sequences = len(seq_dict)
-    num_batches = (total_sequences + batch_size - 1) // batch_size  # Ceiling division
-
-    # Convert sequence dictionary to a list for easy slicing
-    seq_items = list(seq_dict.items())
-
-    for batch_num in range(num_batches):
-        start_idx = batch_num * batch_size
-        end_idx = min(start_idx + batch_size, total_sequences)
-        print(f"Processing batch {batch_num + 1}/{num_batches}: sequences {start_idx} to {end_idx - 1}")
-
-        # Embed the current batch
-        embp.emb_seq_dict(
-            seq_dict=dict(seq_items[start_idx:end_idx]),
-            overwrite=overwrite
+    # Get sequences to embed
+    if sequence_ids:
+        # Specific sequences requested
+        sequences = {}
+        for seq_id in sequence_ids:
+            sequence = seq_proc.load_sequence_entity(seq_id)
+            if sequence:
+                sequences[seq_id] = sequence
+            else:
+                logger.warning(f"Sequence {seq_id} not found")
+    else:
+        # Get all registered sequences
+        registry = GlobalRegistry()
+        sequences = {}
+        
+        for entity_id, entity_data in registry.entity_registry.entities.items():
+            if 'sequence' in entity_data.get('formats', {}):
+                original_id = entity_data['original_id']
+                sequence = seq_proc.load_sequence_entity(original_id)
+                if sequence and len(sequence) <= max_length:
+                    sequences[original_id] = sequence
+    
+    if not sequences:
+        print("No sequences found to embed")
+        return False
+    
+    print(f"Found {len(sequences)} sequences to embed (max length: {max_length})")
+    
+    # Check for existing embeddings
+    if not overwrite:
+        already_embedded = []
+        for seq_id in list(sequences.keys()):
+            if emb_proc.has_embedding(seq_id):
+                already_embedded.append(seq_id)
+                del sequences[seq_id]
+        
+        if already_embedded:
+            print(f"Skipping {len(already_embedded)} already embedded sequences")
+    
+    if not sequences:
+        print("All sequences already have embeddings")
+        return True
+    
+    # Convert to format expected by embed_sequences
+    sequence_list = list(sequences.values())
+    id_list = list(sequences.keys())
+    
+    print(f"Embedding {len(sequences)} sequences with {model_name}...")
+    
+    # Generate embeddings
+    try:
+        embeddings = emb_proc.embed_sequences(
+            sequences=sequence_list,
+            sequence_ids=id_list,
+            batch_size=batch_size,
+            register_entities=True  # Automatically register in entity system
         )
-
-        # Save the dataset after each batch to prevent data loss
-        embp.save_dataset(dataset_name)
-        print(f"Saved embeddings for batch {batch_num + 1}/{num_batches}.")
-
-    print("Finished embedding all sequences.")
-    return True
+        
+        print(f"Successfully generated embeddings for {len(embeddings)} sequences")
+        
+        # Save the embedding dataset
+        emb_proc.save_dataset(f"{name}_embeddings")
+        print(f"Saved embeddings to dataset: {name}_embeddings")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error generating embeddings: {e}")
+        print(f"Error: {e}")
+        return False
 
 
 def main():
     """Command-line entry point for the embedding tool."""
-    parser = argparse.ArgumentParser(description='Generate embeddings for protein sequences')
-    parser.add_argument('--name', type=str, required=True, help='Name of the dataset')
-    parser.add_argument('--max_length', type=int, default=1000, help='Maximum sequence length to process')
-    parser.add_argument('--emb_model', type=str, default='ankh_large', choices=['ankh_large', 'esm2'], 
-                        help='Embedding model to use')
-    parser.add_argument('--batch_size', type=int, default=15000, help='Batch size for processing')
-    parser.add_argument('--overwrite', action='store_true', help='Overwrite existing embeddings')
+    parser = argparse.ArgumentParser(
+        description='Generate embeddings for protein sequences using the entity system'
+    )
+    
+    parser.add_argument(
+        'name',
+        help='Name for this embedding run'
+    )
+    
+    parser.add_argument(
+        '--sequences', '-s',
+        nargs='+',
+        help='Specific sequence IDs to embed (if not provided, embeds all registered sequences)'
+    )
+    
+    parser.add_argument(
+        '--max-length', '-l',
+        type=int,
+        default=1000,
+        help='Maximum sequence length to process (default: 1000)'
+    )
+    
+    parser.add_argument(
+        '--model', '-m',
+        default='esm2_t6_8M',
+        choices=[
+            'esm2_t6_8M',
+            'esm2_t12_35M', 
+            'esm2_t30_150M',
+            'esm2_t33_650M',
+            'ankh_base',
+            'ankh_large'
+        ],
+        help='Embedding model to use (default: esm2_t6_8M)'
+    )
+    
+    parser.add_argument(
+        '--batch-size', '-b',
+        type=int,
+        default=32,
+        help='Batch size for processing (default: 32)'
+    )
+    
+    parser.add_argument(
+        '--overwrite', '-o',
+        action='store_true',
+        help='Overwrite existing embeddings'
+    )
+    
+    parser.add_argument(
+        '--device', '-d',
+        choices=['cpu', 'cuda', 'auto'],
+        default='auto',
+        help='Device to use (default: auto-detect)'
+    )
     
     args = parser.parse_args()
     
-    embed_sequences(
+    # Set device
+    if args.device == 'auto':
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    else:
+        device = args.device
+    
+    print(f"Using device: {device}")
+    
+    # Generate embeddings
+    success = embed_sequences(
         name=args.name,
         max_length=args.max_length,
-        emb_model=args.emb_model,
+        model_name=args.model,
         batch_size=args.batch_size,
-        overwrite=args.overwrite
+        overwrite=args.overwrite,
+        sequence_ids=args.sequences
     )
     
-    print("Done!")
+    if success:
+        print("Embedding generation completed successfully!")
+    else:
+        print("Embedding generation failed")
+        return 1
+    
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    sys.exit(main())

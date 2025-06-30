@@ -120,10 +120,10 @@ GRN_UNKNOWN_SYMBOL = 'X'  # Symbol for unknown residues
 # GRN format specifications
 GRN_PATTERNS = {
     'standard': r'^(\d+)x(\d+)$',  # e.g., 1x50
-    'standard_dot': r'^([1-8])\.(\d+)$',  # e.g., 1.50 (dot notation)
+    'standard_dot': r'^([0-9])\.(\d+)$',  # e.g., 1.50, 0.00, 9.99 (dot notation)
     'n_term': r'^n\.(\d+)$',       # e.g., n.10
     'c_term': r'^c\.(\d+)$',       # e.g., c.5
-    'loop': r'^([1-8])([1-8])\.(\d{3})$'  # e.g., 12.003, 65.011
+    'loop': r'^([1-8])([1-8])\.(\d+)$'  # e.g., 12.003, 65.011, also 12.47
 }
 
 # Documentation for GRN formats

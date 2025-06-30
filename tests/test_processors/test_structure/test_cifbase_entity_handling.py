@@ -16,15 +16,13 @@ class TestCifBaseProcessorEntityHandling:
     """Test entity management in CifBaseProcessor."""
     
     @pytest.fixture
-    def processor(self, tmp_path):
+    def processor(self):
         """Create a test CifBaseProcessor with entity support."""
-        ProtosPaths.set_data_root(str(tmp_path))
         processor = CifBaseProcessor(
             name="test_cif_entity",
             processor_data_dir="structure"
         )
         yield processor
-        ProtosPaths.set_data_root(None)
     
     def test_register_structure_entity(self, processor):
         """Test that loading a structure registers it as an entity."""
@@ -69,19 +67,29 @@ class TestCifBaseProcessorEntityHandling:
     
     def test_list_structure_entities(self, processor):
         """Test listing structure entities."""
-        # Register some entities
-        processor.get_entity_id_for_pdb('1ABC')
-        processor.get_entity_id_for_pdb('2DEF')
-        processor.get_entity_id_for_pdb('3GHI')
+        # Register some entities properly
+        from protos.io.data_access import GlobalRegistry, generate_entity_id
+        global_registry = GlobalRegistry()
         
-        # List all entities
-        entities = processor.list_structure_entities()
-        assert len(entities) == 3
+        pdb_ids = ['1ABC', '2DEF', '3GHI']
+        for pdb_id in pdb_ids:
+            entity_id = generate_entity_id(pdb_id)
+            global_registry.entity_registry.register_entity(
+                entity_id=entity_id,
+                entity_type="structure",
+                original_id=pdb_id,
+                file_path=None,
+                metadata={"pdb_id": pdb_id},
+                datasets=[]
+            )
         
-        # All should be valid entity IDs
-        for entity_id in entities:
-            assert len(entity_id) == 10
-            assert entity_id.isalnum()
+        # List all entities - should return PDB IDs, not hashes
+        entities = processor.list_entities()
+        
+        # Should get the PDB IDs, not entity hashes
+        assert len(entities) >= 3  # At least our 3 registered ones
+        for pdb_id in pdb_ids:
+            assert pdb_id in entities
     
     def test_create_dataset_with_entity_ids(self, processor):
         """Test creating a dataset that uses entity IDs."""
@@ -107,13 +115,13 @@ class TestCifBaseProcessorEntityHandling:
             # Metadata should indicate entity-based
             assert dataset.metadata.get("entity_based") is True
     
-    def test_load_dataset_with_entity_ids(self, processor, tmp_path):
+    def test_load_dataset_with_entity_ids(self, processor):
         """Test loading a dataset that contains entity IDs."""
-        # Create a dataset with entity IDs
+        # Create a dataset with entity IDs (no prefix for universal IDs)
         entity_ids = [
-            generate_entity_id('1ABC', prefix='structure'),
-            generate_entity_id('2DEF', prefix='structure'),
-            generate_entity_id('3GHI', prefix='structure')
+            generate_entity_id('1ABC'),
+            generate_entity_id('2DEF'),
+            generate_entity_id('3GHI')
         ]
         
         # Create test dataset
@@ -126,17 +134,21 @@ class TestCifBaseProcessorEntityHandling:
                 metadata={"entity_based": True}
             )
             
-            # Register entities with original IDs
-            if hasattr(processor, 'entity_registry') and processor.entity_registry is not None:
-                for i, entity_id in enumerate(entity_ids):
-                    pdb_id = ['1ABC', '2DEF', '3GHI'][i]
-                    processor.entity_registry.register_entity(
-                        entity_id=entity_id,
-                        entity_type="structure",
-                        original_id=pdb_id,
-                        file_path=f"/data/structures/{pdb_id}.cif",
-                        datasets=["entity_test"]
-                    )
+            # Register entities with original IDs using global registry
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            for i, entity_id in enumerate(entity_ids):
+                pdb_id = ['1ABC', '2DEF', '3GHI'][i]
+                global_registry.entity_registry.register_entity(
+                    entity_id=entity_id,
+                    entity_type="structure",
+                    original_id=pdb_id,
+                    file_path=f"/data/structures/{pdb_id}.cif",
+                    datasets=["entity_test"]
+                )
+            
+            # Mock load_structures to avoid actual file loading
+            processor.load_structures = lambda pdb_ids, **kwargs: None
             
             # Load the dataset - should convert entity IDs to PDB IDs
             loaded_pdb_ids = processor.load_dataset("entity_test", apply_dtypes=False)
@@ -183,8 +195,8 @@ class TestCifBaseProcessorEntityHandling:
         assert entity_id.isalnum()
         
         # Check file was created
-        cif_path = os.path.join(processor.path_structure_dir, '4JKL.cif')
-        assert os.path.exists(cif_path)
+        cif_path = Path(processor.path_structure_dir) / '4JKL.cif'
+        assert cif_path.exists()
         
         # Check entity mapping
         assert processor.get_entity_id_for_pdb('4JKL') == entity_id

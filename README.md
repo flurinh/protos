@@ -1,206 +1,260 @@
-# Protos Overview
-
+# Protos: Structural Biology Framework
 
 ![Protos-MCP](resources/logo.png)
 
+A comprehensive Python framework for managing, analyzing, and integrating structural biology data with universal entity tracking and cross-format compatibility.
 
-## What is Protos?
+## Overview
 
-Protos is a Python library designed to **standardize and execute complex computational workflows** essential for structural biology research. It provides integrated capabilities for handling diverse biological data types – including sequences, 3D structures, alignments, and associated properties – through a unified framework.
+Protos provides a unified interface for handling diverse biological data types including protein structures, sequences, residue numbering schemes, experimental properties, and machine learning embeddings. The framework eliminates common pain points in structural biology research through centralized path management, automatic entity registration, and cross-format data integration.
 
-The core function of Protos is to manage multi-step analyses by breaking them down into defined tasks handled by modular components.
+## Key Features
 
-## 🔧 Installation
+- **🏗️ Structure Management**: PDB/mmCIF parsing, coordinate analysis, and structural alignments
+- **🧬 Sequence Processing**: FASTA handling, database downloads, and sequence analysis
+- **📊 GRN System**: Generic Residue Numbering for protein family comparisons
+- **📋 Property Management**: Associate experimental data with entities using familiar identifiers
+- **🤖 ML Integration**: Protein embeddings generation and management
+- **🔗 Universal Tracking**: Same entity across multiple data formats
+- **⚙️ CLI Tools**: Command-line utilities for automation and batch processing
 
-### Prerequisites
+## Quick Start
 
-- **Python 3.10+** is required
-- **CUDA 11.8** (only for GPU installation)
-- **Conda** (recommended for environment management)
-
-### ✅ Minimal Installation (CPU-only)
-
-This installs only the core Protos functionality without GPU acceleration or AI models:
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/your-org/protos.git
+cd protos
+
+# Install in development mode
 pip install -e .
+
+# Initialize data directory
+python -m protos.cli.init_data
 ```
 
-This is sufficient for:
-- Structure processing (PDB/mmCIF files)
-- Sequence analysis and alignments
-- GRN (Generic Residue Numbering) operations
-- Basic property calculations
+### Basic Usage
 
-### 🚀 GPU Installation with AI Capabilities
+```python
+from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.sequence.seq_processor import SeqProcessor
 
-For GPU acceleration and AI features (protein embeddings, graph neural networks):
+# Initialize processors (paths handled automatically)
+struct_proc = CifBaseProcessor(name="my_structures")
+seq_proc = SeqProcessor(name="my_sequences")
+
+# Download and process a structure
+struct_proc.download_structures(["1ubq"])
+structure_data = struct_proc.load_structure("1ubq")
+
+# Extract sequence from structure
+sequences = struct_proc.get_seq_dict()
+seq_proc.save_sequences(sequences, "extracted_sequences.fasta")
+
+# Same entity, multiple formats - automatically tracked
+entity_id = struct_proc.generate_entity_id("1ubq")
+# This ID works across all processors for the same biological entity
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                           PROTOS FRAMEWORK                     │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. CORE INFRASTRUCTURE                                          │
+│    ├─ ProtosPaths: Centralized path management                  │
+│    ├─ BaseProcessor: Abstract base for all processors          │
+│    └─ Entity Registry: Universal entity tracking system        │
+│                                                                 │
+│ 2. SPECIALIZED PROCESSORS                                       │
+│    ├─ CifBaseProcessor: 3D protein structure management        │
+│    ├─ GRNBaseProcessor: Generic Residue Numbering system       │
+│    ├─ SeqProcessor: Sequence data management                   │
+│    ├─ PropertyProcessor: Metadata and properties               │
+│    └─ EmbeddingProcessor: ML embeddings generation             │
+│                                                                 │
+│ 3. DATA ABSTRACTION                                             │
+│    ├─ Entities: Individual data items                          │
+│    ├─ Datasets: Collections of related entities                │
+│    └─ Cross-format tracking: Same entity across formats        │
+│                                                                 │
+│ 4. APPLICATIONS                                                 │
+│    ├─ CLI tools: Command-line utilities                        │
+│    ├─ Analysis workflows: Multi-processor pipelines            │
+│    └─ Research integration: Real-world use cases               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Processors
+
+### CifBaseProcessor
+Manages 3D protein structures from PDB/mmCIF files:
+- Automatic structure downloads from PDB
+- Coordinate parsing and analysis
+- Chain and residue filtering
+- Cross-format sequence extraction
+
+### SeqProcessor
+Handles protein sequences and FASTA files:
+- UniProt database integration
+- Sequence analysis and comparison
+- Multiple sequence alignment
+- Batch sequence processing
+
+### GRNBaseProcessor
+Generic Residue Numbering for protein families:
+- Standardized position numbering across homologs
+- Support for GPCRs, opsins, and custom schemes
+- Position conservation analysis
+- Functional site identification
+
+### PropertyProcessor
+Associates experimental data with entities:
+- CSV import with user-friendly identifiers
+- Property filtering and analysis
+- Cross-format property queries
+- Experimental metadata tracking
+
+### EmbeddingProcessor
+Machine learning embeddings for sequences:
+- ESM-2, Ankh, and other protein language models
+- Mean, CLS, and per-residue embeddings
+- Automatic caching and reuse
+- ML-ready dataset preparation
+
+## CLI Tools
 
 ```bash
-# 1. Create a fresh conda environment
-conda create -n protos python=3.10 -y
-conda activate protos
+# Data management
+protos init-data              # Initialize data directory
+protos cleanup-data           # Clean and organize data
+protos list-entities          # Browse available entities
+protos list-datasets          # Browse datasets
 
-# 2. Install CUDA runtime (required for GPU support)
-conda install -c nvidia cuda-runtime=11.8.0
-
-# 3. Install PyTorch with CUDA 11.8 support
-pip install torch==2.6.0 torchvision --index-url https://download.pytorch.org/whl/cu118
-
-
-
-# 4. Install PyTorch Geometric (for graph neural networks)
-pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.6.0+cu118.html
-pip install torch_geometric
-
-# 5. Install Protos with GPU extras
-pip install -e ".[gpu]"
+# Analysis tools
+protos assign-grns            # Assign GRN numbers to sequences
+protos expand-annotation      # Expand GRN annotations
+protos process-structures     # Batch structure processing
+protos generate-embeddings    # Batch embedding generation
 ```
 
-This enables:
-- **EmbeddingProcessor**: Generate protein embeddings using ESM-2, Ankh models
-- **GPU-accelerated computations**: Faster processing for large datasets
-- **Graph neural networks**: PyTorch Geometric support for structure-based ML
-- **Multi-GPU support**: Via the accelerate library
+## Examples
 
-## Recent Updates (2025-06-25)
-
-- **GRN Notation**: Now uses dot notation (e.g., `1.50`) as standard; x notation (e.g., `1x50`) is deprecated
-- **New Features**: Added GRN-Structure integration methods to CifBaseProcessor
-- **Bug Fixes**: Fixed path resolution, sequence extraction, and data type compatibility issues
-- **Testing**: Added comprehensive real-data tests for GRN and structure processors
-
-## Core Architecture: Processors & Interoperability
-
-Protos utilizes a modular architecture built upon distinct Python components called **'Processors'**. Each Processor is specialized for a specific domain, such as:
-
-*   **`CifBaseProcessor`**: Manages 3D structure data
-*   **`SeqProcessor`**: Handles sequence data and alignments
-*   **`GRNBaseProcessor`**: Implements Generic Residue Numbering systems
-*   **`LigProcessor`**: Deals with ligand information and interactions
-*   **`EMBProcessor`**: Manages protein embeddings
-*   **`PropertyProcessor`**: Integrates metadata and calculated properties
-
-A key feature is the **interoperability** between these Processors. Outputs from one (e.g., selected residues from `CifBaseProcessor`) can directly serve as inputs for another (e.g., for GRN mapping by `GRNBaseProcessor`, followed by sequence analysis by `SeqProcessor`), enabling flexible construction of sophisticated analysis pipelines.
-
-The relationships and primary data flow between these core processors are visualized below:
-
-![Protos Processor Overview Diagram](resources/overview.png)
-*(Diagram showing how protein entities and their data interact and are processed)*
-
-## 🔑 Entity System: Universal Biological Entity Management
-
-### Overview
-
-Protos implements a **Universal Entity System** that provides a unified way to track and manage biological entities across different data formats. This system is critical for maintaining data consistency and enabling seamless cross-format workflows.
-
-### Core Concept: One Entity, Multiple Formats
-
-The entity system ensures that the same biological entity (e.g., a protein) maintains a consistent identity across all its representations:
-
+### Multi-Format Entity Workflow
 ```python
-# Same protein "P12345" across different formats
-"P12345" → entity_id "a3f2d8c91b"
-  ├── sequence format: /sequence/fasta/P12345.fasta
-  ├── structure format: /structure/mmcif/AF-P12345-F1.cif  
-  ├── GRN format: in table with entity_id column
-  └── embedding format: /embedding/esm2_embeddings/a3f2d8c91b.pkl
+# Start with a structure
+struct_proc = CifBaseProcessor(name="demo")
+struct_proc.download_structures(["1ubq"])
+
+# Extract sequence
+sequences = struct_proc.get_seq_dict()
+seq_proc = SeqProcessor(name="demo")
+seq_proc.save_sequences(sequences, "1ubq_sequence.fasta")
+
+# Add to GRN table
+grn_proc = GRNBaseProcessor(name="demo")
+# ... create GRN alignment including 1ubq sequence ...
+
+# Add experimental properties
+prop_proc = PropertyProcessor(name="demo")
+prop_proc.assign_property("1ubq", "resolution", 1.8, "structural_data")
+prop_proc.assign_property("1ubq", "organism", "Human", "structural_data")
+
+# Same entity "1ubq" now exists in 4 formats with consistent tracking
 ```
 
-### Key Features
-
-1. **Automatic Entity Resolution**: Users work with familiar biological names (PDB IDs, UniProt IDs, etc.) while the system manages hash-based entity IDs internally.
-
-2. **Cross-Format Tracking**: When a protein sequence is used to predict a structure, both formats are linked to the same entity ID.
-
-3. **Metadata Independence**: Each format can have its own metadata while sharing the same entity identity.
-
-4. **Multi-Entity Tables**: GRN tables are special - they contain multiple entities (one per row) with an entity_id column.
-
-### Entity Interactions in Workflows
-
-The entity system enables powerful cross-format workflows:
-
+### Property-Based Analysis
 ```python
-# Example: Sequence → Structure → GRN → Analysis workflow
-from protos.processing.sequence.seq_processor import SeqProcessor
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-
-# 1. Load a sequence (automatically registered as entity)
-seq_proc = SeqProcessor(name="analysis")
-sequence = seq_proc.load_sequence_entity("P12345")  # Uses biological name
-
-# 2. After AlphaFold prediction, load the structure
-# The system knows this is the same entity
-struct_proc = CifBaseProcessor(name="analysis")
-structure = struct_proc.load_structure("AF-P12345-F1")  # Same entity!
-
-# 3. Assign GRNs to the sequence
-grn_proc = GRNBaseProcessor(name="analysis")
-grn_assignment = grn_proc.assign_grns(
-    sequence=sequence,
-    protein_id="P12345"  # Still using biological name
+# Import experimental data from CSV
+prop_proc = PropertyProcessor(name="analysis")
+prop_proc.create_property_dataset_from_file(
+    "experimental_data.csv",
+    "opsin_properties",
+    entity_column='protein_id'  # Uses familiar names like PDB IDs
 )
 
-# 4. All processors understand they're working with the same entity
-entity_id = generate_entity_id("P12345")  # "a3f2d8c91b"
-# All formats are tracked under this single entity ID
+# Filter by properties
+blue_opsins = prop_proc.filter_entities_by_property(
+    "opsin_properties", 
+    {"lambda_max": {"lt": 500}}  # Wavelength < 500nm
+)
+
+thermostable = prop_proc.filter_entities_by_property(
+    "opsin_properties",
+    {"thermal_stability": {"gt": 60}}  # Tm > 60°C
+)
 ```
 
-### Entity Registry Architecture
+## Comprehensive Review
 
-The system uses a global `EntityRegistry` that:
-- Maintains entity ID mappings (biological name ↔ hash ID)
-- Tracks which formats exist for each entity
-- Stores format-specific metadata
-- Enables entity discovery across the system
+Run the complete framework demonstration:
 
-### Best Practices
+```bash
+# Full comprehensive review
+python protos_review.py
 
-1. **Always use biological names** when interacting with processors:
-   ```python
-   # ✅ Good - use biological names
-   processor.load_structure("1ABC")
-   
-   # ❌ Bad - don't use hash IDs directly
-   processor.load_structure("a3f2d8c91b")
-   ```
+# Quick overview only
+python protos_review.py --quick
 
-2. **Let the system handle entity registration**:
-   ```python
-   # Processors automatically register entities when loading/saving
-   seq_proc.save_sequence_entity("MY_PROTEIN", sequence)  # Auto-registered
-   ```
-
-3. **Use entity IDs for cross-format linking**:
-   ```python
-   # When implementing custom workflows
-   entity_id = generate_entity_id("MY_PROTEIN")
-   # Use this ID to link data across formats
-   ```
-
-### Special Case: GRN Tables
-
-GRN tables are unique because they contain multiple entities:
-
-```python
-# GRN table with entity_id column
-grn_proc.save_grn_table("my_analysis", include_entity_ids=True)
-
-# Results in CSV with structure:
-# entity_id    | 1.50 | 2.50 | 3.50 | ...
-# a3f2d8c91b   | M    | K    | L    | ...  (Entity 1)
-# b4e7f2a93c   | M    | A    | V    | ...  (Entity 2)
+# Interactive demo mode
+python protos_review.py --demo
 ```
 
-This design allows tracking of individual sequences within larger analyses while maintaining entity consistency.
+Or explore the Jupyter notebook:
+```bash
+jupyter notebook protos_review.ipynb
+```
 
-### External Dependencies
+## Research Applications
 
-Protos integrates with several external bioinformatics tools:
+- **Protein Family Analysis**: Compare homologous proteins using standardized numbering
+- **Structure-Function Studies**: Correlate experimental properties with structural features  
+- **Machine Learning**: Prepare datasets with sequences, structures, and experimental labels
+- **Drug Discovery**: Identify and analyze therapeutic targets
+- **Protein Engineering**: Guide rational design using conservation and property data
 
-- **MMseqs2**: For sequence searching and clustering
-- **GTalign**: For GPU-accelerated protein structure alignment
-- **Boltz-2**: For protein structure prediction
-These tools need to be installed separately and made available in your system PATH.
+## Contributing
+
+We welcome contributions! Please see our contributing guidelines and:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
+
+## Documentation
+
+- **Framework Overview**: See `protos_review.py` for comprehensive examples
+- **API Documentation**: Generated from docstrings
+- **Tutorials**: Available in the `examples/` directory
+- **CLI Reference**: Run `protos --help` for command-line usage
+
+## Support
+
+- **Issues**: Report bugs and request features on GitHub
+- **Discussions**: Join our community discussions
+- **Documentation**: Check the comprehensive review and examples
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Citation
+
+If you use Protos in your research, please cite:
+
+```bibtex
+@software{protos2024,
+  title={Protos: A Structural Biology Framework for Universal Data Management},
+  author={Your Team},
+  year={2024},
+  url={https://github.com/your-org/protos}
+}
+```
+
+---
+
+**Ready to accelerate your structural biology research? Start with `python protos_review.py` to see everything Protos can do!** 🚀

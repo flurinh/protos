@@ -6,6 +6,7 @@ This module tests downloading and processing protein sequences from UniProt.
 
 import pytest
 import pandas as pd
+import os
 from unittest.mock import patch, MagicMock
 
 from protos.io.fasta_utils import read_fasta, write_fasta
@@ -49,7 +50,7 @@ def prepared_test_environment(uniprot_processor, test_uniprot_ids):
     })
     
     # Save dataset using processor
-    uniprot_processor.save_data(f'{dataset_name}_proteins', dataset_content, format='csv', index=False)
+    uniprot_processor.save_data(f'{dataset_name}_proteins', dataset_content, index=False)
     
     return uniprot_processor, dataset_name, test_uniprot_ids
 
@@ -57,105 +58,107 @@ def prepared_test_environment(uniprot_processor, test_uniprot_ids):
 class TestUniprotUtils:
     """Test the UniProt utility functions."""
     
-    @patch('requests.get')
-    def test_get_uniprot_basic(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_stream')
+    def test_get_uniprot_basic(self, mock_stream):
         """Test basic UniProt retrieval functionality."""
-        # Mock response
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = ">sp|P00533|EGFR_HUMAN\nMQKLLIL\n"
-        mock_get.return_value = mock_response
+        # Mock TSV response data - needs to be a list of lines for csv.DictReader
+        mock_tsv_lines = [
+            "Entry\tProtein names\tGene Names\tOrganism\tLength\tSequence",
+            "P00533\tEpidermal growth factor receptor\tEGFR\tHomo sapiens\t1210\tMQKLLIL"
+        ]
+        mock_stream.return_value = mock_tsv_lines
         
         # Test retrieval
         result = get_uniprot("P00533")
         
-        assert result is not None
-        assert ">sp|P00533|EGFR_HUMAN" in result
-        assert "MQKLLIL" in result
+        # Result should be a DataFrame
+        import pandas as pd
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0
+        assert "P00533" in result['Entry'].values
     
-    @patch('requests.get')
-    def test_get_uniprot_error_handling(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_stream')
+    def test_get_uniprot_error_handling(self, mock_stream):
         """Test error handling in UniProt retrieval."""
-        # Mock error response
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_get.return_value = mock_response
+        # Mock empty response - just header, no data
+        mock_stream.return_value = ["Entry\tProtein names\tGene Names\tOrganism\tLength\tSequence"]
         
-        # Test retrieval
+        # Test retrieval - should return empty DataFrame
         result = get_uniprot("INVALID_ID")
         
-        # Should return None or empty on error
-        assert result is None or result == ""
+        # Should return empty DataFrame on error
+        import pandas as pd
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 0
     
-    @patch('requests.get')
-    def test_map_uniprot_to_pdb_basic(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.submit_id_mapping')
+    @patch('protos.loaders.uniprot_utils.check_id_mapping_results_ready')
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_link')
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_search')
+    def test_map_uniprot_to_pdb_basic(self, mock_search, mock_link, mock_ready, mock_submit):
         """Test UniProt to PDB mapping functionality."""
-        # Mock UniProt API response
-        mock_response_data = {
+        # Mock the submission
+        mock_submit.return_value = "job123"
+        
+        # Mock the ready check
+        mock_ready.return_value = True
+        
+        # Mock the link
+        mock_link.return_value = "https://rest.uniprot.org/idmapping/results/job123"
+        
+        # Mock the search results - this is what get_id_mapping_results_search returns
+        mock_search.return_value = {
             "results": [
-                {
-                    "from": "P00533",
-                    "to": {
-                        "primaryAccession": "P00533",
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": "1IVO"},
-                            {"database": "PDB", "id": "1M14"}
-                        ]
-                    }
-                }
+                {"from": "P00533", "to": "1IVO"},
+                {"from": "P00533", "to": "1M14"}
             ]
         }
-        
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_response_data
-        mock_get.return_value = mock_response
         
         # Test mapping
         result = map_uniprot_to_pdb(["P00533"])
         
-        assert "P00533" in result
-        assert "1IVO" in result["P00533"]
-        assert "1M14" in result["P00533"]
+        # Result should be a DataFrame with columns 'uid' and 'pdb_id'
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        assert "uid" in result.columns
+        assert "pdb_id" in result.columns
+        assert "P00533" in result["uid"].values
+        assert "1IVO" in result["pdb_id"].values
+        assert "1M14" in result["pdb_id"].values
     
-    @patch('requests.get')
-    def test_map_uniprot_to_pdb_multiple(self, mock_get):
+    @patch('protos.loaders.uniprot_utils.submit_id_mapping')
+    @patch('protos.loaders.uniprot_utils.check_id_mapping_results_ready')
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_link')
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_search')
+    def test_map_uniprot_to_pdb_multiple(self, mock_search, mock_link, mock_ready, mock_submit):
         """Test mapping multiple UniProt IDs to PDB."""
-        # Mock response for multiple IDs
-        mock_response_data = {
+        # Mock the submission
+        mock_submit.return_value = "job456"
+        
+        # Mock the ready check
+        mock_ready.return_value = True
+        
+        # Mock the link
+        mock_link.return_value = "https://rest.uniprot.org/idmapping/results/job456"
+        
+        # Mock the search results
+        mock_search.return_value = {
             "results": [
-                {
-                    "from": "P00533",
-                    "to": {
-                        "primaryAccession": "P00533",
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": "1IVO"}
-                        ]
-                    }
-                },
-                {
-                    "from": "P01308",
-                    "to": {
-                        "primaryAccession": "P01308",
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": "1TRZ"}
-                        ]
-                    }
-                }
+                {"from": "P00533", "to": "1IVO"},
+                {"from": "P01308", "to": "1TRZ"}
             ]
         }
-        
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_response_data
-        mock_get.return_value = mock_response
         
         # Test mapping
         result = map_uniprot_to_pdb(["P00533", "P01308"])
         
+        # Result should be a DataFrame
+        assert isinstance(result, pd.DataFrame)
         assert len(result) == 2
-        assert "P00533" in result
-        assert "P01308" in result
+        assert "uid" in result.columns
+        assert "pdb_id" in result.columns
+        assert set(result["uid"].values) == {"P00533", "P01308"}
+        assert set(result["pdb_id"].values) == {"1IVO", "1TRZ"}
 
 
 class TestUniprotDL:
@@ -163,151 +166,193 @@ class TestUniprotDL:
     
     def test_uniprot_dl_initialization(self, uniprot_processor):
         """Test UniprotDL initialization."""
-        # Initialize with processor's data directory
+        # Initialize with processor's data root
         dl = UniprotDL(
-            fasta_dir=uniprot_processor.data_path,
-            metadata_dir=uniprot_processor.data_path
+            data_root=uniprot_processor.data_root
         )
         
         assert dl is not None
+        assert dl.paths is not None
         assert dl.fasta_dir is not None
-        assert dl.metadata_dir is not None
     
-    @patch('requests.get')
-    def test_download_fasta_single(self, mock_get, uniprot_processor):
-        """Test downloading a single FASTA file."""
-        # Mock FASTA response
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = ">sp|P00533|EGFR_HUMAN\nMQKLLILTCLVAVAL\n"
-        mock_get.return_value = mock_response
+    @patch('protos.loaders.uniprot_utils.get_uniprot')
+    def test_download_fasta_single(self, mock_get_uniprot, uniprot_processor):
+        """Test downloading a single sequence."""
+        # Mock UniProt response as DataFrame
+        mock_df = pd.DataFrame({
+            'Entry': ['P00533'],
+            'Protein names': ['Epidermal growth factor receptor'],
+            'Gene Names': ['EGFR'],
+            'Organism': ['Homo sapiens'],
+            'Length': ['1210'],
+            'Sequence': ['MQKLLILTCLVAVAL']
+        })
+        mock_get_uniprot.return_value = mock_df
         
         # Initialize downloader
         dl = UniprotDL(
-            fasta_dir=uniprot_processor.data_path,
-            metadata_dir=uniprot_processor.data_path
+            data_root=uniprot_processor.data_root
         )
         
-        # Download single sequence
-        result = dl.download_fasta("P00533")
+        # Download single sequence using actual method
+        result = dl.download_gene_single_query("P00533")
         
-        # Verify download
-        assert result is not None
+        # Verify result is a list with expected data
+        assert isinstance(result, list)
+        assert len(result) == 7  # [uniprot, seq, gene_name, species, organism, info, dataset]
+        assert result[0] == "P00533"
+        assert isinstance(result[1], str)  # sequence is a string
+        assert len(result[1]) > 0  # sequence is not empty
         
-        # Save result using processor
-        uniprot_processor.save_data('P00533.fasta', result, format='text')
+        # First populate gene_df with the result
+        dl.gene_df = pd.DataFrame([result], columns=['uniprot', 'seq', 'gene', 'species', 'organism', 'info', 'dataset'])
         
-        # Verify saved content
-        loaded = uniprot_processor.load_data('P00533.fasta', format='text')
-        assert ">sp|P00533|EGFR_HUMAN" in loaded
+        # Save FASTA using actual method
+        saved_paths = dl.save_uniprot_fasta("P00533")
+        
+        # Verify FASTA was saved
+        assert saved_paths is not None
+        assert isinstance(saved_paths, list)
+        assert len(saved_paths) > 0
+        assert os.path.exists(saved_paths[0])
     
     @patch('protos.loaders.uniprot_utils.get_uniprot')
-    def test_download_dataset(self, mock_get_uniprot, prepared_test_environment):
-        """Test downloading a complete dataset."""
+    def test_download_genes_batch(self, mock_get_uniprot, prepared_test_environment):
+        """Test downloading multiple sequences."""
         processor, dataset_name, test_ids = prepared_test_environment
         
-        # Mock UniProt responses
-        def mock_uniprot_response(uniprot_id):
-            return f">sp|{uniprot_id}|PROT_HUMAN\nMQKLLILTCLVAVAL\n"
+        # Mock UniProt responses - return DataFrame for each call
+        def mock_uniprot_response(query, **kwargs):
+            # Extract the UniProt ID from the query
+            uniprot_id = query
+            return pd.DataFrame({
+                'Entry': [uniprot_id],
+                'Protein names': [f'{uniprot_id} protein'],
+                'Gene Names': [f'GENE_{uniprot_id}'],
+                'Organism': ['Homo sapiens'],
+                'Length': ['1000'],
+                'Sequence': ['MQKLLILTCLVAVAL']
+            })
         
         mock_get_uniprot.side_effect = mock_uniprot_response
         
-        # Initialize downloader
+        # Initialize downloader with the dataset
         dl = UniprotDL(
-            fasta_dir=processor.data_path,
-            metadata_dir=processor.data_path
+            data_root=processor.data_root,
+            dataset=dataset_name
         )
         
-        # Create a mock dataset CSV using processor
-        df = pd.DataFrame({'uniprot_id': test_ids})
-        processor.save_data(f'metadata/{dataset_name}', df, format='csv', index=False)
+        # Create dataset file in metadata directory
+        dataset_file = os.path.join(dl.metadata_dir, f'{dataset_name}.txt')
+        os.makedirs(dl.metadata_dir, exist_ok=True)
+        with open(dataset_file, 'w') as f:
+            f.write(' '.join(test_ids))
         
-        # Download dataset
-        results = dl.download_dataset(dataset_name)
+        # Load dataset to populate dl.genes
+        dl.load_dataset()
         
-        # Should have downloaded all sequences
-        assert len(results) == len(test_ids)
+        # Download genes using actual method
+        # Note: download_genes_single_query uses self.genes, not a parameter
+        result_df = dl.download_genes_single_query(batchsize=len(test_ids))
+        
+        # Verify gene_df was populated with all sequences
+        assert not result_df.empty
+        assert len(result_df) >= len(test_ids)  # May have more if genes list was larger
+        
+        # Check that our test IDs are in the results
+        downloaded_ids = result_df['uniprot'].tolist()
+        for uid in test_ids:
+            assert uid in downloaded_ids
     
-    def test_combine_fasta_files(self, uniprot_processor):
-        """Test combining multiple FASTA files."""
-        # Create test FASTA files
-        fasta1 = ">seq1\nACGT\n"
-        fasta2 = ">seq2\nTGCA\n"
-        
-        uniprot_processor.save_data('test1.fasta', fasta1, format='text')
-        uniprot_processor.save_data('test2.fasta', fasta2, format='text')
-        
+    def test_save_and_load_gene_table(self, uniprot_processor):
+        """Test saving and loading gene table functionality."""
         # Initialize downloader
         dl = UniprotDL(
-            fasta_dir=processor.data_path,
-            metadata_dir=processor.data_path
+            data_root=uniprot_processor.data_root,
+            dataset='test_dataset'
         )
         
-        # Combine files
-        output_name = "combined"
-        dl.combine_fasta(["test1", "test2"], output_name)
+        # Create test gene data
+        test_gene_df = pd.DataFrame({
+            'uniprot': ['P00533', 'P01308'],
+            'seq': ['MQKLLIL', 'MALWMRLL'],
+            'gene': ['EGFR', 'INS'],
+            'species': ['Homo sapiens', 'Homo sapiens'],
+            'organism': ['Human', 'Human'],
+            'info': ['Receptor', 'Hormone'],
+            'dataset': ['test_dataset', 'test_dataset']
+        })
         
-        # Verify combined file
-        combined = uniprot_processor.load_data(f'{output_name}.fasta', format='text')
+        # Set gene_df
+        dl.gene_df = test_gene_df
         
-        assert ">seq1" in combined
-        assert "ACGT" in combined
-        assert ">seq2" in combined
-        assert "TGCA" in combined
+        # Save gene table
+        saved_path = dl.save_gene_table()
+        assert saved_path is not None
+        assert os.path.exists(saved_path)
+        
+        # Create new instance and load table
+        dl2 = UniprotDL(
+            data_root=uniprot_processor.data_root,
+            dataset='test_dataset'
+        )
+        
+        # Load gene table
+        loaded_df = dl2.load_gene_table()
+        
+        # Verify loaded data matches original
+        assert len(loaded_df) == 2
+        assert 'P00533' in loaded_df['uniprot'].values
+        assert 'P01308' in loaded_df['uniprot'].values
 
 
 class TestIntegrationWorkflow:
     """Test integrated workflows with UniProt data."""
     
-    @patch('requests.get')
-    def test_uniprot_to_structure_workflow(self, mock_get, uniprot_processor):
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_stream')
+    @patch('protos.loaders.uniprot_utils.submit_id_mapping')
+    @patch('protos.loaders.uniprot_utils.check_id_mapping_results_ready')
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_link')
+    @patch('protos.loaders.uniprot_utils.get_id_mapping_results_search')
+    def test_uniprot_to_structure_workflow(self, mock_search, mock_link, mock_ready, mock_submit, mock_stream, uniprot_processor):
         """Test workflow from UniProt ID to structure mapping."""
-        # Mock UniProt sequence response
-        seq_response = MagicMock()
-        seq_response.status_code = 200
-        seq_response.text = ">sp|P00533|EGFR_HUMAN\nMQKLLILTCLVAVAL\n"
+        # Mock UniProt TSV response for get_uniprot - needs to be a list of lines
+        mock_tsv_lines = [
+            "Entry\tProtein names\tGene Names\tOrganism\tLength\tSequence",
+            "P00533\tEpidermal growth factor receptor\tEGFR\tHomo sapiens\t1210\tMQKLLILTCLVAVAL"
+        ]
+        mock_stream.return_value = mock_tsv_lines
         
-        # Mock PDB mapping response
-        pdb_response_data = {
+        # Mock PDB mapping
+        mock_submit.return_value = "job789"
+        mock_ready.return_value = True
+        mock_link.return_value = "https://rest.uniprot.org/idmapping/results/job789"
+        mock_search.return_value = {
             "results": [
-                {
-                    "from": "P00533",
-                    "to": {
-                        "primaryAccession": "P00533",
-                        "uniProtKBCrossReferences": [
-                            {"database": "PDB", "id": "1IVO"}
-                        ]
-                    }
-                }
+                {"from": "P00533", "to": "1IVO"}
             ]
         }
         
-        pdb_response = MagicMock()
-        pdb_response.status_code = 200
-        pdb_response.json.return_value = pdb_response_data
+        # Download sequence - returns DataFrame
+        sequence_df = get_uniprot("P00533")
+        assert isinstance(sequence_df, pd.DataFrame)
+        assert len(sequence_df) > 0
         
-        # Set up mock responses
-        def mock_get_side_effect(url, **kwargs):
-            if "fasta" in url:
-                return seq_response
-            else:
-                return pdb_response
+        # Map to PDB - returns DataFrame
+        pdb_mapping_df = map_uniprot_to_pdb(["P00533"])
+        assert isinstance(pdb_mapping_df, pd.DataFrame)
         
-        mock_get.side_effect = mock_get_side_effect
+        # Get sequence string from DataFrame
+        sequence_str = sequence_df['Sequence'].iloc[0] if not sequence_df.empty else ""
         
-        # Download sequence
-        sequence = get_uniprot("P00533")
-        assert sequence is not None
-        
-        # Map to PDB
-        pdb_mapping = map_uniprot_to_pdb(["P00533"])
-        assert "P00533" in pdb_mapping
+        # Get PDB IDs from mapping DataFrame
+        pdb_ids = pdb_mapping_df[pdb_mapping_df['uid'] == 'P00533']['pdb_id'].tolist()
         
         # Save workflow results
         workflow_data = {
             'uniprot_id': 'P00533',
-            'sequence': sequence,
-            'pdb_ids': pdb_mapping.get('P00533', [])
+            'sequence': sequence_str,
+            'pdb_ids': pdb_ids
         }
         
         uniprot_processor.save_data('workflow_results', workflow_data, format='json')
@@ -360,15 +405,21 @@ class TestRealUniProtData:
         # Test with a small, well-characterized protein
         uniprot_id = "P00698"  # Lysozyme
         
-        # Download sequence
-        sequence = get_uniprot(uniprot_id)
+        # Download sequence - returns DataFrame
+        sequence_df = get_uniprot(uniprot_id)
         
-        assert sequence is not None
-        assert len(sequence) > 0
-        assert ">sp|P00698|" in sequence
+        assert isinstance(sequence_df, pd.DataFrame)
+        assert len(sequence_df) > 0
+        assert "P00698" in sequence_df['Entry'].values if 'Entry' in sequence_df.columns else False
         
-        # Save for verification
-        uniprot_processor.save_data(f'{uniprot_id}_real.fasta', sequence, format='text')
+        # Convert to FASTA format for saving
+        if not sequence_df.empty and 'Entry' in sequence_df.columns and 'Sequence' in sequence_df.columns:
+            entry = sequence_df['Entry'].iloc[0]
+            sequence = sequence_df['Sequence'].iloc[0]
+            fasta_content = f">sp|{entry}|PROTEIN\n{sequence}\n"
+            
+            # Save for verification
+            uniprot_processor.save_data(f'{uniprot_id}_real.fasta', fasta_content, format='text')
     
     def test_real_pdb_mapping(self):
         """Test real UniProt to PDB mapping."""
@@ -377,7 +428,10 @@ class TestRealUniProtData:
         # Test with protein known to have PDB structures
         uniprot_ids = ["P00698"]  # Lysozyme has many structures
         
-        mapping = map_uniprot_to_pdb(uniprot_ids)
+        mapping_df = map_uniprot_to_pdb(uniprot_ids)
         
-        assert "P00698" in mapping
-        assert len(mapping["P00698"]) > 0  # Should have multiple PDB entries
+        assert isinstance(mapping_df, pd.DataFrame)
+        assert len(mapping_df) > 0
+        assert "P00698" in mapping_df['uid'].values
+        # Should have multiple PDB entries for lysozyme
+        assert len(mapping_df[mapping_df['uid'] == 'P00698']) > 0

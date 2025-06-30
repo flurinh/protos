@@ -7,8 +7,9 @@ import numpy as np
 import warnings
 import inspect
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Union, Tuple, Set
-from abc import ABC, abstractmethod
+# No longer using abstract methods - processors can override as needed
 
 # Import Dataset class and manager
 try:
@@ -35,7 +36,7 @@ except ImportError:
     _HAS_PATH_MODULE = False
     warnings.warn("Path module not available. Using legacy path handling.")
 
-class BaseProcessor(ABC):
+class BaseProcessor:
     """
     Base class for all processing in the protos framework.
     
@@ -74,7 +75,7 @@ class BaseProcessor(ABC):
             
             # Get paths from resolver
             self.data_root = self.path_resolver.data_root
-            self.data_path = self.path_resolver.get_processor_path(processor_type)
+            self.data_path = Path(self.path_resolver.get_processor_path(processor_type))
             
             # Ensure directory exists
             ensure_directory(self.data_path)
@@ -84,7 +85,7 @@ class BaseProcessor(ABC):
             self.processor_data_dir = processor_data_dir or self._get_default_data_dir()
             
             # Ensure full path exists
-            self.data_path = os.path.join(self.data_root, self.processor_data_dir)
+            self.data_path = Path(os.path.join(self.data_root, self.processor_data_dir))
             os.makedirs(self.data_path, exist_ok=True)
         
         # Configuration and state
@@ -834,21 +835,9 @@ class BaseProcessor(ABC):
             supported = ['csv', 'pkl', 'pickle', 'json', 'npy', 'npz', 'fasta', 'fas']
             raise ValueError(f"Unsupported file format: {file_format}. Supported formats: {supported}")
     
-    def list_datasets(self) -> List[Dict[str, Any]]:
-        """
-        List available datasets for this processor.
-        
-        Returns:
-            List of dataset information dictionaries
-        """
-        # Return all datasets in the registry
-        return [
-            {
-                "id": dataset_id,
-                **{k: v for k, v in metadata.items() if k != 'path'}
-            }
-            for dataset_id, metadata in self.dataset_registry.items()
-        ]
+    # Note: list_entities and list_datasets have concrete implementations below
+    # that use the entity registry system. Processors should override these
+    # methods if they need custom behavior.
     
     def get_dataset_info(self, dataset_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -1239,3 +1228,44 @@ class BaseProcessor(ABC):
             global_registry = GlobalRegistry(self.path_resolver if _HAS_PATH_MODULE and hasattr(self, 'path_resolver') else None)
             return global_registry.entity_registry.get_dataset_entities(dataset_id)
         return []
+    
+    # Path properties following core philosophy: users work with names, never paths
+    # These properties provide access to standard paths through ProtosPaths
+    
+    @property
+    def path_structure_dir(self):
+        """
+        Get path to structure files directory (mmcif).
+        
+        Following core philosophy: processors provide abstraction over file system.
+        Users should not construct paths manually.
+        
+        Returns:
+            Path object for structure files directory
+        """
+        if hasattr(self, 'path_resolver') and self.path_resolver:
+            from pathlib import Path
+            return Path(self.path_resolver.get_structure_subdir_path('structure_dir'))
+        else:
+            # Fallback for legacy mode
+            from pathlib import Path
+            return Path(self.data_path) / "mmcif"
+    
+    @property  
+    def path_grn_ref(self):
+        """
+        Get path to GRN reference tables directory.
+        
+        Following core philosophy: processors provide abstraction over file system.
+        Users should not construct paths manually.
+        
+        Returns:
+            Path object for GRN reference directory
+        """
+        if hasattr(self, 'path_resolver') and self.path_resolver:
+            from pathlib import Path
+            return Path(self.path_resolver.get_grn_subdir_path('ref'))
+        else:
+            # Fallback for legacy mode
+            from pathlib import Path
+            return Path(self.data_path) / "ref"

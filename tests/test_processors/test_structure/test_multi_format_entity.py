@@ -15,37 +15,17 @@ from protos.io.data_access import GlobalRegistry, generate_entity_id
 
 
 @pytest.fixture
-def setup_test_environment(tmp_path):
+def setup_test_environment():
     """Set up test environment with real data."""
-    # Set up paths
-    ProtosPaths.set_data_root(str(tmp_path))
+    # ProtosPaths already configured in conftest.py to use tests/test-data
+    # No manual directory creation needed - ProtosPaths handles it
     
-    # Copy test data
-    test_data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data")
+    # Clear global registry to ensure clean state for entity tests
+    global_registry = GlobalRegistry()
+    global_registry.entity_registry._entities = {}
+    global_registry.entity_registry._datasets = {}
     
-    # Copy structure data
-    struct_dir = tmp_path / "structure" / "mmcif"
-    struct_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Copy a test structure
-    source_cif = test_data_dir / "structure" / "mmcif" / "1ubq.cif"
-    if source_cif.exists():
-        shutil.copy(source_cif, struct_dir / "1ubq.cif")
-    
-    # Copy sequence data
-    seq_dir = tmp_path / "sequence" / "fasta" 
-    seq_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Copy GRN data
-    grn_dir = tmp_path / "grn" / "ref"
-    grn_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Copy a test GRN table
-    source_grn = test_data_dir / "grn" / "ref" / "mo_ref.csv"
-    if source_grn.exists():
-        shutil.copy(source_grn, grn_dir / "mo_ref.csv")
-    
-    return tmp_path
+    return None
 
 
 class TestMultiFormatEntity:
@@ -63,7 +43,8 @@ class TestMultiFormatEntity:
         
         # Extract sequence from structure
         seq_dict = struct_processor.get_seq_dict()
-        assert "1ubq" in seq_dict
+        # Structure sequences include chain ID
+        assert "1ubq_A" in seq_dict
         
         # The entity ID should be based on "1ubq"
         expected_entity_id = generate_entity_id("1ubq")
@@ -78,7 +59,8 @@ class TestMultiFormatEntity:
         # Save the sequence with the same entity ID
         # In real usage, the sequence processor would register the same entity
         # when it processes sequence data for "1ubq"
-        sequence_data = seq_dict["1ubq"]["A"]  # Chain A sequence
+        # Structure sequences include chain ID in the key
+        sequence_data = seq_dict["1ubq_A"]
         
         # Register sequence format for the same entity
         global_registry.entity_registry.register_entity(

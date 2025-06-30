@@ -33,15 +33,15 @@ class TestEntityIDGeneration:
         assert id1 != id3
     
     def test_generate_entity_id_with_prefix(self):
-        """Test entity ID generation with prefixes."""
-        # Different prefixes should give different IDs
+        """Test entity ID generation ignores prefix for universal IDs."""
+        # Same content should give same ID regardless of prefix (universal entity system)
         id1 = generate_entity_id("1ABC", prefix="structure")
         id2 = generate_entity_id("1ABC", prefix="sequence")
-        assert id1 != id2
+        assert id1 == id2  # Universal IDs - same entity gets same ID
         
-        # Same prefix should give same ID
-        id3 = generate_entity_id("1ABC", prefix="structure")
-        assert id1 == id3
+        # Different content should give different IDs
+        id3 = generate_entity_id("2XYZ")
+        assert id1 != id3
     
     def test_entity_id_consistency(self):
         """Test that entity IDs are consistent across runs."""
@@ -266,6 +266,12 @@ class TestEntityRegistry:
         assert entity_id in data["entities"]
 
 
+class EntityTestProcessor(BaseProcessor):
+    """Test processor implementation for entity testing."""
+    # BaseProcessor now has concrete implementations of list_entities and list_datasets
+    pass
+
+
 class TestBaseProcessorEntityMethods:
     """Test BaseProcessor entity management methods."""
     
@@ -273,7 +279,7 @@ class TestBaseProcessorEntityMethods:
     def processor(self, tmp_path):
         """Create a test processor."""
         ProtosPaths.set_data_root(str(tmp_path))
-        processor = BaseProcessor(
+        processor = EntityTestProcessor(
             name="test_processor",
             processor_data_dir="test"
         )
@@ -324,17 +330,27 @@ class TestBaseProcessorEntityMethods:
             )
             entity_ids.append(entity_id)
         
-        # List all entities
+        # List all entities - defaults to returning original names
         all_entities = processor.list_entities()
-        for entity_id in entity_ids:
-            assert entity_id in all_entities
+        assert all_entities == ["test_0", "test_1", "test_2"]
         
-        # List by dataset
+        # List entity IDs specifically
+        all_entity_ids = processor.list_entities(return_type="hashes")
+        for entity_id in entity_ids:
+            assert entity_id in all_entity_ids
+        
+        # List by dataset - returns original names by default
         dataset1_entities = processor.list_entities(dataset="dataset1")
         assert len(dataset1_entities) == 2
-        assert entity_ids[0] in dataset1_entities
-        assert entity_ids[1] in dataset1_entities
-        assert entity_ids[2] not in dataset1_entities
+        assert "test_0" in dataset1_entities
+        assert "test_1" in dataset1_entities
+        assert "test_2" not in dataset1_entities
+        
+        # List by dataset with entity IDs
+        dataset1_entity_ids = processor.list_entities(dataset="dataset1", return_type="hashes")
+        assert entity_ids[0] in dataset1_entity_ids
+        assert entity_ids[1] in dataset1_entity_ids
+        assert entity_ids[2] not in dataset1_entity_ids
     
     def test_entity_dataset_operations(self, processor):
         """Test entity-dataset operations through BaseProcessor."""

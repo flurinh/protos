@@ -134,6 +134,12 @@ class TestEmbeddingProcessorWithMocks:
             
             def __mul__(self, other):
                 return self
+            
+            def __truediv__(self, other):
+                return self
+            
+            def __div__(self, other):
+                return self
         
         class MockTorch:
             @staticmethod
@@ -175,24 +181,43 @@ class TestEmbeddingProcessorWithMocks:
                         return json.load(f)
                 return {"mock": MockTensor([1, 2, 3])}
         
+        # First add torch to module namespace if it doesn't exist
+        import protos.processing.embedding.embedding_processor as emb_module
+        if not hasattr(emb_module, 'torch'):
+            setattr(emb_module, 'torch', None)
+        
         monkeypatch.setattr('protos.processing.embedding.embedding_processor.torch', MockTorch())
         monkeypatch.setattr('protos.processing.embedding.embedding_processor._TORCH_AVAILABLE', True)
         return MockTensor
     
     @pytest.fixture
-    def mock_transformers(self, monkeypatch):
+    def mock_transformers(self, monkeypatch, mock_torch):
         """Mock transformers module."""
         class MockTokenizer:
             def __call__(self, sequences, **kwargs):
                 class TokenizerOutput:
                     def __init__(self):
                         self.data = {
-                            'input_ids': [[1, 2, 3]],
-                            'attention_mask': [[1, 1, 1]]
+                            'input_ids': mock_torch([[1, 2, 3]]),
+                            'attention_mask': mock_torch([[1, 1, 1]])
                         }
+                        self.input_ids = self.data['input_ids']
+                        self.attention_mask = self.data['attention_mask']
                     
                     def __getitem__(self, key):
                         return self.data[key]
+                    
+                    def __iter__(self):
+                        return iter(self.data)
+                    
+                    def keys(self):
+                        return self.data.keys()
+                    
+                    def values(self):
+                        return self.data.values()
+                    
+                    def items(self):
+                        return self.data.items()
                     
                     def to(self, device):
                         return self
@@ -200,7 +225,7 @@ class TestEmbeddingProcessorWithMocks:
                 return TokenizerOutput()
         
         class MockModel:
-            def __init__(self):
+            def __init__(self, *args, **kwargs):
                 pass
             
             def to(self, device):
@@ -209,21 +234,33 @@ class TestEmbeddingProcessorWithMocks:
             def eval(self):
                 pass
             
-            def __call__(self, **kwargs):
+            def __call__(self, *args, **kwargs):
                 class ModelOutput:
                     def __init__(self):
-                        from protos.processing.embedding.embedding_processor import torch
-                        self.last_hidden_state = torch.MockTensor([[1, 2, 3]])
+                        # Use the mocked torch from the fixture
+                        self.last_hidden_state = mock_torch([[1, 2, 3]])
                 
                 return ModelOutput()
         
-        class MockAuto:
+        class MockAutoTokenizer:
             @staticmethod
             def from_pretrained(name):
-                return MockTokenizer() if 'tokenizer' in name else MockModel()
+                return MockTokenizer()
         
-        monkeypatch.setattr('protos.processing.embedding.embedding_processor.AutoTokenizer', type('AutoTokenizer', (), {'from_pretrained': MockAuto.from_pretrained}))
-        monkeypatch.setattr('protos.processing.embedding.embedding_processor.AutoModel', type('AutoModel', (), {'from_pretrained': MockAuto.from_pretrained}))
+        class MockAutoModel:
+            @staticmethod
+            def from_pretrained(name):
+                return MockModel()
+        
+        # First add transformers classes to module namespace if they don't exist
+        import protos.processing.embedding.embedding_processor as emb_module
+        if not hasattr(emb_module, 'AutoTokenizer'):
+            setattr(emb_module, 'AutoTokenizer', None)
+        if not hasattr(emb_module, 'AutoModel'):
+            setattr(emb_module, 'AutoModel', None)
+        
+        monkeypatch.setattr('protos.processing.embedding.embedding_processor.AutoTokenizer', MockAutoTokenizer)
+        monkeypatch.setattr('protos.processing.embedding.embedding_processor.AutoModel', MockAutoModel)
         monkeypatch.setattr('protos.processing.embedding.embedding_processor._TRANSFORMERS_AVAILABLE', True)
     
     def test_embed_sequences_with_mocks(self, mock_torch, mock_transformers):

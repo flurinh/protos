@@ -19,21 +19,16 @@ from protos.processing.embedding.embedding_processor import EmbeddingProcessor
 
 
 @pytest.fixture
-def setup_test_environment(request):
+def setup_test_environment():
     """Set up test environment with test-data directory."""
-    test_data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data")
-    ProtosPaths.set_data_root(str(test_data_dir))
+    # ProtosPaths already configured in conftest.py to use tests/test-data
     
     # Clear global registry to ensure clean state
     global_registry = GlobalRegistry()
     global_registry.entity_registry._entities = {}
     global_registry.entity_registry._datasets = {}
     
-    def teardown():
-        ProtosPaths.set_data_root(None)
-    
-    request.addfinalizer(teardown)
-    return test_data_dir
+    return None
 
 
 class TestLoadByNameAndHash:
@@ -144,9 +139,9 @@ class TestLoadByNameAndHash:
         entity_id = generate_entity_id(seq_name)
         test_embedding = torch.randn(10, 320)  # Small test embedding
         
-        # Save to expected location
-        emb_path = setup_test_environment / "embedding" / f"{entity_id}.pkl"
-        emb_path.parent.mkdir(parents=True, exist_ok=True)
+        # Save using embedding processor (which handles path creation)
+        emb_processor = EmbeddingProcessor(name="test_emb")
+        emb_path = emb_processor.data_path / f"{entity_id}.pkl"
         torch.save(test_embedding, emb_path)
         
         # Register entity

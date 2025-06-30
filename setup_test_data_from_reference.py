@@ -40,18 +40,18 @@ def copy_reference_data():
         ("grn/configs/config.json", "grn/configs/config.json"),
         ("grn/configs/motif.json", "grn/configs/motif.json"),
         
-        # Structure files
+        # Structure files - ONLY REAL DATA
         ("structure/mmcif/1uaz.cif", "structure/mmcif/1uaz.cif"),
         ("structure/mmcif/3ddl.cif", "structure/mmcif/3ddl.cif"),
-        ("structure/mmcif/example.cif", "structure/mmcif/example.cif"),
+        ("structure/mmcif/4pxk.cif", "structure/mmcif/4pxk.cif"),
         
         # Dataset definitions
         ("structure/structure_dataset/microbial_opsins.json", "structure/structure_dataset/microbial_opsins.json"),
         ("structure/structure_dataset/test_mo.json", "structure/structure_dataset/test_mo.json"),
         
-        # Sequence data
+        # Sequence data - ONLY REAL DATA
         ("sequence/fasta/test_mo.fasta", "sequence/fasta/test_mo.fasta"),
-        ("sequence/fasta/example.fasta", "sequence/fasta/example.fasta"),
+        ("sequence/fasta/opsin_sequences_from_yaml.fasta", "sequence/fasta/opsin_sequences_from_yaml.fasta"),
     ]
     
     copied_count = 0

@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "created_at": "2025-06-30T23:07:29.352963",
+    "modified_at": "2025-06-30T23:07:29.741241",
+    "description": ""
+  },
+  "entities": {
+    "7e77394211": {
+      "length": {
+        "value": 280,
+        "assigned_at": "2025-06-30T23:07:29.353001",
+        "metadata": {
+          "format_type": "sequence",
+          "source": "processor_integration"
+        }
+      },
+      "molecular_weight": {
+        "value": 39000,
+        "assigned_at": "2025-06-30T23:07:29.431846",
+        "metadata": {
+          "format_type": "sequence",
+          "source": "processor_integration"
+        }
+      },
+      "isoelectric_point": {
+        "value": 5.8,
+        "assigned_at": "2025-06-30T23:07:29.511460",
+        "metadata": {
+          "format_type": "sequence",
+          "source": "processor_integration"
+        }
+      }
+    },
+    "31f34a51fa": {
+      "length": {
+        "value": 280,
+        "assigned_at": "2025-06-30T23:07:29.588739",
+        "metadata": {
+          "format_type": "sequence",
+          "source": "processor_integration"
+        }
+      },
+      "molecular_weight": {
+        "value": 39000,
+        "assigned_at": "2025-06-30T23:07:29.665861",
+        "metadata": {
+          "format_type": "sequence",
+          "source": "processor_integration"
+        }
+      },
+      "isoelectric_point": {
+        "value": 5.8,
+        "assigned_at": "2025-06-30T23:07:29.741181",
+        "metadata": {
+          "format_type": "sequence",
+          "source": "processor_integration"
+        }
+      }
+    }
+  }
+}

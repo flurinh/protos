@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "created_at": "2025-06-30T22:56:04.075417",
+    "modified_at": "2025-06-30T22:56:04.075442",
+    "description": ""
+  },
+  "entities": {
+    "36c2c0da93": {
+      "ligand_binding": {
+        "value": "retinal",
+        "assigned_at": "2025-06-30T22:56:04.075438",
+        "metadata": {
+          "assay": "spectroscopy"
+        }
+      }
+    }
+  }
+}

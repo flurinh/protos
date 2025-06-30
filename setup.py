@@ -1,4 +1,6 @@
 from setuptools import setup, find_packages, Command
+from setuptools.command.install import install
+from setuptools.command.develop import develop
 import sys
 import subprocess
 import os
@@ -6,6 +8,56 @@ import os
 this_dir = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_dir, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
+
+
+def initialize_protos_data():
+    """Initialize Protos data directory after installation."""
+    try:
+        # Import here to ensure package is installed
+        from protos.cli.init_data import init_data_directory
+        from protos.io.paths.path_config import ProtosPaths
+        
+        # Get the default data directory
+        paths = ProtosPaths()
+        data_root = paths.data_root
+        
+        print(f"\nInitializing Protos data directory at: {data_root}")
+        
+        # Check if already initialized
+        from pathlib import Path
+        data_dir = Path(data_root)
+        entity_registry = data_dir / "entity_registry.json"
+        
+        if entity_registry.exists():
+            print("Data directory already initialized. Skipping initialization.")
+        else:
+            # Run initialization
+            stats = init_data_directory(force=True)
+            
+            print(f"\n✅ Protos data directory initialized successfully!")
+            print(f"   Location: {data_root}")
+            print(f"   Directories created: {stats.get('directories_created', 0)}")
+            print(f"   Registries created: {stats.get('registries_created', 0)}")
+            print(f"   Reference files copied: {stats.get('reference_files_copied', 0)}")
+            
+    except Exception as e:
+        print(f"\n⚠️  Warning: Could not initialize data directory: {e}")
+        print("You can manually initialize it later with: python -m protos.cli.init_data")
+
+
+class PostInstallCommand(install):
+    """Post-installation command to initialize data directory."""
+    def run(self):
+        install.run(self)
+        initialize_protos_data()
+
+
+class PostDevelopCommand(develop):
+    """Post-develop command to initialize data directory."""
+    def run(self):
+        develop.run(self)
+        initialize_protos_data()
+
 
 setup(
     name="protos",
@@ -21,11 +73,16 @@ setup(
     include_package_data=True,
     package_data={
         "protos": [
+            "reference_data/**/*",  # Include all reference data files
             "reference_data/README.md",
             "reference_data/*/registry.json",
             "reference_data/structure/mmcif/*.cif",
+            "reference_data/structure/structure_dataset/*.json",
+            "reference_data/structure/structure_dataset/standard/*.json",
             "reference_data/sequence/fasta/*.fasta",
+            "reference_data/grn/ref/*.csv",
             "reference_data/grn/tables/*.csv",
+            "reference_data/grn/configs/*.json",
         ],
     },
     classifiers=[
@@ -51,7 +108,8 @@ setup(
         "python-dotenv>=0.20.0",
         "gemmi>=0.5.5",
         "seaborn>=0.11.2",
-        "openpyxl>=3.1.5"
+        "openpyxl>=3.1.5",
+        "click>=8.0.0",  # Added for CLI commands
     ],
     extras_require={
         "embedding": [
@@ -77,5 +135,15 @@ setup(
             "mypy>=0.950",
             "flake8>=4.0.0",
         ]
-    }
+    },
+    cmdclass={
+        'install': PostInstallCommand,
+        'develop': PostDevelopCommand,
+    },
+    entry_points={
+        'console_scripts': [
+            'protos-init=protos.cli.init_data:init_data',
+            'protos-cleanup=protos.cli.cleanup_data:cleanup_data',
+        ],
+    },
 )

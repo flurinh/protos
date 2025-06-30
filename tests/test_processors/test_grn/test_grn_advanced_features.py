@@ -312,9 +312,12 @@ class TestGRNParsing:
         assert validate_grn_string('45.50')[0] == True
         assert validate_grn_string('45.500')[0] == True  # Three decimal places also valid
         
+        # Now valid GRNs (extended numbering)
+        assert validate_grn_string('0.50')[0] == True  # 0 is now allowed for extended numbering
+        assert validate_grn_string('9.50')[0] == True  # 9 is now allowed for extended numbering
+        
         # Invalid GRNs
-        assert validate_grn_string('0.50')[0] == False  # 0 not allowed
-        assert validate_grn_string('3.500')[0] == False  # Too many decimal places
+        assert validate_grn_string('3.500')[0] == False  # Too many decimal places for standard GRN
         assert validate_grn_string('abc')[0] == False  # Not a GRN
         assert validate_grn_string('3-50')[0] == False  # Wrong separator
 

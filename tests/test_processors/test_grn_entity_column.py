@@ -17,21 +17,16 @@ from protos.processing.grn.grn_base_processor import GRNBaseProcessor
 
 
 @pytest.fixture
-def setup_test_environment(request):
+def setup_test_environment():
     """Set up test environment with test-data directory."""
-    test_data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data")
-    ProtosPaths.set_data_root(str(test_data_dir))
+    # ProtosPaths already configured in conftest.py to use tests/test-data
     
     # Clear global registry to ensure clean state
     global_registry = GlobalRegistry()
     global_registry.entity_registry._entities = {}
     global_registry.entity_registry._datasets = {}
     
-    def teardown():
-        ProtosPaths.set_data_root(None)
-    
-    request.addfinalizer(teardown)
-    return test_data_dir
+    return None
 
 
 class TestGRNEntityColumn:
@@ -215,9 +210,8 @@ class TestGRNEntityColumn:
         """Test with real GRN reference data if available."""
         processor = GRNBaseProcessor(name="test_real")
         
-        # Check if real data exists
-        grn_ref_path = setup_test_environment / "grn" / "ref" / "mo_grn.csv"
-        if not grn_ref_path.exists():
+        # Check if real data exists using processor method
+        if not processor.is_dataset_available("ref/mo_grn"):
             pytest.skip("Real GRN reference data not available")
             
         # Load real table

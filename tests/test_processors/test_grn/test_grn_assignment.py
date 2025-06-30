@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from protos.processing.grn.grn_base_processor import GRNBaseProcessor
 from protos.processing.grn.grn_processor import GRNProcessor
+from protos.processing.sequence.seq_processor import SeqProcessor
 from protos.processing.grn.grn_assignment import (
     calculate_missing_gene_numbers,
     assign_gene_nr,
@@ -37,15 +38,7 @@ from protos.cli.grn.assign_grns import (
 from protos.processing.grn.grn_table_utils import is_sequential
 
 
-@pytest.fixture
-def temp_data_dir():
-    """Create a temporary data directory."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Create necessary subdirectories
-        os.makedirs(os.path.join(tmpdir, 'grn', 'ref'), exist_ok=True)
-        os.makedirs(os.path.join(tmpdir, 'grn', 'tables'), exist_ok=True)
-        os.makedirs(os.path.join(tmpdir, 'fasta', 'processed'), exist_ok=True)
-        yield tmpdir
+# Note: temp_data_dir fixture removed - using global test-data from conftest.py
 
 
 @pytest.fixture
@@ -283,51 +276,51 @@ class TestGRNAssignmentCLI:
 class TestGRNAssignmentIntegration:
     """Integration tests for GRN assignment."""
     
-    def test_grn_processor_with_reference_table(self, temp_data_dir, reference_grn_table):
+    def test_grn_processor_with_reference_table(self, reference_grn_table):
         """Test GRN processor with reference table."""
-        # Set temp directory as data root for this test
-        from protos.io.paths.path_config import ProtosPaths
-        original_root = ProtosPaths.get_global_data_root()
-        ProtosPaths.set_data_root(temp_data_dir)
+        # ProtosPaths already configured in conftest.py
         
-        try:
-            # Save reference table
-            ref_path = os.path.join(temp_data_dir, 'grn', 'ref')
-            reference_grn_table.to_csv(os.path.join(ref_path, 'test_ref.csv'))
-            
-            # Create processor
-            processor = GRNBaseProcessor(
-                name='test_ref',
-                processor_data_dir='grn',
-                preload=False
-            )
-            
-            # Load the reference table from ref subdirectory
-            processor.load_grn_table('ref/test_ref')
-        finally:
-            # Restore original data root
-            if original_root:
-                ProtosPaths.set_data_root(original_root)
+        # Create processor (uses global test-data directory)
+        processor = GRNBaseProcessor(name='test_ref')
+        
+        # Save reference table to ref directory using processor
+        reference_grn_table.to_csv(processor.path_grn_ref / 'test_ref.csv')
+        
+        # Create processor
+        processor = GRNBaseProcessor(
+            name='test_ref',
+            preload=False
+        )
+        
+        # Load the reference table from ref subdirectory
+        processor.load_grn_table('ref/test_ref')
         
         assert not processor.data.empty
         assert len(processor.data) == 4
         assert '1.50' in processor.data.columns
         assert '7.53' in processor.data.columns
     
-    def test_grn_assignment_workflow(self, temp_data_dir, reference_grn_table):
+    def test_grn_assignment_workflow(self, reference_grn_table):
         """Test complete GRN assignment workflow."""
         # This is a conceptual test showing the workflow
         # In practice, would need actual sequence alignment tools
         
-        # 1. Save reference table with unique name
-        ref_path = os.path.join(temp_data_dir, 'grn', 'ref')
-        reference_grn_table.to_csv(os.path.join(ref_path, 'test_ref_assignment.csv'))
+        # Create processors that use ProtosPaths
+        grn_proc = GRNBaseProcessor(name="grn_workflow_test")
+        seq_proc = SeqProcessor(name="grn_workflow_test")
         
-        # 2. Create test FASTA
-        fasta_content = ">QUERY1\nMDWLVGYGFGGKLMNPQRST\n>QUERY2\nMAWLIGYAFGGRLMNPQKST"
-        fasta_path = os.path.join(temp_data_dir, 'fasta', 'processed', 'test.fasta')
-        with open(fasta_path, 'w') as f:
-            f.write(fasta_content)
+        # 1. Save reference table using processor
+        grn_proc.data = reference_grn_table
+        grn_proc.save_grn_table('ref/test_ref_assignment')
+        
+        # 2. Create test FASTA using sequence processor
+        sequences = {
+            "QUERY1": "MDWLVGYGFGGKLMNPQRST",
+            "QUERY2": "MAWLIGYAFGGRLMNPQKST"
+        }
+        
+        for seq_id, seq in sequences.items():
+            seq_proc.save_sequence_entity(seq_id, seq)
         
         # 3. Mock the assignment process
         expected_result = pd.DataFrame({
@@ -337,17 +330,17 @@ class TestGRNAssignmentIntegration:
             '7.53': ['K11', 'K18']
         }, index=['QUERY1', 'QUERY2'])
         
-        # Save expected result as if assignment completed
-        output_path = os.path.join(temp_data_dir, 'grn', 'tables', 'test.csv')
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        expected_result.to_csv(output_path)
+        # Save expected result using processor
+        grn_proc.data = expected_result
+        grn_proc.save_grn_table('test_assignment_result')
         
-        # Verify output
-        result = pd.read_csv(output_path, index_col=0)
-        assert len(result) == 2
-        assert 'QUERY1' in result.index
-        assert 'QUERY2' in result.index
-        assert result.loc['QUERY1', '7.53'] == 'K11'
+        # Verify output using processor methods
+        assert grn_proc.is_dataset_available('test_assignment_result')
+        result = grn_proc.load_grn_table('test_assignment_result')
+        assert len(grn_proc.data) == 2
+        assert 'QUERY1' in grn_proc.data.index
+        assert 'QUERY2' in grn_proc.data.index
+        assert grn_proc.data.loc['QUERY1', '7.53'] == 'K11'
 
 
 class TestGRNAssignmentHelpers:

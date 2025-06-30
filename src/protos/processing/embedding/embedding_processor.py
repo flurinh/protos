@@ -434,7 +434,7 @@ class EmbeddingProcessor(BaseProcessor):
         
         # Load sequences using SeqProcessor
         seq_proc = SeqProcessor(name="temp_seq_loader")
-        sequences = seq_proc.load_sequences_from_file(fasta_path)
+        sequences = seq_proc.load_sequences(fasta_path)
         
         # Generate embeddings
         return self.embed_sequences(sequences, embedding_type, save_dataset)
@@ -603,7 +603,7 @@ class EmbeddingProcessor(BaseProcessor):
         self.logger.warning(f"Embedding entity not found: {identifier}")
         return None
     
-    def list_embedding_entities(self, dataset: Optional[str] = None) -> List[str]:
+    def list_entities(self, dataset: Optional[str] = None) -> List[str]:
         """
         List all embedding entities.
         
@@ -630,3 +630,70 @@ class EmbeddingProcessor(BaseProcessor):
             return original_ids
         except:
             return []
+    
+    def list_embedding_entities(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all embedding entities (backward compatibility).
+        
+        Deprecated: Use list_entities() instead.
+        
+        Args:
+            dataset: Optional dataset to filter by
+            
+        Returns:
+            List of sequence IDs
+        """
+        return self.list_entities(dataset=dataset)
+    
+    def list_datasets(self) -> List[Dict[str, Any]]:
+        """
+        List available embedding datasets.
+        
+        Embedding datasets are collections of embeddings, typically organized by:
+        - Model type (ESM-2, ProtTrans, etc.)
+        - Embedding purpose (structural, functional, etc.)
+        - Source dataset (sequences from specific experiments)
+        
+        Returns:
+            List of dataset information dictionaries
+        """
+        datasets = []
+        
+        # Check dataset manager first
+        if self.dataset_manager:
+            return self.dataset_manager.list_datasets()
+        
+        # Otherwise, scan for embedding collections
+        embeddings_dir = Path(self.embeddings_path)
+        
+        # Look for organized embedding directories
+        if embeddings_dir.exists():
+            # Check for model-based organization
+            for model_dir in embeddings_dir.iterdir():
+                if model_dir.is_dir():
+                    embedding_files = list(model_dir.glob("*.pkl")) + list(model_dir.glob("*.pt"))
+                    if embedding_files:
+                        datasets.append({
+                            'id': model_dir.name,
+                            'type': 'embedding_dataset',
+                            'model': model_dir.name,
+                            'embedding_count': len(embedding_files),
+                            'path': str(model_dir)
+                        })
+        
+        # Look for dataset JSON definitions
+        dataset_file = embeddings_dir / 'datasets.json'
+        if dataset_file.exists():
+            try:
+                with open(dataset_file, 'r') as f:
+                    dataset_defs = json.load(f)
+                    for dataset_id, dataset_info in dataset_defs.items():
+                        datasets.append({
+                            'id': dataset_id,
+                            'type': 'embedding_dataset',
+                            **dataset_info
+                        })
+            except:
+                pass
+        
+        return datasets

@@ -6,9 +6,12 @@ src/protos/__init__.py
 src/protos.egg-info/PKG-INFO
 src/protos.egg-info/SOURCES.txt
 src/protos.egg-info/dependency_links.txt
+src/protos.egg-info/entry_points.txt
 src/protos.egg-info/requires.txt
 src/protos.egg-info/top_level.txt
 src/protos/cli/__init__.py
+src/protos/cli/cleanup_data.py
+src/protos/cli/init_data.py
 src/protos/cli/embedding/__init__.py
 src/protos/cli/embedding/embed.py
 src/protos/cli/grn/__init__.py
@@ -24,6 +27,9 @@ src/protos/cli/processing/fasta_utils.py
 src/protos/cli/property/__init__.py
 src/protos/cli/training/__init__.py
 src/protos/cli/training/train.py
+src/protos/commands/__init__.py
+src/protos/commands/download_with_registration.py
+src/protos/commands/register_data.py
 src/protos/core/__init__.py
 src/protos/core/base_processor.py
 src/protos/core/dataset_manager.py
@@ -126,7 +132,6 @@ src/protos/reference_data/grn/tables/grn_annotated_opsins_new_only.csv
 src/protos/reference_data/grn/tables/grn_annotated_opsins_new_only_v2.csv
 src/protos/reference_data/grn/tables/grn_debug_output.csv
 src/protos/reference_data/sequence/registry.json
-src/protos/reference_data/sequence/fasta/example.fasta
 src/protos/reference_data/sequence/fasta/opsin_sequences_from_yaml.fasta
 src/protos/reference_data/sequence/fasta/test_mo.fasta
 src/protos/reference_data/sequence/fasta/test_mo_extracted.fasta
@@ -135,7 +140,6 @@ src/protos/reference_data/structure/datasets/test_mo_with_grn.pkl
 src/protos/reference_data/structure/mmcif/1uaz.cif
 src/protos/reference_data/structure/mmcif/3ddl.cif
 src/protos/reference_data/structure/mmcif/4pxk.cif
-src/protos/reference_data/structure/mmcif/example.cif
 src/protos/reference_data/structure/structure_dataset/datasets.json
 src/protos/reference_data/structure/structure_dataset/test_mo.json
 src/protos/reference_data/structure/structure_dataset/standard/gpcr.json
@@ -163,3 +167,5 @@ src/protos/visualization/graph_vis.py
 src/protos/visualization/graph_visualization.py
 src/protos/visualization/ligand_vis.py
 src/protos/visualization/structure_vis.py
+src/protos/workflows/__init__.py
+src/protos/workflows/cross_format.py

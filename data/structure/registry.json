@@ -1,0 +1,68 @@
+{
+  "structure/1ubq": {
+    "type": "structure",
+    "atom_count": 660,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-06-30T22:22:39.589040"
+  },
+  "structure/AF-P00533-F1-model_v1": {
+    "type": "structure",
+    "atom_count": 9392,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-06-29T19:54:07.964858"
+  },
+  "retinal_binders": {
+    "path": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/retinal_binders.json",
+    "metadata": {
+      "name": "retinal_binders",
+      "description": "Structure dataset with 1 PDB IDs",
+      "items": 1,
+      "created_at": "2025-06-29T20:59:09.560122",
+      "processor_type": "structure",
+      "dataset_type": "structure",
+      "source": "user"
+    },
+    "timestamp": "2025-06-29T20:59:09.569820"
+  },
+  "structure/1l2y": {
+    "type": "structure",
+    "atom_count": 11552,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-06-29T22:49:21.418195"
+  },
+  "structure/2gb1": {
+    "type": "structure",
+    "atom_count": 855,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-06-30T22:05:56.122774"
+  },
+  "structure/1crn": {
+    "type": "structure",
+    "atom_count": 327,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-06-30T22:05:56.309028"
+  },
+  "demo_structures": {
+    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\data\\structure\\structure_dataset\\demo_structures.json",
+    "metadata": {
+      "name": "Demo Protein Structures",
+      "description": "Small proteins for demonstration",
+      "items": 3,
+      "created_at": "2025-07-01T00:14:11.129022",
+      "processor_type": "structure",
+      "dataset_type": "structure",
+      "source": "user"
+    },
+    "timestamp": "2025-07-01T00:14:11.129022"
+  }
+}

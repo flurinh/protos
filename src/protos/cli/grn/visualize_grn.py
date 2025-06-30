@@ -229,6 +229,12 @@ def visualize_grn_table(
         # Load directly from file
         df = pd.read_csv(grn_table_path, index_col=0)
     
+    # Handle entity_id column if present
+    has_entity_ids = 'entity_id' in df.columns
+    if has_entity_ids:
+        # Remove entity_id column for visualization
+        df = df.drop(columns=['entity_id'])
+    
     # Filter proteins if specified
     if protein_ids:
         df = df.loc[df.index.isin(protein_ids)]
@@ -374,6 +380,12 @@ def visualize_grn_distribution(
     else:
         # Load directly from file
         df = pd.read_csv(grn_table_path, index_col=0)
+    
+    # Handle entity_id column if present
+    has_entity_ids = 'entity_id' in df.columns
+    if has_entity_ids:
+        # Remove entity_id column for visualization
+        df = df.drop(columns=['entity_id'])
     
     # Normalize column names if requested
     if normalize_formats:

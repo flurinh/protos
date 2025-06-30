@@ -207,6 +207,37 @@ def map_uniprot_to_pdb(uniprot_ids):
     return pd.DataFrame(results['results']).rename(columns={'from': 'uid', 'to': 'pdb_id'})
 
 
+def download_sequences_from_uniprot(uniprot_ids, reviewed=True):
+    """
+    Download sequences from UniProt for given UniProt IDs.
+    
+    Args:
+        uniprot_ids: List of UniProt accession IDs (e.g., ['P00533', 'P04637'])
+        reviewed: Whether to only get reviewed (Swiss-Prot) entries
+        
+    Returns:
+        Dictionary mapping UniProt ID to sequence string
+    """
+    sequences = {}
+    
+    for uniprot_id in uniprot_ids:
+        try:
+            # Query UniProt for this specific ID
+            df = get_uniprot(uniprot_id, batchsize=1, reviewed=reviewed)
+            
+            if not df.empty and 'Sequence' in df.columns:
+                # Get the sequence from the first (and should be only) result
+                sequence = df.iloc[0]['Sequence']
+                sequences[uniprot_id] = sequence
+            else:
+                print(f"Warning: No sequence found for {uniprot_id}")
+                
+        except Exception as e:
+            print(f"Error downloading {uniprot_id}: {e}")
+            
+    return sequences
+
+
 if __name__ == '__main__':
     job_id = submit_id_mapping(
         from_db="UniProtKB_AC-ID", to_db="PDBe", ids=["P05067", "P12345"]

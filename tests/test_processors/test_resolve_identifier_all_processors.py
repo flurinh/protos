@@ -20,21 +20,16 @@ from protos.processing.embedding.embedding_processor import EmbeddingProcessor
 
 
 @pytest.fixture
-def setup_test_environment(request):
+def setup_test_environment():
     """Set up test environment with test-data directory."""
-    test_data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data")
-    ProtosPaths.set_data_root(str(test_data_dir))
+    # ProtosPaths already configured in conftest.py to use tests/test-data
     
     # Clear global registry to ensure clean state
     global_registry = GlobalRegistry()
     global_registry.entity_registry._entities = {}
     global_registry.entity_registry._datasets = {}
     
-    def teardown():
-        ProtosPaths.set_data_root(None)
-    
-    request.addfinalizer(teardown)
-    return test_data_dir
+    return None
 
 
 class TestResolveIdentifierCifBaseProcessor:
@@ -110,15 +105,20 @@ class TestResolveIdentifierCifBaseProcessor:
         processor = CifBaseProcessor(name="test_list")
         global_registry = GlobalRegistry()
         
-        # Register multiple structures
-        pdb_ids = ["3GHI", "4JKL", "5MNO"]
+        # Get test data path from ProtosPaths
+        from protos.io.paths.path_config import ProtosPaths
+        paths = ProtosPaths()
+        test_data_root = Path(paths.data_root)
+        
+        # Register multiple structures that exist in test data
+        pdb_ids = ["3nir", "4JKL", "3ddl"]
         for pdb_id in pdb_ids:
             entity_id = generate_entity_id(pdb_id)
             global_registry.entity_registry.register_entity(
                 entity_id=entity_id,
                 entity_type="structure",
                 original_id=pdb_id,
-                file_path=str(setup_test_environment / "structure" / "mmcif" / f"{pdb_id}.cif")
+                file_path=str(test_data_root / "structure" / "mmcif" / f"{pdb_id}.cif")
             )
         
         # List structures
@@ -323,10 +323,10 @@ class TestResolveIdentifierEmbeddingProcessor:
         seq_name = "EMB_TEST1"
         entity_id = generate_entity_id(seq_name)
         
-        # Create dummy embedding data
+        # Create dummy embedding data using processor
         dummy_embedding = torch.randn(10, 1280)  # Small embedding
-        embedding_path = setup_test_environment / "embedding" / f"{entity_id}.pkl"
-        embedding_path.parent.mkdir(parents=True, exist_ok=True)
+        emb_processor = EmbeddingProcessor(name="test_resolve")
+        embedding_path = emb_processor.data_path / f"{entity_id}.pkl"
         
         # Save dummy embedding
         torch.save(dummy_embedding, embedding_path)
@@ -363,10 +363,10 @@ class TestResolveIdentifierEmbeddingProcessor:
         seq_name = "EMB_TEST2"
         entity_id = generate_entity_id(seq_name)
         
-        # Create and save dummy embedding
+        # Create and save dummy embedding using processor
         dummy_embedding = torch.randn(5, 320)  # Smaller embedding
-        embedding_path = setup_test_environment / "embedding" / f"{entity_id}.pkl"
-        embedding_path.parent.mkdir(parents=True, exist_ok=True)
+        emb_processor = EmbeddingProcessor(name="test_resolve2")
+        embedding_path = emb_processor.data_path / f"{entity_id}.pkl"
         torch.save(dummy_embedding, embedding_path)
         
         # Register
@@ -423,19 +423,24 @@ class TestCrossProcessorResolveIdentifier:
         uniprot_id = "P12345"
         entity_id = generate_entity_id(uniprot_id)
         
+        # Get test data path from ProtosPaths
+        from protos.io.paths.path_config import ProtosPaths
+        paths = ProtosPaths()
+        test_data_root = Path(paths.data_root)
+        
         # Register in multiple formats with proper test paths
         global_registry.entity_registry.register_entity(
             entity_id=entity_id,
             entity_type="sequence",
             original_id=uniprot_id,
-            file_path=str(setup_test_environment / "sequence" / "fasta" / f"{entity_id}.fasta")
+            file_path=str(test_data_root / "sequence" / "fasta" / f"{entity_id}.fasta")
         )
         
         global_registry.entity_registry.register_entity(
             entity_id=entity_id,
             entity_type="structure",
             original_id=uniprot_id,
-            file_path=str(setup_test_environment / "structure" / "mmcif" / f"{entity_id}.cif")
+            file_path=str(test_data_root / "structure" / "mmcif" / f"{entity_id}.cif")
         )
         
         global_registry.entity_registry.register_entity(
@@ -449,7 +454,7 @@ class TestCrossProcessorResolveIdentifier:
             entity_id=entity_id,
             entity_type="embedding",
             original_id=uniprot_id,
-            file_path=str(setup_test_environment / "embedding" / f"{entity_id}.pkl")
+            file_path=str(test_data_root / "embedding" / f"{entity_id}.pkl")
         )
         
         # Verify entity is registered in all formats

@@ -1,0 +1,267 @@
+{
+  "metadata": {
+    "created_at": "2025-06-30T23:07:31.371604",
+    "modified_at": "2025-06-30T23:07:32.248513",
+    "description": "",
+    "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv",
+    "entity_column": "protein_id",
+    "format_type": null
+  },
+  "entities": {
+    "36c2c0da93": {
+      "lambda_max": {
+        "value": 568,
+        "assigned_at": "2025-06-30T23:07:31.456315",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "organism": {
+        "value": "Halobacterium salinarum",
+        "assigned_at": "2025-06-30T23:07:31.468835",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_system": {
+        "value": "native",
+        "assigned_at": "2025-06-30T23:07:31.481311",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_level": {
+        "value": "high",
+        "assigned_at": "2025-06-30T23:07:31.493976",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "temperature_optimum": {
+        "value": 37.0,
+        "assigned_at": "2025-06-30T23:07:31.506624",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "pH_optimum": {
+        "value": 7.0,
+        "assigned_at": "2025-06-30T23:07:31.518291",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "method": {
+        "value": "spectroscopy",
+        "assigned_at": "2025-06-30T23:07:31.530997",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      }
+    },
+    "7e77394211": {
+      "lambda_max": {
+        "value": 500,
+        "assigned_at": "2025-06-30T23:07:31.633197",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-06-30T23:07:31.646979",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_system": {
+        "value": "E.coli",
+        "assigned_at": "2025-06-30T23:07:31.659251",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_level": {
+        "value": "medium",
+        "assigned_at": "2025-06-30T23:07:31.672709",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "temperature_optimum": {
+        "value": 25.0,
+        "assigned_at": "2025-06-30T23:07:31.685220",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "pH_optimum": {
+        "value": 7.5,
+        "assigned_at": "2025-06-30T23:07:31.697806",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "method": {
+        "value": "spectroscopy",
+        "assigned_at": "2025-06-30T23:07:31.710527",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      }
+    },
+    "180720dfa0": {
+      "lambda_max": {
+        "value": 485,
+        "assigned_at": "2025-06-30T23:07:31.803759",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "organism": {
+        "value": "Anabaena sensilis",
+        "assigned_at": "2025-06-30T23:07:31.814418",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_system": {
+        "value": "E.coli",
+        "assigned_at": "2025-06-30T23:07:31.827249",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-06-30T23:07:31.838757",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "temperature_optimum": {
+        "value": 30.0,
+        "assigned_at": "2025-06-30T23:07:31.852259",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "pH_optimum": {
+        "value": 7.2,
+        "assigned_at": "2025-06-30T23:07:31.864334",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "method": {
+        "value": "spectroscopy",
+        "assigned_at": "2025-06-30T23:07:31.876291",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      }
+    },
+    "31f34a51fa": {
+      "lambda_max": {
+        "value": 500,
+        "assigned_at": "2025-06-30T23:07:31.971651",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "organism": {
+        "value": "Bos taurus",
+        "assigned_at": "2025-06-30T23:07:31.988268",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_system": {
+        "value": "native",
+        "assigned_at": "2025-06-30T23:07:32.001755",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_level": {
+        "value": "high",
+        "assigned_at": "2025-06-30T23:07:32.014268",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "temperature_optimum": {
+        "value": 37.0,
+        "assigned_at": "2025-06-30T23:07:32.026498",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "pH_optimum": {
+        "value": 7.4,
+        "assigned_at": "2025-06-30T23:07:32.040897",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "method": {
+        "value": "literature",
+        "assigned_at": "2025-06-30T23:07:32.052613",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      }
+    },
+    "12e4e1e932": {
+      "lambda_max": {
+        "value": 568,
+        "assigned_at": "2025-06-30T23:07:32.161716",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "organism": {
+        "value": "Halobacterium salinarum",
+        "assigned_at": "2025-06-30T23:07:32.177577",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_system": {
+        "value": "native",
+        "assigned_at": "2025-06-30T23:07:32.192516",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "expression_level": {
+        "value": "high",
+        "assigned_at": "2025-06-30T23:07:32.206911",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "temperature_optimum": {
+        "value": 45.0,
+        "assigned_at": "2025-06-30T23:07:32.220745",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "pH_optimum": {
+        "value": 6.8,
+        "assigned_at": "2025-06-30T23:07:32.234511",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      },
+      "method": {
+        "value": "spectroscopy",
+        "assigned_at": "2025-06-30T23:07:32.248498",
+        "metadata": {
+          "source_file": "/tmp/tmpkfwq1qy5/microbial_opsins.csv"
+        }
+      }
+    }
+  }
+}

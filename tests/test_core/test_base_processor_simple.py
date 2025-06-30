@@ -20,11 +20,28 @@ from protos.io.paths.path_config import ProtosPaths
 class TestProcessor(BaseProcessor):
     """Test processor implementation."""
     __test__ = False  # Tell pytest not to collect this
+    
+    def list_entities(self):
+        """List available entities (test implementation)."""
+        # For testing, we'll track entities in metadata
+        return self.metadata.get('entities', [])
+    
+    def list_datasets(self):
+        """List available datasets (test implementation)."""
+        # For testing, return dataset info from registry
+        return [{"id": name, **info} for name, info in self.dataset_registry.items()]
 
 
 class SimpleProcessor(BaseProcessor):
     """Simple processor for testing type inference."""
-    pass
+    
+    def list_entities(self):
+        """List available entities (test implementation)."""
+        return []
+    
+    def list_datasets(self):
+        """List available datasets (test implementation)."""
+        return []
 
 
 @pytest.fixture

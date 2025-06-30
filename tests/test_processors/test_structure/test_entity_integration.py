@@ -31,7 +31,9 @@ def setup_paths(temp_data_dir):
 def conftest_setup(request):
     """Use the test-data directory directly."""
     # Set the global data root to our test-data directory
-    test_data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data")
+    # Use relative path from current file location
+    current_file = Path(__file__)
+    test_data_dir = current_file.parent.parent.parent / "test-data"
     ProtosPaths.set_data_root(str(test_data_dir))
     
     # Return available test structures
@@ -186,8 +188,8 @@ class TestCifBaseProcessorEntityIntegration:
         assert 'metadata' in structure_format
         
         # Verify the file was created
-        expected_path = os.path.join(processor.path_structure_dir, f"{new_pdb_id}.cif")
-        assert os.path.exists(expected_path)
+        expected_path = Path(processor.path_structure_dir) / f"{new_pdb_id}.cif"
+        assert expected_path.exists()
         
         # Verify we can load the saved structure by entity ID
         # (Not by PDB ID since the file format may not be valid CIF)

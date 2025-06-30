@@ -1,0 +1,4 @@
+entity_id,protein_family,membrane_spans,molecular_weight,isoelectric_point
+e1f2g3h4i5,rhodopsin,7,39000,5.8
+f2g3h4i5j6,opsin,7,38500,6.1
+g3h4i5j6k7,rhodopsin,7,39200,5.9

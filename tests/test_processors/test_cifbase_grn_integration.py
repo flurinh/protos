@@ -16,10 +16,9 @@ class TestCifBaseGRNIntegration:
     
     @pytest.fixture
     def test_data_dir(self):
-        """Create temporary directory for test data."""
-        temp_dir = tempfile.mkdtemp()
-        yield temp_dir
-        shutil.rmtree(temp_dir)
+        """Test data directory managed by ProtosPaths."""
+        # ProtosPaths already configured in conftest.py
+        return None
     
     @pytest.fixture
     def sample_structure_data(self):
@@ -129,10 +128,10 @@ class TestCifBaseGRNIntegration:
         # Set structure data
         struct_processor.data = sample_structure_data
         
-        # Create GRN reference directory and save reference table
-        grn_ref_dir = Path(test_data_dir) / "grn" / "ref"
-        grn_ref_dir.mkdir(parents=True, exist_ok=True)
-        sample_grn_table.to_csv(grn_ref_dir / "mo_ref.csv")
+        # Save reference table using GRN processor
+        grn_processor = GRNBaseProcessor(name="test_grn")
+        grn_processor.data = sample_grn_table
+        grn_processor.save_grn_table("ref/mo_ref")
         
         # Test sequence extraction
         sequences = struct_processor.get_seq_dict()

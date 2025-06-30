@@ -1,0 +1,892 @@
+{
+  "metadata": {
+    "created_at": "2025-07-01T00:14:12.027998",
+    "modified_at": "2025-07-01T00:14:21.517413",
+    "description": "",
+    "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv",
+    "entity_column": "protein_id",
+    "format_type": null
+  },
+  "entities": {
+    "424a23c283": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:12.027998",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 506.2,
+        "assigned_at": "2025-07-01T00:14:12.106883",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 256,
+        "assigned_at": "2025-07-01T00:14:12.185579",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:12.248161",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 60.4,
+        "assigned_at": "2025-07-01T00:14:12.326749",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Halobacterium salinarum",
+        "assigned_at": "2025-07-01T00:14:12.390056",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "0e20023021": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:12.484475",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 473.4,
+        "assigned_at": "2025-07-01T00:14:12.563566",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 236,
+        "assigned_at": "2025-07-01T00:14:12.643496",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "high",
+        "assigned_at": "2025-07-01T00:14:12.721951",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 48.8,
+        "assigned_at": "2025-07-01T00:14:12.785328",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-07-01T00:14:12.863730",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "a73843b3f9": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:12.942463",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 458.7,
+        "assigned_at": "2025-07-01T00:14:13.021179",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 235,
+        "assigned_at": "2025-07-01T00:14:13.099797",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:13.168416",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 70.8,
+        "assigned_at": "2025-07-01T00:14:13.242068",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:13.305213",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "e831545451": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:13.399428",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 458.5,
+        "assigned_at": "2025-07-01T00:14:13.461998",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 240,
+        "assigned_at": "2025-07-01T00:14:13.541053",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "medium",
+        "assigned_at": "2025-07-01T00:14:13.605382",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 62.7,
+        "assigned_at": "2025-07-01T00:14:13.687538",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:13.762183",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "4011aa2a9c": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:13.840858",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 450.1,
+        "assigned_at": "2025-07-01T00:14:13.903746",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 224,
+        "assigned_at": "2025-07-01T00:14:13.988288",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:14.061556",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 69.6,
+        "assigned_at": "2025-07-01T00:14:14.140423",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Halobacterium salinarum",
+        "assigned_at": "2025-07-01T00:14:14.218895",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "2af9058625": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:14.313324",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 514.8,
+        "assigned_at": "2025-07-01T00:14:14.375760",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 235,
+        "assigned_at": "2025-07-01T00:14:14.454423",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:14.534141",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 70.4,
+        "assigned_at": "2025-07-01T00:14:14.597190",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-07-01T00:14:14.691051",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "307e4e676d": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:14.769239",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 541.8,
+        "assigned_at": "2025-07-01T00:14:14.863434",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 217,
+        "assigned_at": "2025-07-01T00:14:14.926811",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "medium",
+        "assigned_at": "2025-07-01T00:14:15.005481",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 52.5,
+        "assigned_at": "2025-07-01T00:14:15.090313",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:15.162903",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "e34228598c": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:15.257289",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 480.0,
+        "assigned_at": "2025-07-01T00:14:15.336636",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 272,
+        "assigned_at": "2025-07-01T00:14:15.399630",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "high",
+        "assigned_at": "2025-07-01T00:14:15.477824",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 53.4,
+        "assigned_at": "2025-07-01T00:14:15.556567",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Halobacterium salinarum",
+        "assigned_at": "2025-07-01T00:14:15.638063",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "dccd7477f1": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:15.731019",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 457.0,
+        "assigned_at": "2025-07-01T00:14:15.809695",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 253,
+        "assigned_at": "2025-07-01T00:14:15.887775",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "high",
+        "assigned_at": "2025-07-01T00:14:15.951171",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 49.7,
+        "assigned_at": "2025-07-01T00:14:16.029851",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:16.108415",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "f8455d9e90": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:16.208810",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 592.3,
+        "assigned_at": "2025-07-01T00:14:16.283316",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 215,
+        "assigned_at": "2025-07-01T00:14:16.362174",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "medium",
+        "assigned_at": "2025-07-01T00:14:16.425335",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 74.1,
+        "assigned_at": "2025-07-01T00:14:16.519615",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:16.598579",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "745ba5c3fa": {
+      "category": {
+        "value": "Channelrhodopsin",
+        "assigned_at": "2025-07-01T00:14:16.802822",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 493.1,
+        "assigned_at": "2025-07-01T00:14:16.897175",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 262,
+        "assigned_at": "2025-07-01T00:14:16.975373",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "medium",
+        "assigned_at": "2025-07-01T00:14:17.054123",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 57.9,
+        "assigned_at": "2025-07-01T00:14:17.133277",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-07-01T00:14:17.211950",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "9b8bf4a15a": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:17.294796",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 552.5,
+        "assigned_at": "2025-07-01T00:14:17.369385",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 222,
+        "assigned_at": "2025-07-01T00:14:17.432491",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:17.511109",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 48.6,
+        "assigned_at": "2025-07-01T00:14:17.589344",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-07-01T00:14:17.652463",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "69964e819e": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:17.746810",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 476.0,
+        "assigned_at": "2025-07-01T00:14:17.809815",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 626,
+        "assigned_at": "2025-07-01T00:14:17.896601",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:17.966705",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 63.2,
+        "assigned_at": "2025-07-01T00:14:18.029794",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:18.108492",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "343600007f": {
+      "category": {
+        "value": "Channelrhodopsin",
+        "assigned_at": "2025-07-01T00:14:18.197187",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 495.5,
+        "assigned_at": "2025-07-01T00:14:18.265352",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 715,
+        "assigned_at": "2025-07-01T00:14:18.344408",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "medium",
+        "assigned_at": "2025-07-01T00:14:18.410992",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 42.8,
+        "assigned_at": "2025-07-01T00:14:18.486583",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:18.565306",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "24f25cddd3": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:18.645781",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 535.2,
+        "assigned_at": "2025-07-01T00:14:18.724784",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 626,
+        "assigned_at": "2025-07-01T00:14:18.803244",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:18.881436",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 62.4,
+        "assigned_at": "2025-07-01T00:14:18.944525",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:19.023267",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "193fbf0ae8": {
+      "category": {
+        "value": "Other",
+        "assigned_at": "2025-07-01T00:14:19.117386",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 479.4,
+        "assigned_at": "2025-07-01T00:14:19.198523",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 671,
+        "assigned_at": "2025-07-01T00:14:19.258475",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:19.337338",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 56.7,
+        "assigned_at": "2025-07-01T00:14:19.431702",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:19.498858",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "877d489d6d": {
+      "category": {
+        "value": "Channelrhodopsin",
+        "assigned_at": "2025-07-01T00:14:19.588573",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 489.5,
+        "assigned_at": "2025-07-01T00:14:19.651671",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 250,
+        "assigned_at": "2025-07-01T00:14:19.730188",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:19.808634",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 62.7,
+        "assigned_at": "2025-07-01T00:14:19.886767",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Chlamydomonas reinhardtii",
+        "assigned_at": "2025-07-01T00:14:19.965499",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "47d8ad9655": {
+      "category": {
+        "value": "Channelrhodopsin",
+        "assigned_at": "2025-07-01T00:14:20.059854",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 527.9,
+        "assigned_at": "2025-07-01T00:14:20.138558",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 280,
+        "assigned_at": "2025-07-01T00:14:20.217029",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:20.300354",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 49.6,
+        "assigned_at": "2025-07-01T00:14:20.374719",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Halobacterium salinarum",
+        "assigned_at": "2025-07-01T00:14:20.470619",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "e446b99089": {
+      "category": {
+        "value": "Channelrhodopsin",
+        "assigned_at": "2025-07-01T00:14:20.566769",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 487.8,
+        "assigned_at": "2025-07-01T00:14:20.655943",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 270,
+        "assigned_at": "2025-07-01T00:14:20.733809",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:20.812446",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 48.2,
+        "assigned_at": "2025-07-01T00:14:20.906605",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-07-01T00:14:20.984804",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    },
+    "3ede1a7a23": {
+      "category": {
+        "value": "Channelrhodopsin",
+        "assigned_at": "2025-07-01T00:14:21.088727",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "lambda_max": {
+        "value": 518.9,
+        "assigned_at": "2025-07-01T00:14:21.176423",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "sequence_length": {
+        "value": 284,
+        "assigned_at": "2025-07-01T00:14:21.255768",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "expression_level": {
+        "value": "low",
+        "assigned_at": "2025-07-01T00:14:21.334898",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "thermal_stability": {
+        "value": 61.1,
+        "assigned_at": "2025-07-01T00:14:21.416570",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-07-01T00:14:21.517413",
+        "metadata": {
+          "source_file": "C:\\Users\\hidbe\\AppData\\Local\\Temp\\tmpf14u58zb.csv"
+        }
+      }
+    }
+  }
+}

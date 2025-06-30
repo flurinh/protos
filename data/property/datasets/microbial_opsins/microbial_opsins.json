@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "created_at": "2025-06-30T22:56:03.630480",
+    "modified_at": "2025-06-30T22:56:03.684387",
+    "description": ""
+  },
+  "entities": {
+    "36c2c0da93": {
+      "lambda_max": {
+        "value": 568,
+        "assigned_at": "2025-06-30T22:56:03.630509",
+        "metadata": {
+          "method": "spectroscopy",
+          "pH": 7.0
+        }
+      },
+      "organism": {
+        "value": "Halobacterium salinarum",
+        "assigned_at": "2025-06-30T22:56:03.662289",
+        "metadata": {
+          "source": "NCBI"
+        }
+      }
+    },
+    "7e77394211": {
+      "lambda_max": {
+        "value": 500,
+        "assigned_at": "2025-06-30T22:56:03.640533",
+        "metadata": {
+          "method": "spectroscopy",
+          "pH": 7.0
+        }
+      },
+      "organism": {
+        "value": "Gloeobacter violaceus",
+        "assigned_at": "2025-06-30T22:56:03.674297",
+        "metadata": {
+          "source": "NCBI"
+        }
+      }
+    },
+    "a1b2c3d4e5": {
+      "lambda_max": {
+        "value": 485,
+        "assigned_at": "2025-06-30T22:56:03.652199",
+        "metadata": {
+          "method": "spectroscopy",
+          "pH": 7.0
+        }
+      },
+      "organism": {
+        "value": "Anabaena sensilis",
+        "assigned_at": "2025-06-30T22:56:03.684367",
+        "metadata": {
+          "source": "NCBI"
+        }
+      }
+    }
+  }
+}

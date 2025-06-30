@@ -216,13 +216,20 @@ def normalize_grn_format(grn: str) -> str:
         distance = int(match.group(3))
         return f"{helix_pair}.{distance:03d}"
     
-    # Legacy loop format without zero padding (e.g., '12.5')
-    loop_no_padding_pattern = re.compile(r'^([1-8])([1-8])\.(\d+)$')
+    # Legacy loop format without zero padding (e.g., '12.5', '12.47')
+    loop_no_padding_pattern = re.compile(r'^([0-9])([0-9])\.(\d+)$')
     match = loop_no_padding_pattern.match(grn)
-    if match and len(match.group(3)) < 3:
+    if match:
         helix_pair = match.group(1) + match.group(2)
-        distance = int(match.group(3))
-        return f"{helix_pair}.{distance:03d}"
+        distance_str = match.group(3)
+        
+        # If already 3 digits, keep as is
+        if len(distance_str) == 3:
+            return grn
+        # Otherwise pad to 3 digits
+        else:
+            distance = int(distance_str)
+            return f"{helix_pair}.{distance:03d}"
     
     # Standard GRN with x notation (e.g., '1x50')
     std_x_pattern = re.compile(r'^([1-8])x(\d+)$')
@@ -315,13 +322,22 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
                     helix = int(helix_str)
                     position = int(position_str)
                     
-                    # Check helix range (typically 1-8 for GPCRs)
-                    if not (1 <= helix <= 8):
-                        return False, f"Invalid helix number: {helix} (expected 1-8)"
+                    # Standard GRN should have exactly 1 digit before decimal
+                    if len(helix_str) != 1:
+                        return False, f"Invalid standard GRN format: {grn} (expected single digit before decimal)"
+                    
+                    # Standard GRN should have 1-2 digits after decimal (not 3)
+                    if len(position_str) > 2:
+                        return False, f"Invalid standard GRN format: {grn} (too many digits after decimal, use loop format for 3 digits)"
+                    
+                    # Check helix range (0-9 are valid in some GPCR numbering schemes)
+                    # 0 is used for regions before TM1, 9 for regions after TM7/8
+                    if not (0 <= helix <= 9):
+                        return False, f"Invalid helix number: {helix} (expected 0-9)"
                         
-                    # Check position (typically 1-99)
-                    if not (1 <= position <= 99):
-                        return False, f"Invalid position number: {position} (expected 1-99)"
+                    # Check position (allow up to 99 for standard notation)
+                    if not (0 <= position <= 99):
+                        return False, f"Invalid position number: {position} (expected 0-99)"
                 except ValueError:
                     return False, f"Non-numeric values in GRN: {grn}"
                 

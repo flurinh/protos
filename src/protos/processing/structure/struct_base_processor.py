@@ -94,25 +94,19 @@ class CifBaseProcessor(BaseProcessor):
         self.dataset_dir = dataset_dir
         self.alignments_dir = alignments_dir
         
-        # Set up actual paths
-        self.path_structure_dir = os.path.join(self.data_root, processor_data_dir, structure_dir)
-        self.path_dataset_dir = os.path.join(self.data_root, processor_data_dir, dataset_dir)
-        self.path_alignment_dir = os.path.join(self.data_root, processor_data_dir, alignments_dir)
+        # Store subdirectory names for path properties
+        # Note: Actual paths are provided via properties using ProtosPaths
+        # This follows core philosophy: processors handle paths, users work with names
         
         # Track PDB ID to entity ID mappings
         self._pdb_entity_map = {}
         
-        # Create directories if they don't exist
-        os.makedirs(self.path_structure_dir, exist_ok=True)
-        os.makedirs(self.path_dataset_dir, exist_ok=True)
-        os.makedirs(self.path_alignment_dir, exist_ok=True)
+        # Note: Directory creation is handled by ProtosPaths in BaseProcessor
+        # Manual os.makedirs() calls violate core philosophy
         
         # Set up parameters
         self.pdb_ids_file = pdb_ids_file
-        if pdb_ids_file is not None:
-            self.path_pdb_ids_file = os.path.join(self.data_root, processor_data_dir, pdb_ids_file)
-        else:
-            self.path_pdb_ids_file = None
+        # Note: path_pdb_ids_file will be provided via property if needed
             
         # Configure processing options
         self.limit = limit
@@ -131,13 +125,72 @@ class CifBaseProcessor(BaseProcessor):
         self.structure_info = {}
         self.chain_ids = []
         
-        # Setup temp directory for temporary files
-        self.temp_dir = Path(os.path.join(self.data_root, processor_data_dir, 'temp_cif'))
-        os.makedirs(self.temp_dir, exist_ok=True)
+        # Note: temp_dir will be provided via property using ProtosPaths
         
         # Initialize PDB IDs if requested
         if preload:
             self.initialize_pdb_ids()
+    
+    # Path properties following core philosophy: users work with names, never paths
+    # These properties provide access to structure-specific paths through ProtosPaths
+    
+    @property
+    def path_structure_dir(self):
+        """Get path to structure files directory (mmcif) using ProtosPaths."""
+        if hasattr(self, 'path_resolver') and self.path_resolver:
+            from pathlib import Path
+            return Path(self.path_resolver.get_structure_subdir_path('structure_dir'))
+        else:
+            # Fallback for legacy mode
+            from pathlib import Path
+            return Path(self.data_path) / self.structure_dir
+    
+    @property  
+    def path_dataset_dir(self):
+        """Get path to dataset files directory using ProtosPaths."""
+        if hasattr(self, 'path_resolver') and self.path_resolver:
+            from pathlib import Path
+            return Path(self.path_resolver.get_structure_subdir_path('dataset_dir'))
+        else:
+            # Fallback for legacy mode
+            from pathlib import Path
+            return Path(self.data_path) / self.dataset_dir
+    
+    @property
+    def path_alignment_dir(self):
+        """Get path to alignment files directory using ProtosPaths.""" 
+        if hasattr(self, 'path_resolver') and self.path_resolver:
+            from pathlib import Path
+            return Path(self.path_resolver.get_structure_subdir_path('alignments_dir'))
+        else:
+            # Fallback for legacy mode
+            from pathlib import Path
+            return Path(self.data_path) / self.alignments_dir
+    
+    @property
+    def temp_dir(self):
+        """Get path to temporary files directory using ProtosPaths."""
+        if hasattr(self, 'path_resolver') and self.path_resolver:
+            from pathlib import Path
+            return Path(self.path_resolver.get_structure_subdir_path('temp_dir'))
+        else:
+            # Fallback for legacy mode
+            from pathlib import Path
+            return Path(self.data_path) / 'temp_cif'
+    
+    @property
+    def path_pdb_ids_file(self):
+        """Get path to PDB IDs file using ProtosPaths."""
+        if self.pdb_ids_file is None:
+            return None
+        
+        if hasattr(self, 'path_resolver') and self.path_resolver:
+            from pathlib import Path
+            return Path(self.data_path) / self.pdb_ids_file
+        else:
+            # Fallback for legacy mode
+            from pathlib import Path
+            return Path(self.data_path) / self.pdb_ids_file
     
     # Initialize and setup methods
     def initialize_pdb_ids(self):
@@ -316,22 +369,51 @@ class CifBaseProcessor(BaseProcessor):
         self._pdb_entity_map[pdb_id] = entity_id
         return entity_id
     
-    def list_structures(self, dataset: Optional[str] = None) -> List[str]:
+    def list_entities(self, dataset: Optional[str] = None) -> List[str]:
         """
-        List all available structures.
+        List all available structure entities.
+        
+        This lists individual structure files (entities), not datasets.
+        For datasets, use list_datasets().
         
         Args:
-            dataset: Optional dataset ID to filter by
+            dataset: Optional dataset ID to filter by structures within that dataset
             
         Returns:
             List of PDB IDs (not hash IDs!)
         """
+        if dataset:
+            # If dataset specified, return structures in that dataset only
+            # Check datasets.json
+            datasets_json_path = os.path.join(self.path_dataset_dir, 'datasets.json')
+            if os.path.exists(datasets_json_path):
+                try:
+                    with open(datasets_json_path, 'r') as f:
+                        datasets_data = json.load(f)
+                        if dataset in datasets_data:
+                            return datasets_data[dataset]
+                except:
+                    pass
+            
+            # Check individual dataset files
+            dataset_file = os.path.join(self.path_dataset_dir, f'{dataset}.json')
+            if os.path.exists(dataset_file):
+                try:
+                    with open(dataset_file, 'r') as f:
+                        dataset_info = json.load(f)
+                        return dataset_info.get('pdb_ids', [])
+                except:
+                    pass
+                    
+            return []
+        
+        # Otherwise, list all available structure files
         try:
             from protos.io.data_access import GlobalRegistry
             global_registry = GlobalRegistry()
             
             # Get entity IDs
-            entity_ids = global_registry.entity_registry.list_entities(format_type="structure", dataset=dataset)
+            entity_ids = global_registry.entity_registry.list_entities(format_type="structure")
             
             # Convert to PDB IDs for user-friendliness
             pdb_ids = []
@@ -339,10 +421,43 @@ class CifBaseProcessor(BaseProcessor):
                 original_id = global_registry.entity_registry.get_original_id(entity_id)
                 if original_id:
                     pdb_ids.append(original_id)
+            
+            # If no registered entities, fall back to file listing
+            if not pdb_ids:
+                pdb_ids = self.get_available_pdb_files()
+                
             return pdb_ids
         except:
-            # Fall back to listing PDB IDs
-            return self.pdb_ids
+            # Fall back to listing PDB IDs from files
+            return self.get_available_pdb_files()
+    
+    def list_structures(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all available structures (backward compatibility).
+        
+        Deprecated: Use list_entities() instead.
+        
+        Args:
+            dataset: Optional dataset ID to filter by
+            
+        Returns:
+            List of PDB IDs
+        """
+        return self.list_entities(dataset=dataset)
+    
+    def list_dataset_structures(self, dataset_name: str) -> List[str]:
+        """
+        List structures in a specific dataset.
+        
+        This is a convenience method equivalent to list_entities(dataset=dataset_name).
+        
+        Args:
+            dataset_name: Name of the dataset
+            
+        Returns:
+            List of PDB IDs in the dataset
+        """
+        return self.list_entities(dataset=dataset_name)
     
     def save_structure_as_entity(self, 
                                 structure_df: pd.DataFrame, 
@@ -488,8 +603,13 @@ class CifBaseProcessor(BaseProcessor):
             # Register structure as entity
             self._register_structure_entity(pdb_id, structure)
             
-            # Return the loaded structure
-            return structure
+            # Return the loaded structure with proper data types
+            if apply_dtypes and self.data is not None and not self.data.empty:
+                # Return the portion of self.data that corresponds to this structure
+                formatted_structure = self.data[self.data['pdb_id'] == pdb_id].copy()
+                return formatted_structure
+            else:
+                return structure
         except Exception as e:
             if self.allow_exception:
                 self.logger.error(f"Error loading structure {pdb_id}: {str(e)}")
@@ -831,120 +951,162 @@ class CifBaseProcessor(BaseProcessor):
     # Dataset management methods
     def list_datasets(self):
         """
-        List available structure datasets.
+        List available structure datasets (collections of structures).
         
         Returns:
             List of dataset information dictionaries
         """
-        # Use the standardized dataset API
-        if self.dataset_manager is not None:
-            return self.dataset_manager.list_datasets()
-        else:
-            # Fallback to legacy method for backward compatibility
-            datasets = super().list_datasets()
-            # Filter for structure datasets
-            return [d for d in datasets if d.get("type") == "structure" or d.get("type") == "structure_dataset"]
+        datasets = []
         
-    def load_dataset(self, dataset_name):
+        # First check legacy datasets.json
+        datasets_json_path = os.path.join(self.path_dataset_dir, 'datasets.json')
+        if os.path.exists(datasets_json_path):
+            try:
+                with open(datasets_json_path, 'r') as f:
+                    datasets_data = json.load(f)
+                    for dataset_id, pdb_ids in datasets_data.items():
+                        datasets.append({
+                            'id': dataset_id,
+                            'type': 'structure_dataset',
+                            'structure_count': len(pdb_ids),
+                            'source': 'datasets.json'
+                        })
+            except:
+                pass
+        
+        # Then check for individual dataset JSON files
+        if os.path.exists(self.path_dataset_dir):
+            for file in os.listdir(self.path_dataset_dir):
+                if file.endswith('.json') and file != 'datasets.json':
+                    dataset_id = file.replace('.json', '')
+                    try:
+                        with open(os.path.join(self.path_dataset_dir, file), 'r') as f:
+                            dataset_data = json.load(f)
+                            datasets.append({
+                                'id': dataset_id,
+                                'type': 'structure_dataset',
+                                'name': dataset_data.get('name', dataset_id),
+                                'description': dataset_data.get('description', ''),
+                                'structure_count': len(dataset_data.get('pdb_ids', [])),
+                                'source': file
+                            })
+                    except:
+                        pass
+        
+        return datasets
+        
+    def get_dataset(self, dataset_name):
         """
-        Load a predefined dataset of structures.
+        Get dataset information (metadata and structure list) without loading structures.
+        
+        This method returns dataset metadata and the list of PDB IDs in the dataset,
+        but does NOT load the actual structure files. Use load_dataset() to load structures.
         
         Args:
             dataset_name: Name of the dataset
             
         Returns:
-            Dataset object or None if loading failed
+            Dataset object with metadata and PDB ID list, or None if not found
         """
         # Use the standardized dataset API
         if self.dataset_manager is not None:
             dataset = self.dataset_manager.load_dataset(dataset_name)
             if dataset is not None:
-                # Extract PDB IDs from dataset content
+                # Store PDB IDs but don't load structures
                 self.pdb_ids = dataset.content
-                # Load the actual structures
-                self.load_structures(self.pdb_ids)
                 return dataset
         
-        # Legacy fallback approach
-        dataset_info = self.get_dataset_info(dataset_name)
-        if dataset_info is not None and "pdb_ids" in dataset_info:
-            self.pdb_ids = dataset_info["pdb_ids"]
-            self.load_structures(self.pdb_ids)
-            
-            # Create a standardized dataset object if dataset manager is available
-            if self.dataset_manager is not None:
-                return self.dataset_manager.create_dataset(
-                    dataset_id=dataset_name,
-                    name=dataset_info.get("name", dataset_name),
-                    description=dataset_info.get("description", f"Structure dataset with {len(self.pdb_ids)} PDB IDs"),
-                    content=self.pdb_ids,
-                    metadata={
-                        "converted_from_legacy": True,
-                        "original_metadata": dataset_info
-                    }
-                )
-            return None
-            
-        # Very legacy approach: check datasets.json
+        # Legacy fallback approach - check datasets.json
         datasets_json_path = os.path.join(self.path_dataset_dir, 'datasets.json')
-        try:
-            with open(datasets_json_path, 'r') as f:
-                datasets = json.load(f)
-                
-            if dataset_name not in datasets:
-                self.logger.error(f"Dataset '{dataset_name}' not found")
-                return None
-                
-            self.pdb_ids = datasets[dataset_name]
-            self.load_structures(self.pdb_ids)
+        if os.path.exists(datasets_json_path):
+            try:
+                with open(datasets_json_path, 'r') as f:
+                    datasets_data = json.load(f)
+                    if dataset_name in datasets_data:
+                        self.pdb_ids = datasets_data[dataset_name]
+                        return {
+                            'id': dataset_name,
+                            'pdb_ids': self.pdb_ids,
+                            'source': 'datasets.json'
+                        }
+            except:
+                pass
+        
+        # Check individual dataset files
+        dataset_file = os.path.join(self.path_dataset_dir, f'{dataset_name}.json')
+        if os.path.exists(dataset_file):
+            try:
+                with open(dataset_file, 'r') as f:
+                    dataset_info = json.load(f)
+                    self.pdb_ids = dataset_info.get('pdb_ids', [])
+                    
+                # Create a standardized dataset object if dataset manager is available
+                if self.dataset_manager is not None:
+                    return self.dataset_manager.create_dataset(
+                        dataset_id=dataset_name,
+                        name=dataset_info.get("name", dataset_name),
+                        description=dataset_info.get("description", f"Structure dataset with {len(self.pdb_ids)} PDB IDs"),
+                        content=self.pdb_ids,
+                        metadata={
+                            "converted_from_legacy": True,
+                            "original_metadata": dataset_info
+                        }
+                    )
+                return dataset_info
+            except:
+                pass
             
-            # Create a standardized dataset object if dataset manager is available
-            if self.dataset_manager is not None:
-                return self.dataset_manager.create_dataset(
-                    dataset_id=dataset_name,
-                    name=dataset_name,
-                    description=f"Structure dataset with {len(self.pdb_ids)} PDB IDs",
-                    content=self.pdb_ids,
-                    metadata={
-                        "converted_from_legacy_json": True,
-                        "source_file": datasets_json_path
-                    }
-                )
-            return None
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.logger.error(f"Could not load dataset '{dataset_name}'")
-            return None
+        # If nothing found, return None
+        self.logger.error(f"Dataset '{dataset_name}' not found")
+        return None
         
     def load_dataset(self, dataset_id, apply_dtypes=True, debug=False):
         """
-        Load a dataset of structure PDB IDs and the corresponding structures.
+        Load a dataset and all its structures.
         
-        This method loads the dataset definition, then loads each structure in the dataset.
-        Finally, it applies proper data type formatting to ensure all columns have 
-        the correct types.
+        This method:
+        1. Loads the dataset definition
+        2. Loads each structure file in the dataset
+        3. Applies proper data type formatting
+        
+        For just dataset info without loading structures, use get_dataset().
         
         Args:
-            dataset_id: Dataset identifier
+            dataset_id: Dataset identifier (string) or dataset dict from list_datasets()
             apply_dtypes: Whether to apply proper data types to loaded structures
             debug: Whether to print debug information during data type formatting
             
         Returns:
             List of loaded PDB IDs
         """
+        # Handle case where dataset_id is a dict from list_datasets()
+        if isinstance(dataset_id, dict):
+            dataset_id = dataset_id.get('id')
+            if not dataset_id:
+                self.logger.error("Invalid dataset dict: missing 'id' field")
+                return []
         # Use the standardized dataset API if available
         if self.dataset_manager is not None:
             dataset = self.dataset_manager.load_dataset(dataset_id)
             if dataset is not None and hasattr(dataset, 'content'):
                 content = dataset.content
+                self.logger.debug(f"Dataset content: {content[:3] if content else None}")
                 
                 # Check if content is entity IDs (10-char hash) or PDB IDs
-                if content and all(len(str(item)) == 10 and str(item).isalnum() for item in content[:5]):
+                # Use min to avoid index errors on small datasets
+                check_items = content[:min(5, len(content))] if content else []
+                if content and all(len(str(item)) == 10 and str(item).isalnum() for item in check_items):
                     # Content appears to be entity IDs
                     pdb_ids = []
+                    from protos.io.data_access import GlobalRegistry
+                    global_registry = GlobalRegistry()
+                    
                     for entity_id in content:
-                        if hasattr(self, 'entity_registry') and self.entity_registry is not None:
-                            entity_info = self.entity_registry.get_entity(entity_id)
-                            if entity_info and entity_info.get("type") == "structure":
+                        # Try global registry first
+                        entity_info = global_registry.entity_registry.get_entity(entity_id)
+                        if entity_info:
+                            # Check if this is a structure entity
+                            if "structure" in entity_info.get("formats", {}):
                                 pdb_ids.append(entity_info.get("original_id"))
                         else:
                             # Try to find in local mapping
@@ -1199,6 +1361,42 @@ class CifBaseProcessor(BaseProcessor):
                         (self.data['res_atom_name'] == ALPHA_CARBON)]['res_name1l'].tolist()
                         
         return ''.join(seq)
+    
+    def extract_sequence(self, chain_id='A', pdb_id=None):
+        """
+        Extract sequence from structure for a specific chain.
+        
+        This is a convenience method that wraps get_seq for easier use.
+        
+        Args:
+            chain_id: Chain identifier (default 'A')
+            pdb_id: PDB ID (if None, uses first loaded structure)
+            
+        Returns:
+            String sequence or None if not found
+        """
+        if self.data is None or self.data.empty:
+            self.logger.warning("No structure data loaded")
+            return None
+            
+        # Use first PDB ID if not specified
+        if pdb_id is None:
+            if self.pdb_ids:
+                pdb_id = self.pdb_ids[0]
+            else:
+                self.logger.warning("No PDB IDs available")
+                return None
+                
+        try:
+            sequence = self.get_seq(pdb_id, chain_id)
+            if sequence:
+                self.logger.info(f"Extracted sequence from {pdb_id} chain {chain_id} (length: {len(sequence)})")
+            else:
+                self.logger.warning(f"No sequence found for {pdb_id} chain {chain_id}")
+            return sequence
+        except Exception as e:
+            self.logger.error(f"Error extracting sequence: {e}")
+            return None
         
     def get_seq_dict(self, load_file=False, version='v1', chain_type=None):
         """
@@ -1489,18 +1687,26 @@ class CifBaseProcessor(BaseProcessor):
                 file_path = os.path.join(save_dir, f'{original_pdb_id}.cif')
             else:
                 # Use standard path resolution with the original PDB ID
+                # The create_if_missing=True ensures the directory exists
                 file_path = get_structure_path(original_pdb_id, create_if_missing=True)
+                print(f"Downloading to: {file_path}")
             
             # Download the file
-            response = requests.get(url, timeout=10)
+            print(f"Downloading from: {url}")
+            response = requests.get(url, timeout=30)
             response.raise_for_status()
+            print(f"Downloaded {len(response.content)} bytes")
             
             with open(file_path, 'wb') as f:
                 f.write(response.content)
-                
+            
+            print(f"Successfully saved to: {file_path}")
             return True
-        except:
-            print(f"HTTP error occurred while downloading {pdb_id}")
+        except requests.exceptions.RequestException as e:
+            print(f"HTTP error occurred while downloading {pdb_id}: {e}")
+            return False
+        except Exception as e:
+            print(f"Error occurred while downloading {pdb_id}: {e}")
             return False
             
     def check_and_download_missing_cifs(self, dataset_name):

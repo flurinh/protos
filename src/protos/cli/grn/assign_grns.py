@@ -1,13 +1,27 @@
+"""
+CLI command for assigning GRNs to sequences using the entity system.
+
+This command now integrates with the entity registry for tracking sequences
+and their GRN annotations.
+"""
+
 import argparse
-from concurrent.futures import ProcessPoolExecutor
 import pandas as pd
 from pathlib import Path
-import os
-from protos.processing.grn.grn_table_utils import *
-from protos.io.fasta_utils import *
-from protos.processing.sequence.seq_alignment import init_aligner, align_blosum62, format_alignment, mmseqs2_align2
+from concurrent.futures import ProcessPoolExecutor
+from typing import Dict, List, Tuple, Optional
+
 from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-from protos.io.paths.path_config import ProtosPaths
+from protos.processing.sequence.seq_processor import SeqProcessor
+from protos.processing.grn.grn_table_utils import (
+    GRNConfigManager, init_grn_intervals, init_row_from_alignment,
+    expand_annotation, is_sequential
+)
+from protos.processing.grn.grn_utils import sort_grns_str
+from protos.processing.sequence.seq_alignment import (
+    init_aligner, align_blosum62, format_alignment, mmseqs2_align2
+)
+from protos.io.data_access import GlobalRegistry
 
 
 def get_pairwise_alignment(query_seq_dict, ref_seq_dict, best_matches, aligner=None):
@@ -15,26 +29,28 @@ def get_pairwise_alignment(query_seq_dict, ref_seq_dict, best_matches, aligner=N
     Get pairwise alignment between query sequences and reference sequences.
     
     Args:
-        query_seq_dict (dict): Dictionary of query sequences
-        ref_seq_dict (dict): Dictionary of reference sequences
-        best_matches (list): List of [query_id, ref_id] pairs to align
-        aligner (object, optional): Alignment object. Defaults to None.
+        query_seq_dict: Dictionary of query sequences
+        ref_seq_dict: Dictionary of reference sequences
+        best_matches: List of [query_id, ref_id] pairs to align
+        aligner: Alignment object (created if None)
     
     Returns:
-        dict: Dictionary of alignments keyed by query_id
+        Dictionary of alignments keyed by query_id
     """
     if aligner is None:
         aligner = init_aligner(open_gap_score=-22)
+    
     alignment_dict = {}
     for query_id, ref_id in best_matches:
-        print(query_id, ref_id)
+        print(f"Aligning {query_id} to {ref_id}")
         try:
             query_seq = query_seq_dict[query_id].replace('\n', '')
             ref_seq = ref_seq_dict[ref_id].replace('\n', '')
             alm = align_blosum62(query_seq, ref_seq, aligner)
             alignment_dict[query_id] = format_alignment(alm)
         except Exception as e:
-            print(f"Error aligning {query_id}: {query_seq_dict[query_id]}: {e}")
+            print(f"Error aligning {query_id}: {e}")
+    
     return alignment_dict
 
 
@@ -43,13 +59,13 @@ def get_aligned_grns(grnp, alignments, best_matches, grns_str_strict):
     Get aligned GRNs based on alignments.
     
     Args:
-        grnp (GRNProcessor): GRN processor instance
-        alignments (dict): Dictionary of alignments
-        best_matches (list): List of [query_id, ref_id] pairs
-        grns_str_strict (list): List of strict GRNs to filter by
+        grnp: GRN processor instance
+        alignments: Dictionary of alignments
+        best_matches: List of [query_id, ref_id] pairs
+        grns_str_strict: List of strict GRNs to filter by
     
     Returns:
-        dict: Dictionary of aligned GRNs keyed by query_id
+        Dictionary of aligned GRNs keyed by query_id
     """
     new_rows = {}
     for query_id, ref_id in best_matches:
@@ -59,14 +75,27 @@ def get_aligned_grns(grnp, alignments, best_matches, grns_str_strict):
             ref_dict = {grn: res for grn, res in ref_row.to_dict().items() if res != '-'}
             seq_pos2grn = dict([(i + 1, grn) for i, grn in enumerate(list(ref_dict.keys()))])
             new_row = init_row_from_alignment(alignment, seq_pos2grn)
-            new_row_grns = [grn for grn in grns_str_strict if (len(grn.split('x')[0]) < 2) &
-                               (grn in new_row.index.tolist())]
+            
+            # Filter for single TM GRNs (both x and dot notation)
+            new_row_grns = []
+            for grn in grns_str_strict:
+                if 'x' in grn:
+                    tm_part = grn.split('x')[0]
+                elif '.' in grn:
+                    tm_part = grn.split('.')[0]
+                else:
+                    continue
+                    
+                if len(tm_part) < 2 and grn in new_row.index.tolist():
+                    new_row_grns.append(grn)
+            
             new_row_strict = new_row.loc[new_row_grns]
             if len(new_row_strict) == 0:
-                print(query_id, "No strict GRNs found in alignment.")
+                print(f"{query_id}: No strict GRNs found in alignment.")
             new_rows[query_id] = new_row_strict
         except Exception as e:
             print(f"Error initializing row of sequence {query_id}: {e}")
+    
     return new_rows
 
 
@@ -75,21 +104,25 @@ def annotate_sequence(query_id, query_seq, new_row, protein_family):
     Annotate a sequence with GRNs.
     
     Args:
-        query_id (str): Query sequence ID
-        query_seq (str): Query sequence
-        new_row (Series): New row with GRN annotations
-        protein_family (str): Protein family name
+        query_id: Query sequence ID
+        query_seq: Query sequence
+        new_row: New row with GRN annotations
+        protein_family: Protein family name
     
     Returns:
-        tuple: (query_id, GRN dictionary) or (None, None) if error
+        Tuple of (query_id, GRN dictionary) or (None, None) if error
     """
     try:
         new_row_seq = ''.join([x[0] for x in new_row]).replace('-', '')
-
+        
         alignment = align_blosum62(query_seq, new_row_seq, init_aligner(), verbose=0)
         alignment = format_alignment(alignment)
-        grns, rns, missing = expand_annotation(new_row, query_seq, alignment, protein_family=protein_family,
-                                           max_alignment_gap=1, verbose=0)
+        grns, rns, missing = expand_annotation(
+            new_row, query_seq, alignment,
+            protein_family=protein_family,
+            max_alignment_gap=1, verbose=0
+        )
+        
         if len(missing) == 0:
             grn_dict = dict(zip(rns, grns))
             if is_sequential(grn_dict):
@@ -102,170 +135,255 @@ def annotate_sequence(query_id, query_seq, new_row, protein_family):
         return None, None
 
 
-def main_parallel_execution(query_dict, new_rows, protein_family, num_cores=8):
+def parallel_annotate_sequences(query_dict, new_rows, protein_family, num_cores=8):
     """
     Execute the annotation process in parallel.
     
     Args:
-        query_dict (dict): Dictionary of query sequences
-        new_rows (dict): Dictionary of new rows with aligned GRNs
-        protein_family (str): Protein family name
-        num_cores (int, optional): Number of CPU cores to use. Defaults to 8.
+        query_dict: Dictionary of query sequences
+        new_rows: Dictionary of new rows with aligned GRNs
+        protein_family: Protein family name
+        num_cores: Number of CPU cores to use
     
     Returns:
-        dict: Dictionary of GRN annotations keyed by query_id
+        Dictionary of GRN annotations keyed by query_id
     """
     with ProcessPoolExecutor(max_workers=num_cores) as executor:
-        futures = [executor.submit(annotate_sequence, query_id, query_dict[query_id], new_rows[query_id], protein_family)
-                  for query_id in query_dict]
+        futures = [
+            executor.submit(annotate_sequence, query_id, query_dict[query_id], 
+                          new_rows[query_id], protein_family)
+            for query_id in query_dict if query_id in new_rows
+        ]
+        
         results = {}
         for future in futures:
             try:
                 query_id, grn_dict = future.result()
                 if grn_dict is not None:
                     results[query_id] = grn_dict
-                else:
-                    print("why is the result in parallel execution None?")
             except Exception as e:
                 print(f"Error in processing: {str(e)}")
+        
         return results
 
 
-def assign_grns(protein_family, dataset, num_cores=8, data_root=None):
+def assign_grns_to_entities(
+    protein_family: str,
+    sequence_ids: Optional[List[str]] = None,
+    reference_table: str = None,
+    num_cores: int = 8,
+    output_name: Optional[str] = None
+) -> Optional[pd.DataFrame]:
     """
-    Assign GRNs to sequences in a dataset.
+    Assign GRNs to sequences using the entity system.
     
     Args:
-        protein_family (str): Protein family name ('gpcr_a', 'microbial_opsins', etc.)
-        dataset (str): Dataset name
-        num_cores (int, optional): Number of CPU cores to use. Defaults to 8.
-        data_root (str, optional): Root data directory. If None, uses PROTOS_DATA_ROOT env var.
+        protein_family: Protein family name ('gpcr_a', 'microbial_opsins', etc.)
+        sequence_ids: Specific sequence IDs to process (None = all registered sequences)
+        reference_table: Reference GRN table to use (None = use default for family)
+        num_cores: Number of CPU cores for parallel processing
+        output_name: Name for output GRN table (None = auto-generate)
     
     Returns:
-        DataFrame: DataFrame with GRN annotations
+        DataFrame with GRN annotations or None if failed
     """
-    # Set up paths
-    if data_root is None:
-        data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
+    # Initialize processors
+    seq_proc = SeqProcessor(name="grn_assignment")
+    grn_proc = GRNBaseProcessor(name="grn_assignment")
     
-    data_root = Path(data_root).absolute()
+    # Get sequences to process
+    if sequence_ids:
+        # Specific sequences requested
+        query_dict = {}
+        for seq_id in sequence_ids:
+            sequence = seq_proc.load_sequence_entity(seq_id)
+            if sequence:
+                query_dict[seq_id] = sequence
+            else:
+                print(f"Warning: Sequence {seq_id} not found")
+    else:
+        # Get all registered sequences
+        registry = GlobalRegistry()
+        query_dict = {}
+        
+        for entity_id, entity_data in registry.entity_registry.entities.items():
+            if 'sequence' in entity_data.get('formats', {}):
+                original_id = entity_data['original_id']
+                sequence = seq_proc.load_sequence_entity(original_id)
+                if sequence:
+                    query_dict[original_id] = sequence
     
+    if not query_dict:
+        print("No sequences found to process")
+        return None
+    
+    print(f"Processing {len(query_dict)} sequences")
+    
+    # Load reference GRN table
+    if reference_table is None:
+        # Use default reference for protein family
+        if protein_family == 'gpcr_a':
+            reference_table = 'ref'
+        else:
+            reference_table = 'mo_ref'
+    
+    try:
+        grn_proc.load_grn_table(reference_table)
+    except Exception as e:
+        print(f"Error loading reference table '{reference_table}': {e}")
+        return None
+    
+    # Get reference sequences
+    ref_dict = {k: v.replace('-', '') for k, v in grn_proc.get_seq_dict().items()}
+    
+    # Clean query sequences
+    query_dict = {k: v.replace('-', '') for k, v in query_dict.items()}
+    
+    # Get GRN configuration
     config = GRNConfigManager(protein_family=protein_family)
     grn_config_strict = config.get_config(strict=True)
     grns_str_strict = init_grn_intervals(grn_config_strict)
-
-    # Initialize GRNBaseProcessor with proper paths
-    if protein_family == 'gpcr_a':
-        ref_dataset_id = 'ref/ref'
-    else:
-        ref_dataset_id = 'ref/mo_ref'
     
-    grnp = GRNBaseProcessor(
-        name=f'{protein_family}_processor',
-        data_root=str(data_root),
-        processor_data_dir='grn',
-        dataset=ref_dataset_id,
-        preload=True
-    )
-
-    ref_dict = {k: v.replace('-', '') for k, v in grnp.get_seq_dict().items()}
-    
-    # Read query sequences from fasta
-    fasta_path = data_root / 'sequence' / 'fasta' / 'processed' / f'{dataset}.fasta'
-    if not fasta_path.exists():
-        raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
-    
-    query_dict = read_fasta(str(fasta_path))
-    query_dict = {k: v.replace('-', '') for k, v in query_dict.items()}
-    print(f"Loaded {len(query_dict)} sequences for processing")
-    
+    # Find best matches using MMseqs2
+    print("Finding best matches...")
     output = mmseqs2_align2(query_seqs=query_dict, ref_seqs=ref_dict)
-    best_matches = output.loc[output.groupby('query_id')['e_value'].idxmin()][['query_id', 'target_id']].values.tolist()
-
+    best_matches = output.loc[output.groupby('query_id')['e_value'].idxmin()][
+        ['query_id', 'target_id']
+    ].values.tolist()
+    
+    # Get pairwise alignments
+    print("Performing pairwise alignments...")
     alignments = get_pairwise_alignment(query_dict, ref_dict, best_matches=best_matches)
     alignments = {k: v for k, v in alignments.items() if len(v) > 0}
     print(f"Number of sequences with alignments: {len(alignments)}")
-
+    
+    # Get aligned GRNs
     best_matches = [[x, y] for [x, y] in best_matches if x in alignments.keys()]
-    print(f"Number of best matches: {len(best_matches)}")
-
-    new_rows = get_aligned_grns(grnp, alignments, best_matches, grns_str_strict)
+    new_rows = get_aligned_grns(grn_proc, alignments, best_matches, grns_str_strict)
     print(f"Number of sequences with aligned GRNs: {len(new_rows)}")
+    
+    # Filter query dict to only sequences with aligned GRNs
     query_dict = {k: v for k, v in query_dict.items() if k in new_rows.keys()}
-
-    final_results = main_parallel_execution(query_dict, new_rows, protein_family=protein_family, num_cores=num_cores)
-
+    
+    # Annotate sequences in parallel
+    print(f"Annotating sequences using {num_cores} cores...")
+    final_results = parallel_annotate_sequences(
+        query_dict, new_rows, 
+        protein_family=protein_family, 
+        num_cores=num_cores
+    )
+    
     print(f"Number of sequences with GRNs: {len(final_results)}")
     
     if not final_results:
         print("No sequences were successfully processed.")
         return None
-
+    
+    # Create DataFrame
     df = pd.DataFrame.from_dict(final_results, orient='index')
     df = df.loc[:, sort_grns_str(df.columns.tolist())]
-
-    # Crude check to see if the schiffbase is correct
-    # Handle both x and dot notation
+    
+    # Filter based on Schiff base (crude check)
     if protein_family == 'microbial_opsins':
-        if '7x50' in df.columns:
-            df = df[df['7x50'].str.contains('K')]
-        elif '7.50' in df.columns:
+        # Check for lysine at position 7.50 (or 7x50 for old notation)
+        if '7.50' in df.columns:
             df = df[df['7.50'].str.contains('K')]
+        elif '7x50' in df.columns:
+            df = df[df['7x50'].str.contains('K')]
     elif protein_family == 'gpcr_a':
-        if '7x43' in df.columns:
-            df = df[df['7x43'].str.contains('K')]
-        elif '7.43' in df.columns:
+        # Check for position 7.43 (or 7x43)
+        if '7.43' in df.columns:
             df = df[df['7.43'].str.contains('K')]
-
-    # Save using path configuration
-    output_path = data_root / 'grn' / 'datasets' / f'{dataset}.csv'
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=True)
-    print(f"Saved GRN table to {output_path}")
+        elif '7x43' in df.columns:
+            df = df[df['7x43'].str.contains('K')]
+    
+    # Save the GRN table with entity IDs
+    if output_name is None:
+        output_name = f"grn_{protein_family}_{len(df)}_sequences"
+    
+    # Reset the processor data and save
+    grn_proc.data = df
+    grn_proc.ids = df.index.tolist()
+    grn_proc.grns = df.columns.tolist()
+    
+    saved_path = grn_proc.save_grn_table(output_name, include_entity_ids=True)
+    print(f"Saved GRN table to: {saved_path}")
+    
     return df
 
 
 def main():
     """Command-line entry point for GRN assignment."""
     parser = argparse.ArgumentParser(
-        description='Process GRN annotations for a dataset',
+        description='Assign GRN annotations to sequences using the entity system',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Assign GRNs to microbial opsin sequences
-  python -m protos.cli.grn.assign_grns -p microbial_opsins -d mo_dataset
+  # Assign GRNs to all registered microbial opsin sequences
+  protos grn assign -p microbial_opsins
   
-  # Assign GRNs to GPCR sequences with custom data root
-  python -m protos.cli.grn.assign_grns -p gpcr_a -d gpcr_dataset --data-root /path/to/data
+  # Assign GRNs to specific sequences
+  protos grn assign -p gpcr_a -s P12345 P67890
+  
+  # Use custom reference table and output name
+  protos grn assign -p microbial_opsins --reference my_ref_table -o my_results
   
   # Use more cores for parallel processing
-  python -m protos.cli.grn.assign_grns -p microbial_opsins -d mo_dataset -n 16
+  protos grn assign -p microbial_opsins -n 16
         """
     )
-    parser.add_argument('-p', '--protein_family', required=True, 
-                      help='Protein family (e.g., gpcr_a, microbial_opsins)')
-    parser.add_argument('-d', '--dataset', required=True, 
-                      help='Dataset name (e.g., Bacteriorhodopsins)')
-    parser.add_argument('-n', '--num_cores', type=int, default=8, 
-                      help='Number of cores for parallel processing')
-    parser.add_argument('--data-root', type=str, default=None,
-                      help='Root data directory (default: uses PROTOS_DATA_ROOT env var or "data")')
-
+    
+    parser.add_argument(
+        '-p', '--protein-family',
+        required=True,
+        choices=['gpcr_a', 'microbial_opsins', 'gpcr_b', 'gpcr_c'],
+        help='Protein family'
+    )
+    
+    parser.add_argument(
+        '-s', '--sequences',
+        nargs='+',
+        help='Specific sequence IDs to process (default: all registered sequences)'
+    )
+    
+    parser.add_argument(
+        '-r', '--reference',
+        help='Reference GRN table name (default: family-specific default)'
+    )
+    
+    parser.add_argument(
+        '-n', '--num-cores',
+        type=int,
+        default=8,
+        help='Number of cores for parallel processing (default: 8)'
+    )
+    
+    parser.add_argument(
+        '-o', '--output',
+        help='Output table name (default: auto-generated)'
+    )
+    
     args = parser.parse_args()
     
-    result = assign_grns(
+    # Assign GRNs
+    result = assign_grns_to_entities(
         protein_family=args.protein_family,
-        dataset=args.dataset,
+        sequence_ids=args.sequences,
+        reference_table=args.reference,
         num_cores=args.num_cores,
-        data_root=args.data_root
+        output_name=args.output
     )
     
     if result is not None:
-        print("Done! GRN assignment completed successfully.")
-        print(f"Assigned GRNs to {len(result)} sequences")
+        print(f"\nSuccess! Assigned GRNs to {len(result)} sequences")
+        print(f"Columns: {', '.join(result.columns[:10])}{'...' if len(result.columns) > 10 else ''}")
     else:
-        print("GRN assignment failed.")
+        print("\nGRN assignment failed.")
+        return 1
+    
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    sys.exit(main())

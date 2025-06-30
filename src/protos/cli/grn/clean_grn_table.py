@@ -55,14 +55,17 @@ def validate_and_clean_row(row):
     return clean_row, erroneous_sequence
 
 
-def process_table(input_path, output_path, use_processor=True):
+def process_table(input_path, output_path, use_processor=True, include_entity_ids=True):
     """
     Process a GRN table by validating and cleaning rows.
+    
+    Now supports the entity system - GRN tables include entity_id column.
     
     Args:
         input_path (str): Path to the input CSV file (or dataset ID if use_processor=True)
         output_path (str): Path to save the cleaned CSV file (or dataset ID if use_processor=True)
         use_processor (bool): Whether to use GRNBaseProcessor for loading/saving
+        include_entity_ids (bool): Whether to preserve entity_id column in output
     
     Returns:
         dict: Report of erroneous sequences
@@ -79,26 +82,44 @@ def process_table(input_path, output_path, use_processor=True):
         # Load directly from file path
         df = pd.read_csv(input_path, index_col=0)
 
+    # Check if entity_id column exists
+    has_entity_ids = 'entity_id' in df.columns
+    entity_ids = None
+    if has_entity_ids:
+        # Preserve entity IDs
+        entity_ids = df['entity_id']
+        # Remove entity_id column temporarily for processing
+        processing_df = df.drop(columns=['entity_id'])
+    else:
+        processing_df = df
+
     erroneous_sequences_report = {}
 
     # Process each row
-    for index, row in df.iterrows():
+    for index, row in processing_df.iterrows():
         clean_row, is_erroneous = validate_and_clean_row(row)
 
         # Update the row in the dataframe
-        df.loc[index] = clean_row
+        processing_df.loc[index] = clean_row
 
         # Record any erroneous sequences
         if is_erroneous:
             erroneous_sequences_report[index] = clean_row
 
+    # Restore entity_id column if present and requested
+    if has_entity_ids and include_entity_ids:
+        processing_df['entity_id'] = entity_ids
+
     # Save the cleaned dataframe
     if use_processor:
         # Update processor data and save
-        processor.data = df
-        processor.save_grn_table(dataset_id=output_path)
+        processor.data = processing_df
+        processor.save_grn_table(
+            dataset_id=output_path,
+            include_entity_ids=include_entity_ids and has_entity_ids
+        )
     else:
-        df.to_csv(output_path)
+        processing_df.to_csv(output_path)
 
     # Report erroneous sequences
     if erroneous_sequences_report:
@@ -128,7 +149,7 @@ def clean_grn_table(input_path, output_path):
 def main():
     """Command-line entry point for GRN table cleaning."""
     parser = argparse.ArgumentParser(
-        description="Clean and validate residue sequences in a GRN table.",
+        description="Clean and validate residue sequences in a GRN table with entity system support.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -137,6 +158,9 @@ Examples:
   
   # Clean a GRN table using file paths
   python -m protos.cli.grn.clean_grn_table -i input.csv -o output.csv --use-files
+  
+  # Clean and preserve entity IDs
+  python -m protos.cli.grn.clean_grn_table -i grn_assigned -o grn_cleaned --preserve-entities
   
   # Clean with custom data root
   python -m protos.cli.grn.clean_grn_table -i my_table -o my_table_clean --data-root /path/to/data
@@ -148,6 +172,8 @@ Examples:
                       help='Output dataset ID (or file path if --use-files)')
     parser.add_argument('--use-files', action='store_true',
                       help='Use file paths instead of dataset IDs')
+    parser.add_argument('--preserve-entities', action='store_true',
+                      help='Preserve entity_id column if present')
     parser.add_argument('--data-root', type=str, default=None,
                       help='Root data directory (default: uses PROTOS_DATA_ROOT env var)')
 
@@ -157,7 +183,12 @@ Examples:
     if args.data_root:
         os.environ['PROTOS_DATA_ROOT'] = str(Path(args.data_root).absolute())
 
-    process_table(args.input_path, args.output_path, use_processor=not args.use_files)
+    process_table(
+        args.input_path, 
+        args.output_path, 
+        use_processor=not args.use_files,
+        include_entity_ids=args.preserve_entities
+    )
     print(f"Cleaned table saved to {args.output_path}")
 
 

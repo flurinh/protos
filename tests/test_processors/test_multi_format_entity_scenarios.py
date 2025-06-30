@@ -23,7 +23,9 @@ from protos.processing.embedding.embedding_processor import EmbeddingProcessor
 @pytest.fixture
 def setup_test_environment(request):
     """Set up test environment with test-data directory."""
-    test_data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data")
+    # Use relative path from current file location
+    current_file = Path(__file__)
+    test_data_dir = current_file.parent.parent.parent / "test-data"
     ProtosPaths.set_data_root(str(test_data_dir))
     
     # Clear global registry to ensure clean state

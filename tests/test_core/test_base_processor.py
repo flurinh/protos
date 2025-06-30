@@ -34,18 +34,19 @@ class _TestProcessor(BaseProcessor):
             processor_data_dir=processor_data_dir, 
             config=config
         )
+    
+    def list_entities(self):
+        """List available entities (test implementation)."""
+        # For testing, we'll track entities in metadata
+        return self.metadata.get('entities', [])
+    
+    def list_datasets(self):
+        """List available datasets (test implementation)."""
+        # For testing, use the dataset registry
+        return list(self.dataset_registry.keys())
 
 
-@pytest.fixture(autouse=True)
-def isolated_test_env(tmp_path, monkeypatch):
-    """Ensure each test runs in an isolated environment."""
-    # Set test data root to a temporary directory
-    test_root = tmp_path / "test_data"
-    test_root.mkdir(exist_ok=True)
-    ProtosPaths.set_data_root(str(test_root))
-    yield
-    # Clean up after test
-    ProtosPaths.set_data_root(None)
+# Removed isolated_test_env fixture - we use global test-data from conftest.py
 
 
 class TestBaseProcessorInitialization:

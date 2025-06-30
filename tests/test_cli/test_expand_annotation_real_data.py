@@ -33,7 +33,8 @@ class TestExpandAnnotationRealData:
             processor_data_dir='grn'
         )
         
-        seq_processor = BaseProcessor(
+        from protos.processing.sequence.seq_processor import SeqProcessor
+        seq_processor = SeqProcessor(
             name='test_expand',
             processor_data_dir='sequence'
         )
@@ -114,12 +115,16 @@ class TestExpandAnnotationRealData:
         assert len(rns) > 0, "No residue numbers were assigned"
         assert len(grns) == len(rns), "GRNs and residue numbers don't match"
         
-        # Save results using processor
+        # Save results using processor - prepare GRN table properly
         result_df = pd.DataFrame({grn: [rn] for grn, rn in zip(grns, rns)}, index=['TEST_SEQ1'])
-        grn_processor.save_data("test_seq1_expanded", result_df)
+        grn_processor.data = result_df
+        grn_processor.ids = result_df.index.tolist()
+        grn_processor.grns = result_df.columns.tolist()
+        grn_processor.save_grn_table("test_seq1_expanded")
         
         # Verify the results were saved correctly
-        loaded_result = grn_processor.load_data("test_seq1_expanded")
+        grn_processor.load_grn_table("test_seq1_expanded")
+        loaded_result = grn_processor.data
         assert loaded_result is not None
         assert 'TEST_SEQ1' in loaded_result.index
     

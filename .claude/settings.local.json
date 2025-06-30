@@ -61,7 +61,17 @@
       "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor_fixed.py -v)",
       "Bash(mv:*)",
       "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/test_base_processor_clean.py -v)",
-      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/ -v)"
+      "Bash(~/miniconda/envs/protos/bin/python -m pytest tests/test_core/ -v)",
+      "Bash(wget:*)",
+      "Bash(jupyter nbconvert:*)",
+      "Bash(chmod:*)",
+      "Bash(-print)",
+      "Bash(for:*)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(head:*)",
+      "Bash(done)",
+      "Bash(touch:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "created_at": "2025-06-30T23:07:29.083523",
+    "modified_at": "2025-06-30T23:07:29.277433",
+    "description": ""
+  },
+  "entities": {
+    "36c2c0da93": {
+      "resolution": {
+        "value": 2.1,
+        "assigned_at": "2025-06-30T23:07:29.083555",
+        "metadata": {
+          "format_type": "structure",
+          "source": "processor_integration"
+        }
+      },
+      "space_group": {
+        "value": "P21",
+        "assigned_at": "2025-06-30T23:07:29.179609",
+        "metadata": {
+          "format_type": "structure",
+          "source": "processor_integration"
+        }
+      },
+      "ligand_count": {
+        "value": 1,
+        "assigned_at": "2025-06-30T23:07:29.277414",
+        "metadata": {
+          "format_type": "structure",
+          "source": "processor_integration"
+        }
+      }
+    }
+  }
+}

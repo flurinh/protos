@@ -1,8 +1,9 @@
 """Sequence processor for managing sequence data and alignments."""
 
 import os
+import json
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Dict, List, Optional, Union, Tuple, Any
 import pandas as pd
 import logging
 
@@ -115,9 +116,22 @@ class SeqProcessor(BaseProcessor):
                 from protos.io.data_access import GlobalRegistry
                 global_registry = GlobalRegistry()
                 
+                # Determine if this FASTA file should be registered as a dataset
+                is_multi_sequence = len(sequences) > 1
+                fasta_filename = fasta_path.stem
+                
+                # Register individual sequence entities
                 for seq_id, sequence in sequences.items():
                     # Generate entity ID from sequence ID
                     entity_id = generate_entity_id(seq_id)
+                    
+                    # For single-sequence files, don't include dataset
+                    # For multi-sequence files, use the filename as dataset
+                    entity_datasets = []
+                    if is_multi_sequence:
+                        entity_datasets.append(fasta_filename)
+                    if dataset_name:
+                        entity_datasets.append(dataset_name)
                     
                     # Register entity
                     global_registry.entity_registry.register_entity(
@@ -127,11 +141,32 @@ class SeqProcessor(BaseProcessor):
                         file_path=str(fasta_path),
                         metadata={
                             "length": len(sequence),
-                            "dataset": dataset_name or os.path.basename(fasta_path)
+                            "fasta_file": fasta_filename,
+                            "is_multi_sequence_file": is_multi_sequence
                         },
-                        datasets=[dataset_name] if dataset_name else []
+                        datasets=entity_datasets
                     )
-                logger.info(f"Registered {len(sequences)} sequence entities")
+                
+                # Register the FASTA file as a dataset if it contains multiple sequences
+                if is_multi_sequence and self.dataset_manager:
+                    try:
+                        self.dataset_manager.register_dataset(
+                            dataset_id=fasta_filename,
+                            name=fasta_filename,
+                            description=f"Multi-sequence FASTA file containing {len(sequences)} sequences",
+                            metadata={
+                                "type": "multi_sequence_fasta",
+                                "sequence_count": len(sequences),
+                                "sequence_ids": list(sequences.keys()),
+                                "file_path": str(fasta_path),
+                                "file_size": fasta_path.stat().st_size
+                            }
+                        )
+                        logger.info(f"Registered FASTA file '{fasta_filename}' as dataset")
+                    except:
+                        pass
+                
+                logger.info(f"Registered {len(sequences)} sequence entities from {fasta_filename}")
             except Exception as e:
                 logger.warning(f"Could not register sequence entities: {e}")
         
@@ -543,41 +578,200 @@ class SeqProcessor(BaseProcessor):
         
         return entity_id
     
+    def list_entities(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all sequence entities (individual sequences within FASTA files).
+        
+        Each sequence within a FASTA file is an entity, not the file itself.
+        
+        Args:
+            dataset: Optional dataset (FASTA filename) to filter by
+            
+        Returns:
+            List of sequence IDs (not hash IDs!)
+        """
+        if dataset:
+            # If dataset specified, load sequences from that FASTA file
+            fasta_path = self.data_dirs['fasta'] / f"{dataset}.fasta"
+            if not fasta_path.exists():
+                fasta_path = self.data_dirs['fasta'] / f"{dataset}.fa"
+            
+            if fasta_path.exists():
+                sequences = self.load_sequences(str(fasta_path))
+                return list(sequences.keys())
+            return []
+        
+        # List all sequences from all FASTA files
+        all_sequences = []
+        sequence_dir = self.data_dirs['fasta']
+        
+        if sequence_dir.exists():
+            for fasta_file in sequence_dir.glob("*.fasta"):
+                try:
+                    sequences = self.load_sequences(str(fasta_file), register_entities=False)
+                    all_sequences.extend(sequences.keys())
+                except:
+                    pass
+            
+            for fasta_file in sequence_dir.glob("*.fa"):
+                try:
+                    sequences = self.load_sequences(str(fasta_file), register_entities=False)
+                    all_sequences.extend(sequences.keys())
+                except:
+                    pass
+        
+        # Also check registry for any registered sequences
+        try:
+            from protos.io.data_access import GlobalRegistry
+            global_registry = GlobalRegistry()
+            entity_ids = global_registry.entity_registry.list_entities(format_type="sequence")
+            
+            for entity_id in entity_ids:
+                original_id = global_registry.entity_registry.get_original_id(entity_id)
+                if original_id and original_id not in all_sequences:
+                    all_sequences.append(original_id)
+        except:
+            pass
+            
+        return list(set(all_sequences))  # Remove duplicates
+    
     def list_sequence_entities(self, dataset: Optional[str] = None) -> List[str]:
         """
-        List all sequence entities.
+        List all sequence entities (backward compatibility).
+        
+        Deprecated: Use list_entities() instead.
         
         Args:
             dataset: Optional dataset to filter by
             
         Returns:
-            List of sequence IDs (not hash IDs!)
+            List of sequence IDs
         """
-        # First check cached sequences
-        if dataset and dataset in self.sequences:
-            return list(self.sequences[dataset].keys())
-        elif not dataset and self.sequences:
-            # Return all cached sequences
-            all_seqs = []
-            for seqs in self.sequences.values():
-                all_seqs.extend(seqs.keys())
-            return list(set(all_seqs))
+        return self.list_entities(dataset=dataset)
+    
+    def get_sequence(self, identifier: str) -> Optional[str]:
+        """
+        Get a single sequence by identifier.
         
-        # Check registry
-        try:
-            from protos.io.data_access import GlobalRegistry
-            global_registry = GlobalRegistry()
-            entity_ids = global_registry.entity_registry.list_entities(
-                format_type="sequence", 
-                dataset=dataset
-            )
+        This method allows accessing individual sequences that have been
+        registered as entities, supporting the user's requirement that
+        "we can access them individually".
+        
+        Args:
+            identifier: Sequence identifier (ID or entity hash)
             
-            # Convert to original IDs
-            original_ids = []
-            for entity_id in entity_ids:
-                original_id = global_registry.entity_registry.get_original_id(entity_id)
-                if original_id:
-                    original_ids.append(original_id)
-            return original_ids
-        except:
-            return []
+        Returns:
+            Sequence string or None if not found
+        """
+        # Try load_sequence_entity first (handles entity resolution)
+        sequence = self.load_sequence_entity(identifier)
+        if sequence:
+            return sequence
+            
+        # Fallback: check cached sequences
+        if identifier in self.sequences:
+            return self.sequences[identifier]
+            
+        # Try to find in all FASTA files
+        for fasta_file in self.data_dirs['fasta'].glob("*.fasta"):
+            try:
+                sequences = read_fasta(str(fasta_file))
+                if identifier in sequences:
+                    return sequences[identifier]
+            except:
+                pass
+                
+        for fasta_file in self.data_dirs['fasta'].glob("*.fa"):
+            try:
+                sequences = read_fasta(str(fasta_file))
+                if identifier in sequences:
+                    return sequences[identifier]
+            except:
+                pass
+        
+        return None
+    
+    def list_datasets(self) -> List[Dict[str, Any]]:
+        """
+        List available sequence datasets.
+        
+        Datasets include:
+        1. FASTA files with multiple sequences (>1 sequence)
+        2. User-defined datasets from JSON files that group sequences
+        
+        FASTA files with only one sequence are NOT considered datasets.
+        
+        Returns:
+            List of dataset information dictionaries
+        """
+        datasets = []
+        sequence_dir = self.data_dirs['fasta']
+        
+        if sequence_dir.exists():
+            # List all FASTA files with multiple sequences
+            for fasta_file in sequence_dir.glob("*.fasta"):
+                try:
+                    # Quick scan to count sequences
+                    with open(fasta_file, 'r') as f:
+                        seq_count = sum(1 for line in f if line.startswith('>'))
+                    
+                    # Only consider files with multiple sequences as datasets
+                    if seq_count > 1:
+                        datasets.append({
+                            'id': fasta_file.stem,
+                            'type': 'multi_sequence_fasta',
+                            'format': 'fasta',
+                            'sequence_count': seq_count,
+                            'file_path': str(fasta_file),
+                            'file_size': fasta_file.stat().st_size,
+                            'description': f'FASTA file containing {seq_count} sequences'
+                        })
+                except:
+                    pass
+            
+            for fasta_file in sequence_dir.glob("*.fa"):
+                try:
+                    with open(fasta_file, 'r') as f:
+                        seq_count = sum(1 for line in f if line.startswith('>'))
+                    
+                    # Only consider files with multiple sequences as datasets
+                    if seq_count > 1:
+                        datasets.append({
+                            'id': fasta_file.stem,
+                            'type': 'multi_sequence_fasta', 
+                            'format': 'fasta',
+                            'sequence_count': seq_count,
+                            'file_path': str(fasta_file),
+                            'file_size': fasta_file.stat().st_size,
+                            'description': f'FASTA file containing {seq_count} sequences'
+                        })
+                except:
+                    pass
+        
+        # Check for user-defined datasets in JSON files
+        datasets_json = Path(self.data_path) / 'datasets.json'
+        if datasets_json.exists():
+            try:
+                with open(datasets_json, 'r') as f:
+                    user_datasets = json.load(f)
+                    for dataset_id, dataset_info in user_datasets.items():
+                        # User-defined datasets can group sequences from multiple sources
+                        datasets.append({
+                            'id': dataset_id,
+                            'type': 'user_defined_dataset',
+                            'description': dataset_info.get('description', ''),
+                            'sequence_ids': dataset_info.get('sequence_ids', []),
+                            'sequence_count': len(dataset_info.get('sequence_ids', [])),
+                            'source': 'datasets.json'
+                        })
+            except:
+                pass
+        
+        # Check dataset manager for managed datasets
+        if self.dataset_manager:
+            managed = self.dataset_manager.list_datasets()
+            for ds in managed:
+                if isinstance(ds, dict) and ds not in datasets:
+                    datasets.append(ds)
+        
+        return datasets

@@ -1,1 +1,54 @@
-{}
+{
+  "retinal_binders": {
+    "path": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/retinal_binders.json",
+    "metadata": {
+      "name": "retinal_binders",
+      "description": "Structure dataset with 1 PDB IDs",
+      "items": 1,
+      "created_at": "2025-06-29T20:59:09.560122",
+      "processor_type": "structure",
+      "dataset_type": "structure",
+      "source": "user"
+    },
+    "timestamp": "2025-06-29T20:59:09.567787"
+  },
+  "review_proteins": {
+    "path": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/review_proteins.json",
+    "metadata": {
+      "name": "Review Protein Structures",
+      "description": "Small proteins for functionality review",
+      "items": 3,
+      "created_at": "2025-06-30T18:48:37.162370",
+      "processor_type": "structure",
+      "dataset_type": "structure",
+      "source": "user"
+    },
+    "timestamp": "2025-06-30T18:48:37.169159"
+  },
+  "review_small_proteins": {
+    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\data\\structure\\structure_dataset\\review_small_proteins.json",
+    "metadata": {
+      "name": "Small Protein Structures",
+      "description": "Well-studied small proteins for demonstration",
+      "items": 3,
+      "created_at": "2025-06-30T22:05:55.807559",
+      "processor_type": "structure",
+      "dataset_type": "structure",
+      "source": "user"
+    },
+    "timestamp": "2025-06-30T22:05:55.811645"
+  },
+  "demo_structures": {
+    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\data\\structure\\structure_dataset\\demo_structures.json",
+    "metadata": {
+      "name": "Demo Protein Structures",
+      "description": "Small proteins for demonstration",
+      "items": 3,
+      "created_at": "2025-07-01T00:14:11.129022",
+      "processor_type": "structure",
+      "dataset_type": "structure",
+      "source": "user"
+    },
+    "timestamp": "2025-07-01T00:14:11.129022"
+  }
+}

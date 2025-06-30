@@ -110,7 +110,7 @@ def load_structure(pdb_id, folder='data/mmcif/', structure_id=0):
             atom_rows.append([pdb_id] + list(row))
     except Exception as e:
         print("Encountered error while parsing file. %s" % e)
-        sys.exit(1)
+        raise RuntimeError(f"Failed to parse CIF file {filename}: {e}") from e
 
     atom_df = pd.DataFrame(data=atom_rows, columns=cols)
     atom_df['label_seq_id'] = atom_df.apply(lambda x: int(x.label_seq_id) if x.label_seq_id != '.' else np.nan, axis=1)

@@ -23,8 +23,14 @@ from protos.processing.grn.grn_utils import (
     sort_grns_str
 )
 import os
+import re
+import json
+import logging
+import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
+from pathlib import Path
+from datetime import datetime
 from protos.core.base_processor import BaseProcessor
 from protos.io.data_access import generate_entity_id
 from typing import Dict, List, Optional, Any, Union
@@ -178,8 +184,8 @@ class GRNBaseProcessor(BaseProcessor):
                 normalized_columns = {}
                 
                 for col in original_columns:
-                    # Skip metadata columns
-                    if col in ['family', 'species', 'name', 'grn_system', 'id']:
+                    # Skip metadata columns including entity_id
+                    if col in ['entity_id', 'family', 'species', 'name', 'grn_system', 'id']:
                         continue
                         
                     # Validate and normalize if needed
@@ -208,26 +214,21 @@ class GRNBaseProcessor(BaseProcessor):
                 if invalid_grns:
                     self.logger.warning(f"Saving with {len(invalid_grns)} invalid GRN formats: {invalid_grns}")
                 
-            # Reset index if it's not named
-            if data_to_save.index.name != "protein_id":
-                data_to_save = data_to_save.reset_index()
-                # Rename index column if it exists and is not named
-                if "index" in data_to_save.columns:
-                    data_to_save = data_to_save.rename(columns={"index": "protein_id"})
-                elif self.data.index.name is None and "uen" not in data_to_save.columns:
-                    # Handle older GRN tables where the index might be unnamed
-                    first_col = data_to_save.columns[0]
-                    data_to_save = data_to_save.rename(columns={first_col: "protein_id"})
+            # GRN tables must preserve protein IDs as the index
+            # No manipulation of index needed - it will be saved with index=True
+            # Ensure index doesn't have a name to match standard GRN format
+            data_to_save.index.name = None
         else:
             self.logger.warning("No data to save")
             data_to_save = pd.DataFrame()
             
         # Save using BaseProcessor's save_data method
+        # IMPORTANT: GRN tables must save with index=True to preserve protein IDs
         file_path = self.save_data(
             self.dataset, 
             data_to_save, 
             file_format="csv", 
-            index=False,
+            index=True,
             **kwargs
         )
         
@@ -335,7 +336,7 @@ class GRNBaseProcessor(BaseProcessor):
                 # If it's a GRN, validate and normalize it
                 try:
                     # Skip non-GRN columns that might be metadata
-                    if col in ['family', 'species', 'name', 'grn_system', 'id']:
+                    if not self._is_grn_position(col):
                         normalized_columns.append(col)
                         continue
                         
@@ -496,7 +497,7 @@ class GRNBaseProcessor(BaseProcessor):
         # Log notation format
         self.logger.info(f"Using {'dot' if self.using_dot_notation else 'x'} notation for GRN positions")
             
-        self.data.fillna('-', inplace=True)
+        self.data = self.data.fillna('-')
         
         # Add to dataset registry with additional metadata
         self._register_dataset(
@@ -619,7 +620,7 @@ class GRNBaseProcessor(BaseProcessor):
         # Reorder columns using the data's notation
         valid_cols = [col for col in sorted_cols_in_data_notation if col in merged_table.columns]
         self.data = merged_table[valid_cols]
-        self.data.fillna('-', inplace=True)
+        self.data = self.data.fillna('-')
         self.ids = self.data.index.tolist()
         self.grns = valid_cols
         
@@ -1113,7 +1114,7 @@ class GRNBaseProcessor(BaseProcessor):
         self.logger.warning(f"GRN entity not found: {identifier}")
         return None
     
-    def list_grn_entities(self, dataset: Optional[str] = None) -> List[str]:
+    def list_entities(self, dataset: Optional[str] = None) -> List[str]:
         """
         List all GRN entities (sequence IDs).
         
@@ -1146,6 +1147,117 @@ class GRNBaseProcessor(BaseProcessor):
                 return original_ids
             except:
                 return []
+    
+    def list_grn_entities(self, dataset: Optional[str] = None) -> List[str]:
+        """
+        List all GRN entities (backward compatibility).
+        
+        Deprecated: Use list_entities() instead.
+        
+        Args:
+            dataset: Optional dataset/table to filter by
+            
+        Returns:
+            List of sequence IDs
+        """
+        return self.list_entities(dataset=dataset)
+    
+    def _is_grn_position(self, col: str) -> bool:
+        """
+        Check if a column name is a GRN position.
+        
+        Args:
+            col: Column name to check
+            
+        Returns:
+            True if column is a GRN position, False otherwise
+        """
+        # Skip metadata columns - expanded list to include common column names
+        metadata_columns = [
+            'family', 'species', 'name', 'grn_system', 'id', 'entity_id',
+            'sequence_id', 'protein_id', 'uniprot_id', 'pdb_id', 'chain_id',
+            'description', 'organism', 'gene_name', 'protein_name',
+            'Unnamed: 0', 'index'  # Common pandas artifacts
+        ]
+        
+        if col.lower() in [c.lower() for c in metadata_columns]:
+            return False
+            
+        # Check for GRN format (e.g., "3.50", "7.53", "34.50", "n.50", "c.50")
+        # Also allow x notation like "3x50", "7x53"
+        # Extended to support 0.XX and 9.XX formats, and loop regions
+        import re
+        # Match standard GRN formats including extended numbering
+        grn_pattern = re.compile(r'^(n\.|c\.|[0-9]+)[x.]([0-9]+)$')
+        # Also match loop formats like 12.470 or 23.50
+        loop_pattern = re.compile(r'^[0-9][0-9]\.[0-9]+$')
+        
+        return bool(grn_pattern.match(col) or loop_pattern.match(col))
+    
+    def list_datasets(self) -> List[Dict[str, Any]]:
+        """
+        List available GRN datasets (GRN tables).
+        
+        Each GRN table is a dataset containing multiple entity rows.
+        
+        Returns:
+            List of dataset information dictionaries
+        """
+        datasets = []
+        
+        # List GRN tables in the tables directory
+        tables_dir = Path(self.data_path) / 'tables'
+        if tables_dir.exists():
+            for table_file in tables_dir.glob("*.csv"):
+                try:
+                    # Quick scan to get row count and columns
+                    df = pd.read_csv(table_file, nrows=1)
+                    total_rows = sum(1 for _ in open(table_file)) - 1  # Subtract header
+                    
+                    # Get GRN columns (format X.XX)
+                    grn_cols = [col for col in df.columns if self._is_grn_position(col)]
+                    
+                    datasets.append({
+                        'id': f'tables/{table_file.stem}',
+                        'type': 'grn_table',
+                        'format': 'csv',
+                        'entity_count': total_rows,
+                        'grn_positions': len(grn_cols),
+                        'file_path': str(table_file),
+                        'file_size': table_file.stat().st_size
+                    })
+                except:
+                    pass
+        
+        # List GRN tables in ref directory
+        ref_dir = Path(self.data_path) / 'ref'
+        if ref_dir.exists():
+            for table_file in ref_dir.glob("*.csv"):
+                try:
+                    df = pd.read_csv(table_file, nrows=1)
+                    total_rows = sum(1 for _ in open(table_file)) - 1
+                    grn_cols = [col for col in df.columns if self._is_grn_position(col)]
+                    
+                    datasets.append({
+                        'id': f'ref/{table_file.stem}',
+                        'type': 'grn_reference',
+                        'format': 'csv',
+                        'entity_count': total_rows,
+                        'grn_positions': len(grn_cols),
+                        'file_path': str(table_file),
+                        'file_size': table_file.stat().st_size
+                    })
+                except:
+                    pass
+        
+        # Also check dataset manager if available
+        if self.dataset_manager:
+            managed_datasets = self.dataset_manager.list_datasets()
+            for ds in managed_datasets:
+                if isinstance(ds, dict) and ds not in datasets:
+                    datasets.append(ds)
+        
+        return datasets
     
     def get_entity_grn_positions(self, identifier: str) -> List[str]:
         """
