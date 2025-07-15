@@ -8,6 +8,20 @@ A comprehensive Python framework for managing, analyzing, and integrating struct
 
 Protos provides a unified interface for handling diverse biological data types including protein structures, sequences, residue numbering schemes, experimental properties, and machine learning embeddings. The framework eliminates common pain points in structural biology research through centralized path management, automatic entity registration, and cross-format data integration.
 
+### 🚀 Zero Configuration Required
+
+**Protos works out of the box** - no setup, no configuration files, no path specifications needed:
+
+```python
+from protos.processing.structure import CifBaseProcessor
+
+# Just create and use - ProtosPaths handles everything automatically
+processor = CifBaseProcessor()
+processor.load_structure("1ubq")  # It knows where to look
+```
+
+All data management is handled by the unified **ProtosPaths** system, which provides consistent file organization across all components.
+
 ## Key Features
 
 - **🏗️ Structure Management**: PDB/mmCIF parsing, coordinate analysis, and structural alignments
@@ -59,16 +73,25 @@ entity_id = struct_proc.generate_entity_id("1ubq")
 
 ## Architecture
 
+### Core Principle: ProtosPaths Manages Everything
+
+**ProtosPaths is the ONLY path management system in Protos.** No component ever specifies or manages paths directly. This ensures:
+
+- **Zero configuration** - works immediately with sensible defaults
+- **Consistent organization** - all data follows the same structure  
+- **Easy portability** - change data location in one place
+- **Automatic discovery** - components know where to find data
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                           PROTOS FRAMEWORK                     │
+│                           PROTOS FRAMEWORK                      │
 ├─────────────────────────────────────────────────────────────────┤
 │ 1. CORE INFRASTRUCTURE                                          │
-│    ├─ ProtosPaths: Centralized path management                  │
+│    ├─ ProtosPaths: THE ONLY PATH SYSTEM (manages all paths)    │
 │    ├─ BaseProcessor: Abstract base for all processors          │
 │    └─ Entity Registry: Universal entity tracking system        │
 │                                                                 │
-│ 2. SPECIALIZED PROCESSORS                                       │
+│ 2. SPECIALIZED PROCESSORS (all use ProtosPaths)                │
 │    ├─ CifBaseProcessor: 3D protein structure management        │
 │    ├─ GRNBaseProcessor: Generic Residue Numbering system       │
 │    ├─ SeqProcessor: Sequence data management                   │
@@ -76,7 +99,7 @@ entity_id = struct_proc.generate_entity_id("1ubq")
 │    └─ EmbeddingProcessor: ML embeddings generation             │
 │                                                                 │
 │ 3. DATA ABSTRACTION                                             │
-│    ├─ Entities: Individual data items                          │
+│    ├─ Entities: Individual data items (human-readable names)   │
 │    ├─ Datasets: Collections of related entities                │
 │    └─ Cross-format tracking: Same entity across formats        │
 │                                                                 │
@@ -85,6 +108,25 @@ entity_id = struct_proc.generate_entity_id("1ubq")
 │    ├─ Analysis workflows: Multi-processor pipelines            │
 │    └─ Research integration: Real-world use cases               │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Organization (Managed by ProtosPaths)
+
+```
+working_dir/
+└── data/                    # Default base (or user-specified)
+    ├── entity_registry.json # Universal entity tracking
+    ├── structure/           # Structure data
+    │   ├── mmcif/          # PDB/CIF files (human-readable names)
+    │   └── datasets/       # Structure datasets
+    ├── sequence/           # Sequence data  
+    │   ├── fasta/          # FASTA files (human-readable names)
+    │   └── alignments/     # Sequence alignments
+    ├── grn/                # GRN data
+    │   ├── tables/         # GRN tables (human-readable names)
+    │   └── configs/        # GRN configurations
+    └── property/           # Property data
+        └── tables/         # Property tables (human-readable names)
 ```
 
 ## Processors

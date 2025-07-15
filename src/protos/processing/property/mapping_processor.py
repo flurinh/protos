@@ -4,7 +4,7 @@ from typing import Optional
 from protos.processing.property.aff_processor import AffinityProcessor
 from protos.processing.grn.grn_processor import GRNProcessor
 from protos.processing.property.gene_processor import GeneProcessor
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 
 
 class MappingProcessor:
@@ -12,7 +12,7 @@ class MappingProcessor:
                  grnp: Optional[GRNProcessor] = None,
                  ap: Optional[AffinityProcessor] = None,
                  gp: Optional[GeneProcessor] = None,
-                 sp: Optional[CifBaseProcessor] = None,
+                 sp: Optional[StructureProcessor] = None,
                  populate_maps=True
                  ):
         self.data = {

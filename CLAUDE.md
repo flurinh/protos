@@ -153,6 +153,13 @@ python -c "import protos; print(protos.__version__)"
 
 ### Testing
 ```bash
+# IMPORTANT: Activate conda environment from WSL
+# Use the source command with full path to activate script:
+source /home/hidberf/miniconda/bin/activate protos
+
+# Verify activation:
+python -c "import protos; print('Protos activated')"
+
 # Run all tests (uses pytest)
 pytest
 

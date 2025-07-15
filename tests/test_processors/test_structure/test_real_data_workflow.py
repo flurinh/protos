@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 from protos.loaders.download_structures import download_protein_structures
 from protos.io.paths.path_config import ProtosPaths
 
@@ -36,9 +36,8 @@ class TestRealDataWorkflow:
     def workflow_processor(self, test_data_root):
         """Create a processor for workflow testing."""
         # Use the test-data directory from conftest
-        processor = CifBaseProcessor(
-            name="workflow_test",
-            processor_data_dir="structure"
+        processor = StructureProcessor(
+            name="workflow_test"
         )
         
         yield processor
@@ -162,9 +161,8 @@ class TestRealDataWorkflow:
         original_pdbs = set(workflow_processor.pdb_ids)
         
         # Create new processor instance
-        new_processor = CifBaseProcessor(
-            name="workflow_test",
-            processor_data_dir="structure"
+        new_processor = StructureProcessor(
+            name="workflow_test"
         )
         
         # Load the same dataset

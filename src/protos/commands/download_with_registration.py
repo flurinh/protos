@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Dict
 import logging
 
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 from protos.commands.register_data import register_structure_file, register_sequence_file
 from protos.io.data_access import GlobalRegistry
 
@@ -45,9 +45,9 @@ def download_and_register_structure(
     if save_dir:
         save_dir = Path(save_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
-        success = CifBaseProcessor.download_cif(pdb_id, str(save_dir))
+        success = StructureProcessor.download_cif(pdb_id, str(save_dir))
     else:
-        success = CifBaseProcessor.download_cif(pdb_id, None)
+        success = StructureProcessor.download_cif(pdb_id, None)
     
     if not success:
         logger.error(f"Failed to download structure {pdb_id}")

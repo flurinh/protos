@@ -1,0 +1,16 @@
+{
+  "id": "mo_hide_pred",
+  "name": "mo_hide_pred",
+  "description": "Dataset containing 8 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "A1ACR1_J318_refine3_model_0_pred",
+    "bReaChES_J215_refine6_model_0_pred",
+    "ChroME2s_J227_refine3_model_0_pred",
+    "CnChR2_J230_refine9_model_0_pred",
+    "CoChR_J248_refine7_model_0_pred",
+    "KnChR_J444_refine5_model_0_pred",
+    "R2ACR_J315_refine8_model_0_pred",
+    "TsChR_J132_refine3_model_0_pred"
+  ]
+}

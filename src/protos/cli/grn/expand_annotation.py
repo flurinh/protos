@@ -42,21 +42,30 @@ def expand_annotation(
     """
     try:
         # Import required modules and functions
-        from protos.processing.schema.grn_utils_updated import (
+        from protos.processing.grn.grn_utils import (
             parse_grn_str2float, 
             parse_grn_float2str,
-            normalize_grn_format
+            normalize_grn_format,
+            GRNConfigManager
         )
         from protos.processing.grn.grn_assignment import (
             calculate_missing_gene_numbers,
             assign_missing_std_grns,
             annotate_gaps_and_loops
         )
-        from protos.processing.grn.grn_utils import GRNConfigManager
         
         # Initialize config for the protein family
-        config_manager = GRNConfigManager(protein_family=protein_family)
-        grn_config = config_manager.get_config(strict=False)  # Use non-strict for full coverage
+        config_manager = GRNConfigManager()
+        grn_intervals = config_manager.get_intervals(protein_family)
+        
+        # Convert intervals to config format expected by annotate_gaps_and_loops
+        grn_config = {}
+        for interval_name, (start, end) in grn_intervals.items():
+            # Use the interval name as the key and convert back to string format
+            grn_config[interval_name] = (
+                parse_grn_float2str(start),
+                parse_grn_float2str(end)
+            )
         
         # Step 1: Create query gene numbers (e.g., "A1", "G2", etc.)
         # Convert query sequence to a list of residues with positions
@@ -72,23 +81,13 @@ def expand_annotation(
         reference_grn_dict = new_row.to_dict()
         
         # Extract aligned GRNs from alignment
-        try:
-            from protos.processing.schema.interface_definitions import get_correctly_aligned_grns
-            aligned_grns = get_correctly_aligned_grns(
-                all_query_gene_numbers=all_query_gene_numbers,
-                reference_grn_dict=reference_grn_dict,
-                alignment=alignment,
-                max_alignment_gap=max_alignment_gap
-            )
-        except ImportError:
-            # If function not found in interface_definitions, try from grn_table_utils
-            from protos.processing.grn.grn_table_utils import get_correctly_aligned_grns
-            aligned_grns = get_correctly_aligned_grns(
-                all_query_gene_numbers=all_query_gene_numbers,
-                reference_grn_dict=reference_grn_dict,
-                alignment=alignment,
-                max_alignment_gap=max_alignment_gap
-            )
+        from protos.processing.grn.grn_assignment import get_correctly_aligned_grns
+        aligned_grns = get_correctly_aligned_grns(
+            all_query_gene_numbers=all_query_gene_numbers,
+            reference_grn_dict=reference_grn_dict,
+            alignment=alignment,
+            max_alignment_gap=max_alignment_gap
+        )
         
         if not aligned_grns:
             logger.warning("No GRNs could be aligned. Check if sequences are similar enough.")
@@ -117,34 +116,24 @@ def expand_annotation(
         grns_str = [parse_grn_float2str(grn_float) for grn_float in grns_float]
         
         # Step 5: Annotate N-terminal region
-        try:
-            from protos.processing.schema.interface_definitions import calculate_missing_ntail_grns
-            n_tail_list, first_gene_number_int = calculate_missing_ntail_grns(
-                aligned_grns=aligned_grns,
-                missing_gene_numbers=missing_gene_numbers,
-                grns_float=grns_float
-            )
-        except ImportError:
-            # If function not found in interface_definitions, implement here
-            n_tail_list = []
-            first_gene_number_int = min([int(gn[1:]) for gn in aligned_grns.keys() if isinstance(gn, str) and gn[0].isalpha()], default=1)
+        from protos.processing.grn.grn_assignment import calculate_missing_ntail_grns
+        n_tail_list, first_gene_number_int = calculate_missing_ntail_grns(
+            aligned_grns=aligned_grns,
+            missing_gene_numbers=missing_gene_numbers,
+            grns_float=grns_float
+        )
         
         if verbose > 0 and n_tail_list:
             logger.info(f"Annotated {len(n_tail_list)} N-terminal residues")
         
         # Step 6: Annotate C-terminal region
-        try:
-            from protos.processing.schema.interface_definitions import calculate_missing_ctail_grns
-            c_tail_list, last_gene_number_int = calculate_missing_ctail_grns(
-                aligned_grns=aligned_grns,
-                missing_gene_numbers=missing_gene_numbers,
-                query_gene_len=query_gene_len,
-                grns_float=grns_float
-            )
-        except ImportError:
-            # If function not found in interface_definitions, implement here
-            c_tail_list = []
-            last_gene_number_int = max([int(gn[1:]) for gn in aligned_grns.keys() if isinstance(gn, str) and gn[0].isalpha()], default=query_gene_len)
+        from protos.processing.grn.grn_assignment import calculate_missing_ctail_grns
+        c_tail_list, last_gene_number_int = calculate_missing_ctail_grns(
+            aligned_grns=aligned_grns,
+            missing_gene_numbers=missing_gene_numbers,
+            query_gene_len=query_gene_len,
+            grns_float=grns_float
+        )
         
         if verbose > 0 and c_tail_list:
             logger.info(f"Annotated {len(c_tail_list)} C-terminal residues")
@@ -189,7 +178,7 @@ def expand_annotation(
         normalized_grns = []
         for gene_num, grn in all_grns:
             try:
-                from protos.processing.schema.grn_utils_updated import normalize_grn_format
+                from protos.processing.grn.grn_utils import normalize_grn_format
                 normalized_grn = normalize_grn_format(grn)
             except ImportError:
                 # Simple fallback normalization if module not available

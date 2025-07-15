@@ -1,8 +1,0 @@
-{
-  "name": "Demo Protein Structures",
-  "description": "Test structures for Protos demo",
-  "pdb_ids": [
-    "1ubq",
-    "AF-P00533-F1-model_v1"
-  ]
-}

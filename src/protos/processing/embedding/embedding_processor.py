@@ -47,9 +47,9 @@ except ImportError as e:
 
 # Import sequence processor for loading sequences
 try:
-    from protos.processing.sequence.seq_processor import SeqProcessor
+    from protos.processing.sequence import SequenceProcessor
 except ImportError:
-    SeqProcessor = None
+    SequenceProcessor = None
 
 # Embedding type options
 EmbeddingType = Literal["mean", "cls", "per_residue"]
@@ -114,8 +114,7 @@ class EmbeddingProcessor(BaseProcessor):
                  model_name: str = "esm2_t12_35m",
                  device: Optional[str] = None,
                  batch_size: int = 8,
-                 max_seq_length: int = 1022,
-                 processor_data_dir: str = "embedding"):
+                 max_seq_length: int = 1022):
         """
         Initialize the embedding processor.
         
@@ -127,10 +126,7 @@ class EmbeddingProcessor(BaseProcessor):
             max_seq_length: Maximum sequence length for tokenization
             processor_data_dir: Directory for embedding data
         """
-        super().__init__(
-            name=name,
-            processor_data_dir=processor_data_dir
-        )
+        super().__init__(name=name)
         
         # Check dependencies
         self._check_dependencies()
@@ -664,7 +660,7 @@ class EmbeddingProcessor(BaseProcessor):
             return self.dataset_manager.list_datasets()
         
         # Otherwise, scan for embedding collections
-        embeddings_dir = Path(self.embeddings_path)
+        embeddings_dir = self.get_subdirectory_path('embeddings')
         
         # Look for organized embedding directories
         if embeddings_dir.exists():
@@ -697,3 +693,77 @@ class EmbeddingProcessor(BaseProcessor):
                 pass
         
         return datasets
+    
+    def load_entity(self, entity_id: str, format_type: str = "embedding") -> Optional[Any]:
+        """
+        Load an embedding entity by ID.
+        
+        Args:
+            entity_id: Human-readable entity ID (e.g., 'P12345')
+            format_type: Format type (default: 'embedding')
+            
+        Returns:
+            Embedding tensor/array or None if not found
+        """
+        if format_type != "embedding":
+            return None
+            
+        # Look for embedding file
+        embeddings_dir = self.get_subdirectory_path('embeddings')
+        
+        # Try different file formats
+        for ext in ['.npy', '.pkl', '.pt']:
+            embedding_file = embeddings_dir / f"{entity_id}{ext}"
+            if embedding_file.exists():
+                if ext == '.npy':
+                    return np.load(embedding_file)
+                elif ext == '.pkl':
+                    import pickle
+                    with open(embedding_file, 'rb') as f:
+                        return pickle.load(f)
+                elif ext == '.pt' and _TORCH_AVAILABLE:
+                    return torch.load(embedding_file)
+        
+        return None
+    
+    def save_entity(self, entity_id: str, data: Any, format_type: str = "embedding") -> bool:
+        """
+        Save an embedding entity.
+        
+        Args:
+            entity_id: Human-readable entity ID
+            data: Embedding data (numpy array or torch tensor)
+            format_type: Format type (default: 'embedding')
+            
+        Returns:
+            True if saved successfully
+        """
+        if format_type != "embedding":
+            return False
+            
+        # Ensure embeddings directory exists
+        embeddings_dir = self.get_subdirectory_path('embeddings')
+        embeddings_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Convert to numpy array if torch tensor
+        if _TORCH_AVAILABLE and torch.is_tensor(data):
+            data = data.cpu().numpy()
+        
+        # Save as numpy array
+        embedding_file = embeddings_dir / f"{entity_id}.npy"
+        np.save(embedding_file, data)
+        
+        # Register entity if registry available
+        if self.entity_registry:
+            self.entity_registry.register_entity(
+                original_id=entity_id,
+                format_type="embedding",
+                file_path=embedding_file,
+                metadata={
+                    "shape": data.shape,
+                    "dtype": str(data.dtype),
+                    "model": self.model_name
+                }
+            )
+        
+        return True

@@ -1,5 +1,5 @@
 """
-Tests for CifBaseProcessor entity handling functionality.
+Tests for StructureProcessor entity handling functionality.
 """
 
 import os
@@ -7,20 +7,19 @@ import pytest
 import pandas as pd
 from pathlib import Path
 
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 from protos.io.paths.path_config import ProtosPaths
 from protos.io.data_access import generate_entity_id
 
 
 class TestCifBaseProcessorEntityHandling:
-    """Test entity management in CifBaseProcessor."""
+    """Test entity management in StructureProcessor."""
     
     @pytest.fixture
-    def processor(self):
-        """Create a test CifBaseProcessor with entity support."""
-        processor = CifBaseProcessor(
-            name="test_cif_entity",
-            processor_data_dir="structure"
+    def processor(self, configure_test_paths):
+        """Create a test StructureProcessor with entity support."""
+        processor = StructureProcessor(
+            name="test_cif_entity"
         )
         yield processor
     
@@ -42,13 +41,11 @@ class TestCifBaseProcessorEntityHandling:
         # Register the structure
         entity_id = processor._register_structure_entity('1ABC', test_structure)
         
-        # Verify entity ID format
-        assert len(entity_id) == 10
-        assert entity_id.isalnum()
+        # Verify entity ID is the PDB ID (human-readable name)
+        assert entity_id == '1ABC'
         
-        # Check local mapping
-        assert '1ABC' in processor._pdb_entity_map
-        assert processor._pdb_entity_map['1ABC'] == entity_id
+        # Check that entity was registered
+        assert processor.entity_registry.entity_exists('1ABC')
     
     def test_get_entity_id_for_pdb(self, processor):
         """Test getting entity ID for a PDB ID."""

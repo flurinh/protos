@@ -3,7 +3,7 @@ import pandas as pd
 import re
 import os
 from pathlib import Path
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 
 
 def validate_and_clean_row(row):
@@ -64,15 +64,15 @@ def process_table(input_path, output_path, use_processor=True, include_entity_id
     Args:
         input_path (str): Path to the input CSV file (or dataset ID if use_processor=True)
         output_path (str): Path to save the cleaned CSV file (or dataset ID if use_processor=True)
-        use_processor (bool): Whether to use GRNBaseProcessor for loading/saving
+        use_processor (bool): Whether to use GRNProcessor for loading/saving
         include_entity_ids (bool): Whether to preserve entity_id column in output
     
     Returns:
         dict: Report of erroneous sequences
     """
     if use_processor:
-        # Use GRNBaseProcessor for loading
-        processor = GRNBaseProcessor(
+        # Use GRNProcessor for loading
+        processor = GRNProcessor(
             name='clean_grn',
             processor_data_dir='grn'
         )

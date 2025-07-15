@@ -24,7 +24,7 @@ def download_protein_structures(pdb_ids, target_folder=None, overwrite=False, pr
         pdb_ids: List of PDB IDs to download
         target_folder: Legacy parameter for backward compatibility (optional)
         overwrite: Whether to overwrite existing files
-        processor: CifBaseProcessor instance to use for path resolution (preferred)
+        processor: StructureProcessor instance to use for path resolution (preferred)
         
     Returns:
         Tuple of (successful_downloads, failed_downloads)
@@ -110,7 +110,7 @@ def download_structures_with_processor(pdb_ids, processor, overwrite=False):
     
     Args:
         pdb_ids: List of PDB IDs to download
-        processor: CifBaseProcessor instance (handles all path management)
+        processor: StructureProcessor instance (handles all path management)
         overwrite: Whether to overwrite existing files
         
     Returns:

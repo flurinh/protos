@@ -447,7 +447,7 @@ def complete_conversion_pipeline(uniprot_id):
     
     # 5. GRN annotation (if applicable)
     if is_gpcr(sequence):  # Hypothetical function
-        grn_annotation = gp.annotate_sequence(sequence, family="gpcr")
+        grn_annotation = gp.annotate_sequence(sequence, family="phylogeny")
         results["grn_positions"] = len(grn_annotation)
     
     # 6. Calculate properties

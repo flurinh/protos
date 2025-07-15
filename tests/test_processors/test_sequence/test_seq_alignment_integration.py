@@ -12,7 +12,7 @@ from protos.processing.sequence.seq_alignment import (
     format_alignment,
     calc_alignment_score_restricted_area
 )
-from protos.core.base_processor import BaseProcessor
+from protos.processing.sequence.seq_processor import SequenceProcessor
 from protos.io.paths.path_config import ProtosPaths
 
 
@@ -32,9 +32,8 @@ class TestSeqAlignmentIntegration:
     @pytest.fixture
     def seq_processor(self):
         """Create a sequence processor for testing."""
-        processor = BaseProcessor(
-            name="test_seq_align",
-            processor_data_dir="sequence"
+        processor = SequenceProcessor(
+            name="test_seq_align"
         )
         
         yield processor

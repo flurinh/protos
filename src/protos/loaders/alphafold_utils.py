@@ -56,7 +56,7 @@ def download_alphafold_with_processor(uid, processor, max_models=5):
     
     Args:
         uid: UniProt ID for AlphaFold structure
-        processor: CifBaseProcessor instance (handles all path management)
+        processor: StructureProcessor instance (handles all path management)
         max_models: Maximum number of model versions to try
     """
     return download_alphafold_structures(

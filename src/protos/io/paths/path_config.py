@@ -7,6 +7,7 @@ separate reference and user data paths.
 """
 
 import os
+import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Tuple
@@ -154,6 +155,25 @@ class ProtosPaths:
         self.sequence_dirs = DEFAULT_SEQUENCE_SUBDIRS.copy()
         self.test_dirs = DEFAULT_TEST_SUBDIRS.copy()
         
+        # Import additional subdirectory maps if available
+        try:
+            from .path_constants import (
+                DEFAULT_PROPERTY_SUBDIRS,
+                DEFAULT_EMBEDDING_SUBDIRS,
+                DEFAULT_LIGAND_SUBDIRS,
+                DEFAULT_GRAPH_SUBDIRS
+            )
+            self.property_dirs = DEFAULT_PROPERTY_SUBDIRS.copy()
+            self.embedding_dirs = DEFAULT_EMBEDDING_SUBDIRS.copy()
+            self.ligand_dirs = DEFAULT_LIGAND_SUBDIRS.copy()
+            self.graph_dirs = DEFAULT_GRAPH_SUBDIRS.copy()
+        except ImportError:
+            # Fallback for backward compatibility
+            self.property_dirs = {"tables_dir": "tables", "datasets_dir": "datasets"}
+            self.embedding_dirs = {"embeddings_dir": "embeddings", "datasets_dir": "datasets"}
+            self.ligand_dirs = {"sdf_dir": "sdf", "cache_dir": "cache", "datasets_dir": "datasets"}
+            self.graph_dirs = {"networks_dir": "networks", "analysis_dir": "analysis", "datasets_dir": "datasets"}
+        
         # Create standard directories if requested
         if create_dirs:
             self._create_standard_dirs(self.data_root)
@@ -169,10 +189,25 @@ class ProtosPaths:
         Args:
             root: Root directory where to create the structure
         """
+        # Create global entity registry file if it doesn't exist
+        global_registry_path = join_path(root, DEFAULT_GLOBAL_REGISTRY_FILENAME)
+        if not os.path.exists(global_registry_path):
+            with open(global_registry_path, 'w') as f:
+                json.dump({"entities": {}}, f)
+        
         # Create processor directories
         for processor_type, dir_name in self.processor_dirs.items():
             processor_path = join_path(root, dir_name)
             os.makedirs(processor_path, exist_ok=True)
+            
+            # Create registry.json for each processor
+            if processor_type not in ['test', 'test_processor', '_test', '__test', 'simple', 
+                                     'complex_processor_with_long_name', 'custom_dir']:
+                # Create registry.json if it doesn't exist
+                registry_path = join_path(processor_path, DEFAULT_REGISTRY_FILENAME)
+                if not os.path.exists(registry_path):
+                    with open(registry_path, 'w') as f:
+                        json.dump({"entities": {}}, f)
             
             # Create subdirectories for each processor type
             if processor_type == 'structure':
@@ -186,9 +221,25 @@ class ProtosPaths:
             elif processor_type == 'sequence':
                 for subdir in self.sequence_dirs.values():
                     os.makedirs(join_path(processor_path, subdir), exist_ok=True)
+            elif processor_type == 'property':
+                for subdir in self.property_dirs.values():
+                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
+            elif processor_type == 'embedding':
+                for subdir in self.embedding_dirs.values():
+                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
+            elif processor_type == 'ligand':
+                for subdir in self.ligand_dirs.values():
+                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
+            elif processor_type == 'graph':
+                for subdir in self.graph_dirs.values():
+                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
             elif processor_type in ['test', 'test_processor', 'simple']:
                 for subdir in self.test_dirs.values():
                     os.makedirs(join_path(processor_path, subdir), exist_ok=True)
+            else:
+                # For processors without specific subdirectories
+                # Create at least a datasets directory
+                os.makedirs(join_path(processor_path, "datasets"), exist_ok=True)
     
     def _validate_directory_structure(self):
         """
@@ -315,6 +366,94 @@ class ProtosPaths:
         sequence_path = self.get_processor_path('sequence', source)
         return join_path(sequence_path, self.sequence_dirs[subdir_type])
     
+    def get_property_subdir_path(self,
+                                subdir_type: str,
+                                source: DataSource = DataSource.AUTO) -> str:
+        """
+        Get the path for a property subdirectory.
+        
+        Args:
+            subdir_type: Type of subdirectory ('tables_dir', 'cache_dir', etc.)
+            source: Ignored - kept for backward compatibility
+            
+        Returns:
+            Full path to the property subdirectory
+            
+        Raises:
+            ValueError: If subdirectory type is not recognized
+        """
+        if subdir_type not in self.property_dirs:
+            raise ValueError(f"Unknown property subdirectory type: {subdir_type}")
+            
+        property_path = self.get_processor_path('property', source)
+        return join_path(property_path, self.property_dirs[subdir_type])
+    
+    def get_embedding_subdir_path(self,
+                                 subdir_type: str,
+                                 source: DataSource = DataSource.AUTO) -> str:
+        """
+        Get the path for an embedding subdirectory.
+        
+        Args:
+            subdir_type: Type of subdirectory ('models_dir', 'cache_dir', etc.)
+            source: Ignored - kept for backward compatibility
+            
+        Returns:
+            Full path to the embedding subdirectory
+            
+        Raises:
+            ValueError: If subdirectory type is not recognized
+        """
+        if subdir_type not in self.embedding_dirs:
+            raise ValueError(f"Unknown embedding subdirectory type: {subdir_type}")
+            
+        embedding_path = self.get_processor_path('embedding', source)
+        return join_path(embedding_path, self.embedding_dirs[subdir_type])
+    
+    def get_ligand_subdir_path(self,
+                              subdir_type: str,
+                              source: DataSource = DataSource.AUTO) -> str:
+        """
+        Get the path for a ligand subdirectory.
+        
+        Args:
+            subdir_type: Type of subdirectory ('sdf_dir', 'cache_dir', etc.)
+            source: Ignored - kept for backward compatibility
+            
+        Returns:
+            Full path to the ligand subdirectory
+            
+        Raises:
+            ValueError: If subdirectory type is not recognized
+        """
+        if subdir_type not in self.ligand_dirs:
+            raise ValueError(f"Unknown ligand subdirectory type: {subdir_type}")
+            
+        ligand_path = self.get_processor_path('ligand', source)
+        return join_path(ligand_path, self.ligand_dirs[subdir_type])
+    
+    def get_graph_subdir_path(self,
+                             subdir_type: str,
+                             source: DataSource = DataSource.AUTO) -> str:
+        """
+        Get the path for a graph subdirectory.
+        
+        Args:
+            subdir_type: Type of subdirectory ('networks_dir', 'analysis_dir', etc.)
+            source: Ignored - kept for backward compatibility
+            
+        Returns:
+            Full path to the graph subdirectory
+            
+        Raises:
+            ValueError: If subdirectory type is not recognized
+        """
+        if subdir_type not in self.graph_dirs:
+            raise ValueError(f"Unknown graph subdirectory type: {subdir_type}")
+            
+        graph_path = self.get_processor_path('graph', source)
+        return join_path(graph_path, self.graph_dirs[subdir_type])
+    
     def get_registry_path(self, 
                          processor_type: str, 
                          source: DataSource = DataSource.USER) -> str:
@@ -346,33 +485,31 @@ class ProtosPaths:
                         source: DataSource = DataSource.AUTO,
                         file_extension: Optional[str] = None) -> str:
         """
-        Get the path for a dataset file.
+        Get the path for a dataset definition file (JSON).
+        
+        This returns the path to dataset JSON definitions, NOT the actual data.
+        For structure processor, this is datasets/, not structure_dataset/.
         
         Args:
             processor_type: Type of processor ('structure', 'grn', etc.)
             dataset_name: Name of the dataset
             source: Ignored - kept for backward compatibility
-            file_extension: Optional file extension (with dot)
+            file_extension: Optional file extension (with dot, defaults to .json)
             
         Returns:
-            Full path to the dataset file
+            Full path to the dataset definition file
         """
         processor_path = self.get_processor_path(processor_type, source)
         
-        # Get appropriate dataset directory
-        if processor_type == 'structure':
-            dataset_dir = self.structure_dirs['dataset_dir']
-        elif processor_type == 'grn':
-            dataset_dir = self.grn_dirs['table_dir']
-        elif processor_type == 'sequence':
-            dataset_dir = self.sequence_dirs['metadata_dir']
-        elif processor_type in ['test', 'test_processor', 'simple']:
-            dataset_dir = self.test_dirs['dataset_dir']
-        else:
-            dataset_dir = 'datasets'
+        # All processors use datasets/ for JSON definitions
+        dataset_dir = 'datasets'
+        
+        # Default to .json extension for dataset definitions
+        if file_extension is None:
+            file_extension = '.json'
             
         # Add extension if provided
-        filename = f"{dataset_name}{file_extension or ''}"
+        filename = f"{dataset_name}{file_extension}"
         
         return join_path(processor_path, dataset_dir, filename)
     

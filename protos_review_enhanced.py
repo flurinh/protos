@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Protos Comprehensive Review & Documentation Script
+[DEPRECATED] Protos Comprehensive Review & Documentation Script
+
+*** THIS SCRIPT IS DEPRECATED ***
+Please use protos_review_updated.py instead, which follows the current
+DATA_MANAGEMENT_UNIFIED.md principles with zero configuration.
 
 This script serves as both a comprehensive review and documentation of all Protos features.
 It demonstrates the complete architecture from core components to advanced applications,

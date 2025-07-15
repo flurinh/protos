@@ -1,48 +1,460 @@
 {
-  "structure/1ubq": {
+  "datasets": [
+    {
+      "id": "retinal_binders",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\retinal_binders.json",
+      "type": "json"
+    },
+    {
+      "id": "microbial_opsins",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\microbial_opsins.json",
+      "type": "json"
+    },
+    {
+      "id": "rho",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\rho.json",
+      "type": "json"
+    },
+    {
+      "id": "gpcr",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\gpcr.json",
+      "type": "json"
+    },
+    {
+      "id": "test_npxxy_ao",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\test_npxxy_ao.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_ref",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_ref.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_all_refs",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_all_refs.json",
+      "type": "json"
+    },
+    {
+      "id": "rbp2",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\rbp2.json",
+      "type": "json"
+    },
+    {
+      "id": "rho_ref",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\rho_ref.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_folded_refs",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_folded_refs.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_exp_refs",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_exp_refs.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_ref_exp",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_ref_exp.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_exp",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_exp.json",
+      "type": "json"
+    },
+    {
+      "id": "hideaki",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\hideaki.json",
+      "type": "json"
+    },
+    {
+      "id": "hideaki_exp",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\hideaki_exp.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_pred",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_pred.json",
+      "type": "json"
+    },
+    {
+      "id": "mo_hide_pred",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\mo_hide_pred.json",
+      "type": "json"
+    },
+    {
+      "id": "hideaki_pred",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\hideaki_pred.json",
+      "type": "json"
+    },
+    {
+      "id": "opsin_demo",
+      "path": "C:\\Users\\hidbe\\PycharmProjects\\phd\\protos\\src\\protos\\reference_data\\structure\\structure_dataset\\standard\\opsin_demo.json",
+      "type": "json"
+    }
+  ],
+  "structure/1uaz": {
     "type": "structure",
-    "atom_count": 660,
+    "atom_count": 3654,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-06-25T23:06:16.641572",
+    "directory": "structures"
+  },
+  "structure/3ddl": {
+    "type": "structure",
+    "atom_count": 4417,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-06-25T23:06:16.793802",
+    "directory": "structures"
+  },
+  "structure/4pxk": {
+    "type": "structure",
+    "atom_count": 2044,
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-30T22:22:39.589040"
+    "last_updated": "2025-06-25T23:06:16.899969",
+    "directory": "structures"
   },
-  "structure/AF-P00533-F1-model_v1": {
-    "type": "structure",
-    "atom_count": 9392,
-    "chains": [
-      "A"
+  "test_mo_with_grn": {
+    "format": "pkl",
+    "rows": 10115,
+    "columns": [
+      "pdb_id",
+      "group",
+      "auth_chain_id",
+      "gen_chain_id",
+      "auth_seq_id",
+      "gen_seq_id",
+      "res_name3l",
+      "res_name1l",
+      "phi",
+      "omega",
+      "psi",
+      "atom_id",
+      "res_atom_name",
+      "atom_name",
+      "x",
+      "y",
+      "z",
+      "grn"
     ],
-    "last_updated": "2025-06-29T19:54:07.964858"
+    "saved_at": "2025-06-25T23:06:19.929707",
+    "processor_type": "structure",
+    "last_updated": "2025-06-25T23:06:19.929726",
+    "directory": "structure",
+    "filename": "datasets/test_mo_with_grn.pkl"
   },
-  "retinal_binders": {
-    "path": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/retinal_binders.json",
+  "structure/test_mo_with_grn": {
+    "type": "structure",
+    "saved_at": "2025-06-25T23:06:19.953698",
+    "atom_count": 10115,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "format": "pkl",
+    "last_updated": "2025-06-25T23:06:19.954032",
+    "directory": "structures"
+  },
+  "demo_structures": {
+    "path": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/demo_structures.json",
     "metadata": {
-      "name": "retinal_binders",
-      "description": "Structure dataset with 1 PDB IDs",
-      "items": 1,
-      "created_at": "2025-06-29T20:59:09.560122",
+      "name": "Demo Protein Structures",
+      "description": "Small proteins for demonstration",
+      "items": 3,
+      "created_at": "2025-07-01T12:09:27.644663",
       "processor_type": "structure",
       "dataset_type": "structure",
       "source": "user"
     },
-    "timestamp": "2025-06-29T20:59:09.569820"
+    "timestamp": "2025-07-01T12:09:27.666131"
   },
-  "structure/1l2y": {
+  "structure/3SN6": {
     "type": "structure",
-    "atom_count": 11552,
+    "atom_count": 10274,
+    "chains": [
+      "A",
+      "B",
+      "G",
+      "R",
+      "N"
+    ],
+    "last_updated": "2025-07-01T14:07:17.011717"
+  },
+  "structure/4LDO": {
+    "type": "structure",
+    "atom_count": 4465,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:17.328985"
+  },
+  "structure/3P0G": {
+    "type": "structure",
+    "atom_count": 3238,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:17.592763"
+  },
+  "structure/6MXT": {
+    "type": "structure",
+    "atom_count": 4683,
+    "chains": [
+      "A",
+      "N"
+    ],
+    "last_updated": "2025-07-01T14:07:17.928482"
+  },
+  "structure/7JOZ": {
+    "type": "structure",
+    "atom_count": 9159,
+    "chains": [
+      "A",
+      "B",
+      "G",
+      "N",
+      "R"
+    ],
+    "last_updated": "2025-07-01T14:07:18.430830"
+  },
+  "structure/7CKZ": {
+    "type": "structure",
+    "atom_count": 8133,
+    "chains": [
+      "A",
+      "B",
+      "G",
+      "N",
+      "R"
+    ],
+    "last_updated": "2025-07-01T14:07:18.903306"
+  },
+  "structure/6VMS": {
+    "type": "structure",
+    "atom_count": 8953,
+    "chains": [
+      "A",
+      "B",
+      "C",
+      "E",
+      "R"
+    ],
+    "last_updated": "2025-07-01T14:07:19.414468"
+  },
+  "structure/7E2Y": {
+    "type": "structure",
+    "atom_count": 6987,
+    "chains": [
+      "A",
+      "B",
+      "G",
+      "R"
+    ],
+    "last_updated": "2025-07-01T14:07:19.809984"
+  },
+  "structure/6G79": {
+    "type": "structure",
+    "atom_count": 6053,
+    "chains": [
+      "B",
+      "G",
+      "A",
+      "S"
+    ],
+    "last_updated": "2025-07-01T14:07:20.191471"
+  },
+  "structure/4MQS": {
+    "type": "structure",
+    "atom_count": 3034,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:20.508925"
+  },
+  "structure/4MQT": {
+    "type": "structure",
+    "atom_count": 3056,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:20.833629"
+  },
+  "structure/7ARO": {
+    "type": "structure",
+    "atom_count": 3030,
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-29T22:49:21.418195"
+    "last_updated": "2025-07-01T14:07:21.159921"
   },
-  "structure/2gb1": {
+  "structure/6GDG": {
     "type": "structure",
-    "atom_count": 855,
+    "atom_count": 7223,
+    "chains": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "last_updated": "2025-07-01T14:07:21.593939"
+  },
+  "structure/2RH1": {
+    "type": "structure",
+    "atom_count": 3804,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:21.909060"
+  },
+  "structure/3NY8": {
+    "type": "structure",
+    "atom_count": 3698,
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-30T22:05:56.122774"
+    "last_updated": "2025-07-01T14:07:22.260361"
+  },
+  "structure/3NYA": {
+    "type": "structure",
+    "atom_count": 3608,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-07-01T14:07:22.570753"
+  },
+  "structure/5JQH": {
+    "type": "structure",
+    "atom_count": 7701,
+    "chains": [
+      "A",
+      "B",
+      "D",
+      "C"
+    ],
+    "last_updated": "2025-07-01T14:07:23.121413"
+  },
+  "structure/1U19": {
+    "type": "structure",
+    "atom_count": 5948,
+    "chains": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "last_updated": "2025-07-01T14:07:23.586156"
+  },
+  "structure/1GZM": {
+    "type": "structure",
+    "atom_count": 5792,
+    "chains": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "last_updated": "2025-07-01T14:07:24.041283"
+  },
+  "structure/6CM4": {
+    "type": "structure",
+    "atom_count": 3236,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-07-01T14:07:24.462411"
+  },
+  "structure/6LUQ": {
+    "type": "structure",
+    "atom_count": 3284,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-07-01T14:07:24.829477"
+  },
+  "structure/6A93": {
+    "type": "structure",
+    "atom_count": 5889,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:25.305745"
+  },
+  "structure/6A94": {
+    "type": "structure",
+    "atom_count": 5870,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:25.774605"
+  },
+  "structure/6WGT": {
+    "type": "structure",
+    "atom_count": 8100,
+    "chains": [
+      "A",
+      "B",
+      "C"
+    ],
+    "last_updated": "2025-07-01T14:07:26.275438"
+  },
+  "structure/3UON": {
+    "type": "structure",
+    "atom_count": 3547,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-07-01T14:07:26.663475"
+  },
+  "structure/5CXV": {
+    "type": "structure",
+    "atom_count": 3599,
+    "chains": [
+      "A",
+      "C"
+    ],
+    "last_updated": "2025-07-01T14:07:27.078542"
+  },
+  "structure/5UEN": {
+    "type": "structure",
+    "atom_count": 6250,
+    "chains": [
+      "A",
+      "B"
+    ],
+    "last_updated": "2025-07-01T14:07:27.762548"
+  },
+  "structure/3VGA": {
+    "type": "structure",
+    "atom_count": 5635,
+    "chains": [
+      "A",
+      "B",
+      "C"
+    ],
+    "last_updated": "2025-07-01T14:07:28.357725"
   },
   "structure/1crn": {
     "type": "structure",
@@ -50,19 +462,22 @@
     "chains": [
       "A"
     ],
-    "last_updated": "2025-06-30T22:05:56.309028"
+    "last_updated": "2025-07-11T14:14:53.278587"
   },
-  "demo_structures": {
-    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\data\\structure\\structure_dataset\\demo_structures.json",
-    "metadata": {
-      "name": "Demo Protein Structures",
-      "description": "Small proteins for demonstration",
-      "items": 3,
-      "created_at": "2025-07-01T00:14:11.129022",
-      "processor_type": "structure",
-      "dataset_type": "structure",
-      "source": "user"
-    },
-    "timestamp": "2025-07-01T00:14:11.129022"
+  "structure/1ubq": {
+    "type": "structure",
+    "atom_count": 660,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-07-11T14:12:30.008510"
+  },
+  "structure/2gb1": {
+    "type": "structure",
+    "atom_count": 855,
+    "chains": [
+      "A"
+    ],
+    "last_updated": "2025-07-11T14:12:30.090518"
   }
 }

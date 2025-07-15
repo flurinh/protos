@@ -12,9 +12,9 @@ from pathlib import Path
 
 from protos.io.paths import ProtosPaths
 from protos.io.data_access import GlobalRegistry, generate_entity_id
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-from protos.processing.sequence.seq_processor import SeqProcessor
+from protos.processing.structure import StructureProcessor
+from protos.processing.grn import GRNProcessor
+from protos.processing.sequence import SequenceProcessor
 from protos.processing.embedding.embedding_processor import EmbeddingProcessor
 
 
@@ -36,8 +36,8 @@ class TestSequenceToStructureWorkflow:
     def test_sequence_to_alphafold_structure(self, setup_test_environment):
         """Test workflow where a sequence is used to predict a structure."""
         # Initialize processors
-        seq_proc = SeqProcessor(name="seq_to_struct")
-        struct_proc = CifBaseProcessor(name="seq_to_struct")
+        seq_proc = SequenceProcessor(name="seq_to_struct")
+        struct_proc = StructureProcessor(name="seq_to_struct")
         
         # 1. Start with a sequence
         protein_id = "TEST_PROTEIN"
@@ -93,8 +93,8 @@ class TestSequenceToStructureWorkflow:
     
     def test_batch_sequence_to_structure_workflow(self, setup_test_environment):
         """Test batch processing of sequences to structures."""
-        seq_proc = SeqProcessor(name="batch_seq_to_struct")
-        struct_proc = CifBaseProcessor(name="batch_seq_to_struct")
+        seq_proc = SequenceProcessor(name="batch_seq_to_struct")
+        struct_proc = StructureProcessor(name="batch_seq_to_struct")
         
         # Multiple sequences
         sequences = {
@@ -160,8 +160,8 @@ class TestStructureToSequenceWorkflow:
     
     def test_extract_sequence_from_structure(self, setup_test_environment):
         """Test extracting sequence from a loaded structure."""
-        struct_proc = CifBaseProcessor(name="struct_to_seq")
-        seq_proc = SeqProcessor(name="struct_to_seq")
+        struct_proc = StructureProcessor(name="struct_to_seq")
+        seq_proc = SequenceProcessor(name="struct_to_seq")
         
         # Load a real structure
         pdb_id = "1ubq"
@@ -191,8 +191,8 @@ class TestStructureToSequenceWorkflow:
     
     def test_extract_all_chains_workflow(self, setup_test_environment):
         """Test extracting sequences from all chains in a structure."""
-        struct_proc = CifBaseProcessor(name="all_chains")
-        seq_proc = SeqProcessor(name="all_chains")
+        struct_proc = StructureProcessor(name="all_chains")
+        seq_proc = SequenceProcessor(name="all_chains")
         
         # Load structure
         pdb_id = "1ubq"
@@ -235,8 +235,8 @@ class TestSequenceToGRNWorkflow:
     
     def test_sequence_to_grn_assignment(self, setup_test_environment):
         """Test assigning GRNs to a sequence."""
-        seq_proc = SeqProcessor(name="seq_to_grn")
-        grn_proc = GRNBaseProcessor(name="seq_to_grn")
+        seq_proc = SequenceProcessor(name="seq_to_grn")
+        grn_proc = GRNProcessor(name="seq_to_grn")
         
         # Start with a sequence
         protein_id = "TEST_GPCR"
@@ -303,7 +303,7 @@ class TestAnyFormatToEmbeddingsWorkflow:
         except ImportError:
             pytest.skip("PyTorch not installed")
         
-        seq_proc = SeqProcessor(name="seq_to_emb")
+        seq_proc = SequenceProcessor(name="seq_to_emb")
         emb_proc = EmbeddingProcessor(name="seq_to_emb")
         
         # Create test sequences
@@ -355,9 +355,9 @@ class TestConversionLineageTracking:
     
     def test_full_workflow_lineage(self, setup_test_environment):
         """Test tracking lineage through a complete workflow."""
-        seq_proc = SeqProcessor(name="lineage")
-        struct_proc = CifBaseProcessor(name="lineage")
-        grn_proc = GRNBaseProcessor(name="lineage")
+        seq_proc = SequenceProcessor(name="lineage")
+        struct_proc = StructureProcessor(name="lineage")
+        grn_proc = GRNProcessor(name="lineage")
         
         # Start with a sequence
         protein_id = "LINEAGE_TEST"

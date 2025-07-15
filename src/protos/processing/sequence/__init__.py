@@ -1,5 +1,8 @@
 """Sequence processing module."""
 
+# Import the main sequence processor
+from .sequence_processor import SequenceProcessor
+
 from .seq_alignment import (
     init_aligner,
     align_blosum62,
@@ -21,6 +24,8 @@ from .mmseqs_utils import (
 )
 
 __all__ = [
+    # Main processor
+    'SequenceProcessor',
     # Alignment functions
     'init_aligner',
     'align_blosum62', 

@@ -1,4 +1,7 @@
-from protos.processing.property.property_processor import *
+# Import the PropertyProcessor
+from protos.processing.property.property_processor import PropertyProcessor
+
+# Keep specialized processors
 from protos.processing.property.aff_processor import *
 from protos.processing.property.function_processor import *
 from protos.processing.property.gene_processor import *

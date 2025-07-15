@@ -1,0 +1,16 @@
+{
+  "id": "hideaki_exp",
+  "name": "hideaki_exp",
+  "description": "Dataset containing 8 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "A1ACR1_J318_refine3_exp",
+    "bReaChES_J215_refine6_exp",
+    "ChroME2s_J227_refine3_exp",
+    "CnChR2_J230_refine9_exp",
+    "CoChR_J248_refine7_exp",
+    "KnChR_J444_refine5_exp",
+    "R2ACR_J315_refine8_exp",
+    "TsChR_J132_refine3_exp"
+  ]
+}

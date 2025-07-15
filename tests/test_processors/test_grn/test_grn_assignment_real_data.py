@@ -7,8 +7,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-from protos.processing.grn.grn_processor import GRNProcessor
+from protos.processing.grn import GRNProcessor
 from protos.processing.grn.grn_table_utils import (
     GRNConfigManager,
     init_grn_intervals,
@@ -40,14 +39,15 @@ class TestGRNAssignmentRealData:
         ProtosPaths.set_data_root(str(tmp_path))
         
         # Initialize processors
-        self.grn_processor = GRNBaseProcessor(
-            name="test_grn_assign",
-            processor_data_dir='grn'
+        self.grn_processor = GRNProcessor(
+            name="test_grn_assign"
         )
         
-        self.seq_processor = BaseProcessor(
-            name="test_sequences",
-            processor_data_dir='sequence'
+        # Note: BaseProcessor is abstract, we need a concrete implementation
+        # For sequences, we should use SequenceProcessor
+        from protos.processing.sequence import SequenceProcessor
+        self.seq_processor = SequenceProcessor(
+            name="test_sequences"
         )
         
         # Create test data

@@ -27,12 +27,22 @@ def configure_test_paths():
     This is the ONLY place where data root should be set.
     All processors will automatically use this path.
     """
+    import subprocess
+    
     # Set global data root to tests/test-data
     test_data_root = Path(__file__).parent / "test-data"
     ProtosPaths.set_data_root(str(test_data_root.absolute()))
     
     # Create the complete directory structure using ProtosPaths
     paths = ProtosPaths(create_dirs=True)
+    
+    # Run setup script to copy reference data if it exists
+    setup_script = Path(__file__).parent.parent / "setup_test_data_from_reference.py"
+    if setup_script.exists():
+        try:
+            subprocess.run([sys.executable, str(setup_script)], check=True)
+        except subprocess.CalledProcessError:
+            print("Warning: Could not set up reference test data")
     
     yield paths
     
@@ -95,11 +105,11 @@ def test_structures():
     This fixture uses the download functionality to get real structures
     if they're not already present in test-data.
     """
-    from protos.processing.structure.struct_base_processor import CifBaseProcessor
+    from protos.processing.structure import StructureProcessor
     from protos.loaders.download_structures import download_protein_structures
     
     # Create processor (uses ProtosPaths automatically)
-    processor = CifBaseProcessor(name="test_fixtures")
+    processor = StructureProcessor(name="test_fixtures")
     
     # List of small PDB structures for testing
     test_pdbs = ["1ubq", "1tqn", "3nir"]
@@ -131,10 +141,10 @@ def ensure_grn_reference_data():
     
     Creates minimal reference data if not present, using ProtosPaths.
     """
-    from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+    from protos.processing.grn import GRNProcessor
     
     # Create GRN processor (uses ProtosPaths automatically)
-    processor = GRNBaseProcessor(name="test_grn_refs")
+    processor = GRNProcessor(name="test_grn_refs")
     
     # Check if we have minimal reference data
     ref_files_needed = [
@@ -199,10 +209,10 @@ def ensure_sequence_test_data():
     """
     Ensure sequence test data is available for tests.
     """
-    from protos.processing.sequence.seq_processor import SeqProcessor
+    from protos.processing.sequence import SequenceProcessor
     
     # Create sequence processor (uses ProtosPaths automatically)
-    processor = SeqProcessor(name="test_seq_refs")
+    processor = SequenceProcessor(name="test_seq_refs")
     
     # Test sequences for various purposes
     test_sequences = {

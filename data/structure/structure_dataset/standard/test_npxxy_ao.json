@@ -1,0 +1,10 @@
+{
+  "id": "test_npxxy_ao",
+  "name": "test_npxxy_ao",
+  "description": "Dataset containing 2 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "1F88",
+    "3AYM"
+  ]
+}

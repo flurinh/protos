@@ -8,7 +8,7 @@ from pathlib import Path
 from Bio.PDB import PDBList
 
 from protos.loaders.download_structures import download_protein_structures
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 from protos.io.paths.path_config import ProtosPaths
 
 
@@ -18,7 +18,7 @@ def test_simple_pdb_download():
     pdb_id = "1l2y"  # Trp-cage miniprotein - very small
     
     # Use processor's structure directory (managed by ProtosPaths)
-    struct_proc = CifBaseProcessor(name="test_download")
+    struct_proc = StructureProcessor(name="test_download")
     target_dir = struct_proc.path_structure_dir
     
     # Test with PDBList directly first
@@ -59,9 +59,8 @@ def test_real_workflow_with_correct_paths():
     """Test complete workflow with correct file paths."""
     # ProtosPaths already configured by conftest
     
-    processor = CifBaseProcessor(
-        name="test",
-        processor_data_dir="structure"
+    processor = StructureProcessor(
+        name="test"
     )
     
     # Download a small protein

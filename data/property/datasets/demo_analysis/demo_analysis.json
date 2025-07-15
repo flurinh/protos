@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "created_at": "2025-07-11T14:14:52.307469",
+    "modified_at": "2025-07-11T14:14:52.384118",
+    "description": ""
+  },
+  "entities": {
+    "69964e819e": {
+      "analysis_notes": {
+        "value": "Analyzed in PropertyProcessor demo",
+        "assigned_at": "2025-07-11T14:14:52.308469",
+        "metadata": {}
+      }
+    },
+    "ea7d774fb1": {
+      "grn_annotation_source": {
+        "value": "Generated in demo",
+        "assigned_at": "2025-07-11T14:14:52.384118",
+        "metadata": {}
+      }
+    }
+  }
+}

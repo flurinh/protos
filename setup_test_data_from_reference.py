@@ -45,9 +45,9 @@ def copy_reference_data():
         ("structure/mmcif/3ddl.cif", "structure/mmcif/3ddl.cif"),
         ("structure/mmcif/4pxk.cif", "structure/mmcif/4pxk.cif"),
         
-        # Dataset definitions
-        ("structure/structure_dataset/microbial_opsins.json", "structure/structure_dataset/microbial_opsins.json"),
-        ("structure/structure_dataset/test_mo.json", "structure/structure_dataset/test_mo.json"),
+        # Dataset definitions - should go to datasets/ not structure_dataset/
+        ("structure/structure_dataset/microbial_opsins.json", "structure/datasets/microbial_opsins.json"),
+        ("structure/structure_dataset/test_mo.json", "structure/datasets/test_mo.json"),
         
         # Sequence data - ONLY REAL DATA
         ("sequence/fasta/test_mo.fasta", "sequence/fasta/test_mo.fasta"),
@@ -104,7 +104,7 @@ def update_test_registries(test_data_dir: Path):
             "description": "GPCR reference GRN table",
             "metadata": {
                 "processor_type": "grn",
-                "family": "gpcr"
+                "family": "phylogeny"
             }
         }
     })

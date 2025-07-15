@@ -33,6 +33,7 @@ DEFAULT_PROCESSOR_DIRS = {
     "graph": "graph",
     "property": "property",
     "embedding": "embedding",
+    "ligand": "ligand",  # Added ligand processor
     # Add test processors for test compatibility
     "test": "test",
     "test_processor": "test",
@@ -45,10 +46,12 @@ DEFAULT_PROCESSOR_DIRS = {
 
 # Default structure subdirectories
 DEFAULT_STRUCTURE_SUBDIRS = {
-    "structure_dir": "mmcif",         # Directory for structure files
-    "dataset_dir": "structure_dataset", # Directory for dataset files
+    "structure_dir": "mmcif",         # Directory for structure files (raw CIF)
+    "cache_dir": "cache",            # Directory for cached/processed structures
+    "dataset_dir": "structure_dataset", # Directory for processed dataset PKL files
     "alignments_dir": "alignments",   # Directory for alignment files
-    "temp_dir": "temp_cif"           # Directory for temporary files
+    "temp_dir": "temp_cif",          # Directory for temporary files
+    "datasets_dir": "datasets"       # Directory for dataset JSON definitions
 }
 
 # Default test subdirectories (for test compatibility)
@@ -58,17 +61,45 @@ DEFAULT_TEST_SUBDIRS = {
 
 # Default GRN subdirectories
 DEFAULT_GRN_SUBDIRS = {
-    "table_dir": "tables",           # Directory for GRN mapping tables (legacy)
-    "grn_dir": "grn",                # Main GRN directory (current)
+    "table_dir": "tables",           # Directory for GRN mapping tables
+    "ref_dir": "ref",                # Directory for reference GRN tables
     "configs_dir": "configs",        # Directory for GRN configuration files
-    "assignment_dir": "assignments"  # Directory for GRN assignments
+    "assignment_dir": "assignments", # Directory for GRN assignments
+    "datasets_dir": "datasets"       # Directory for dataset definitions
 }
 
 # Default sequence subdirectories
 DEFAULT_SEQUENCE_SUBDIRS = {
     "fasta_dir": "fasta",           # Directory for FASTA files
     "alignment_dir": "alignments",   # Directory for sequence alignments
-    "metadata_dir": "metadata"      # Directory for sequence metadata
+    "metadata_dir": "metadata",      # Directory for sequence metadata
+    "datasets_dir": "datasets"       # Directory for dataset definitions
+}
+
+# Default property subdirectories
+DEFAULT_PROPERTY_SUBDIRS = {
+    "tables_dir": "tables",          # Directory for property tables
+    "datasets_dir": "datasets"       # Directory for dataset definitions
+}
+
+# Default embedding subdirectories
+DEFAULT_EMBEDDING_SUBDIRS = {
+    "embeddings_dir": "embeddings",  # Directory for saved embeddings
+    "datasets_dir": "datasets"       # Directory for dataset definitions
+}
+
+# Default ligand subdirectories
+DEFAULT_LIGAND_SUBDIRS = {
+    "sdf_dir": "sdf",               # Directory for SDF/MOL files
+    "cache_dir": "cache",            # Directory for cached ligand data
+    "datasets_dir": "datasets"       # Directory for dataset definitions
+}
+
+# Default graph subdirectories
+DEFAULT_GRAPH_SUBDIRS = {
+    "networks_dir": "networks",      # Directory for network files
+    "analysis_dir": "analysis",      # Directory for graph analysis results
+    "datasets_dir": "datasets"       # Directory for dataset definitions
 }
 
 # Registry file names

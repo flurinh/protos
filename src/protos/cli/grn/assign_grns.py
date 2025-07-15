@@ -11,8 +11,8 @@ from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, List, Tuple, Optional
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-from protos.processing.sequence.seq_processor import SeqProcessor
+from protos.processing.grn import GRNProcessor
+from protos.processing.sequence import SequenceProcessor
 from protos.processing.grn.grn_table_utils import (
     GRNConfigManager, init_grn_intervals, init_row_from_alignment,
     expand_annotation, is_sequential
@@ -189,7 +189,7 @@ def assign_grns_to_entities(
     """
     # Initialize processors
     seq_proc = SeqProcessor(name="grn_assignment")
-    grn_proc = GRNBaseProcessor(name="grn_assignment")
+    grn_proc = GRNProcessor(name="grn_assignment")
     
     # Get sequences to process
     if sequence_ids:

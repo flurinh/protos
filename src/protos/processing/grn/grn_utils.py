@@ -2,678 +2,703 @@ import re
 import os
 import json
 import pandas as pd
+import logging
 from decimal import Decimal, getcontext
-from typing import List
-import re
-from typing import List, Tuple  # Python 3.9+ for Tuple, just Tuple for older
-
-import re
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Optional, Union, Any
+from pathlib import Path
 
 ERROR_FLOAT = -999.999  # Unique float to indicate parsing error
 
+# Configure logger
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-#   1. String to Float Parser
+#   GRN Pattern Definitions (from schema_definitions.py)
 # ---------------------------------------------------------------------------
-def parse_grn_str2float(grn_str: str) -> float:
-    grn_str = grn_str.strip()
 
-    if grn_str.startswith('n'):
-        val_str = ""
-        if grn_str.startswith('n.'):
-            val_str = grn_str[2:]
-        elif len(grn_str) > 1 and grn_str[1:].isdigit():
-            val_str = grn_str[1:]
-        else:
-            print(f"Error: Unparsable N-terminus GRN: '{grn_str}'");
-            return ERROR_FLOAT
-        try:
-            n_index = int(val_str)
-            if n_index < 1:
-                print(f"Error: Invalid N-terminus index (<1): '{grn_str}'");
-                return ERROR_FLOAT
-            return round(float(-1 * n_index), 3)
-        except ValueError:
-            print(f"Error: N-term value parse error: '{grn_str}'");
-            return ERROR_FLOAT
-    elif grn_str.startswith('c'):
-        val_str = ""
-        if grn_str.startswith('c.'):
-            val_str = grn_str[2:]
-        elif len(grn_str) > 1 and grn_str[1:].isdigit():  # Allow legacy cVAL for parsing
-            val_str = grn_str[1:]
-            # print(f"Info: Parsed legacy C-terminus format '{grn_str}'. Canonical is 'c.{val_str}'.")
-        else:
-            print(f"Error: Unparsable C-terminus GRN: '{grn_str}'");
-            return ERROR_FLOAT
-        try:
-            c_index = int(val_str)
-            if c_index < 1:
-                print(f"Error: Invalid C-terminus index (<1): '{grn_str}'");
-                return ERROR_FLOAT
-            return round(100.0 + float(c_index), 3)
-        except ValueError:
-            print(f"Error: C-term value parse error: '{grn_str}'");
-            return ERROR_FLOAT
-    elif '.' in grn_str:
-        try:
-            parts = grn_str.split('.', 1)
-            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                integer_part_val = int(parts[0])
-                if integer_part_val == 0:
-                    print(f"Error: Invalid GRN: 0.xx not allowed: '{grn_str}'");
-                    return ERROR_FLOAT
-                return round(integer_part_val + float(f"0.{parts[1]}"), 3)
+# GRN format specifications
+GRN_PATTERNS = {
+    'standard': r'^(\d+)x(\d+)$',  # e.g., 1x50
+    'standard_dot': r'^([0-9])\.(\d+)$',  # e.g., 1.50, 0.00, 9.99 (dot notation)
+    'n_term': r'^n\.(\d+)$',       # e.g., n.10
+    'c_term': r'^c\.(\d+)$',       # e.g., c.5
+    'loop': r'^([1-8])([1-8])\.(\d+)$'  # e.g., 12.003, 65.011, also 12.47
+}
+
+# Documentation for GRN formats
+GRN_FORMAT_DOCS = {
+    'standard': "Standard GRN format: <helix>x<position> (e.g., 1x50)",
+    'standard_dot': "Standard GRN format with dot notation: <helix>.<position> (e.g., 1.50)",
+    'n_term': "N-terminal format: n.<position> (e.g., n.10)",
+    'c_term': "C-terminal format: c.<position> (e.g., c.5)",
+    'loop': """Loop region format: <closer helix><further helix>.<distance> where:
+            - First digit: Closer helix (1-8)
+            - Second digit: Further helix (1-8)
+            - Three-digit decimal: Distance from closer helix (001-999)
+            Examples: 12.003 (between helix 1-2, closer to 1, distance 3)
+                     65.011 (between helix 5-6, closer to 6, distance 11)"""
+}
+
+# Symbol definitions
+GRN_GAP_SYMBOL = '-'
+GRN_UNKNOWN_SYMBOL = 'X'
+
+# ---------------------------------------------------------------------------
+#   1. String to Float Parser (Updated version with improved handling)
+# ---------------------------------------------------------------------------
+def parse_grn_str2float(grn: str) -> float:
+    """
+    Convert a GRN string to its float representation for numerical operations.
+    
+    Handles multiple formats:
+    - 'n.XX' for N-terminal: converts to negative values
+    - 'c.XX' for C-terminal: adds to 100
+    - 'TxYY' for transmembrane regions with 'x' notation
+    - 'AB.CCC' for loop regions (between helix A and B, closer to A, distance CCC)
+    
+    Args:
+        grn: GRN string to convert (e.g., '1x50', 'n.10', 'c.5', '12.003')
+        
+    Returns:
+        Float representation of the GRN position, or 0.0 for invalid strings
+        
+    Examples:
+        >>> parse_grn_str2float('1x50')
+        1.5
+        >>> parse_grn_str2float('n.10')
+        -0.1
+        >>> parse_grn_str2float('c.5')
+        100.05
+        >>> parse_grn_str2float('12.003')
+        12.003
+    """
+    try:
+        # N-terminal region
+        if 'n.' in grn:
+            # Parse position number
+            position = int(grn.split('n.')[1])
+            return -0.01 * position
+            
+        # C-terminal region
+        elif 'c.' in grn:
+            # Parse position number
+            position = int(grn.split('c.')[1])
+            return 100.0 + 0.01 * position
+            
+        # Check for dot notation (need to distinguish between loops and standard dot notation)
+        elif '.' in grn:
+            helix_part = grn.split('.')[0]
+            position_part = grn.split('.')[1]
+            
+            # Loop region with format AB.CCC (2 digits before dot, 3 after)
+            if len(helix_part) == 2 and len(position_part) == 3:
+                # Parse helix pair and distance
+                distance = int(position_part) / 1000.0
+                
+                # Extract closer and further helix
+                closer_helix = int(helix_part[0])
+                further_helix = int(helix_part[1])
+                
+                # Create float representation:
+                # Integer part: 10*smaller_helix + larger_helix
+                # Decimal part: normalized distance (0-1)
+                helix_min = min(closer_helix, further_helix)
+                helix_max = max(closer_helix, further_helix)
+                
+                # Calculate the float representation
+                return float(f"{helix_min}{helix_max}") + distance
+            
+            # Standard dot notation (1 digit before dot, 1-2 after) e.g., 1.50
+            elif len(helix_part) == 1:
+                helix = int(helix_part)
+                position = int(position_part)
+                return helix + position / 100.0
+            
             else:
-                print(f"Error: Unparsable dot-notation: '{grn_str}'");
-                return ERROR_FLOAT
-        except (ValueError, IndexError):
-            print(f"Error parsing dot-notation: '{grn_str}'");
-            return ERROR_FLOAT
-    elif 'x' in grn_str:
-        try:
-            parts = grn_str.split('x', 1)
-            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                integer_part_val = int(parts[0])
-                if integer_part_val == 0:
-                    print(f"Error: Invalid GRN: 0xXX not allowed: '{grn_str}'");
-                    return ERROR_FLOAT
-                return round(integer_part_val + float(f"0.{parts[1]}"), 3)
-            else:
-                print(f"Error: Unparsable x-notation: '{grn_str}'");
-                return ERROR_FLOAT
-        except (ValueError, IndexError):
-            print(f"Error parsing x-notation: '{grn_str}'");
-            return ERROR_FLOAT
-    else:
-        print(f"Error: Unparsable GRN (no known format): '{grn_str}'")
-        return ERROR_FLOAT
+                raise ValueError(f"Invalid dot notation format: {grn}")
+                
+        # Standard GRN format with x notation (TM regions)
+        elif 'x' in grn:
+            # Parse helix and position
+            helix_str, position_str = grn.split('x')
+            helix = int(helix_str)
+            position = int(position_str)
+            return helix + position / 100.0
+            
+        # Invalid or unrecognized format
+        else:
+            raise ValueError(f"Unrecognized GRN format: {grn}")
+            
+    except (ValueError, IndexError) as e:
+        # Log the error with the GRN string for debugging
+        logger.error(f"Error parsing GRN string '{grn}': {e}")
+        return 0.0
 
 
-# ---------------------------------------------------------------------------
-#   2. Float to String Formatter
-# ---------------------------------------------------------------------------
-def parse_grn_float2str(grn_float: float, notation_type: str = 'dot') -> str:
+def parse_grn_float2str(grn_float: float) -> str:
+    """
+    Convert a GRN float representation to its string format.
+    
+    Handles:
+    - Standard: 1.50 -> '1x50'
+    - N-terminal: -0.10 -> 'n.10'
+    - C-terminal: 100.05 -> 'c.5'
+    - Loop: 12.003 -> '12.003' (loop between helix 1-2, closer to 1, distance 3)
+    
+    Args:
+        grn_float: Float representation of GRN (e.g., 1.5, -0.1, 100.05, 12.003)
+        
+    Returns:
+        Standardized GRN string representation
+        
+    Examples:
+        >>> parse_grn_float2str(1.5)
+        '1x50'
+        >>> parse_grn_float2str(-0.1)
+        'n.10'
+        >>> parse_grn_float2str(100.05)
+        'c.5'
+        >>> parse_grn_float2str(12.003)
+        '12.003'
+    """
+    # Round to 3 decimal places to avoid floating point issues
     grn_float = round(grn_float, 3)
-
-    if grn_float <= -0.5:  # N-Term: ends at n.1 (-1.0)
-        n_index = int(round(abs(grn_float)))
-        if n_index == 0: n_index = 1  # Ensure at least n.1
-        return f'n.{n_index}'  # Always dot for N-term index
-
-    if grn_float >= 100.5:  # C-Term: starts at c.1 (101.0)
-        c_index = int(round(grn_float - 100.0))
-        if c_index == 0: c_index = 1  # Ensure at least c.1
-        return f'c.{c_index}'  # Always dot for C-term index
-
-    integer_part_check = int(grn_float)  # For range checking
-    if not (0.999 < grn_float < 100.5) or integer_part_check == 0 or integer_part_check == 100:
-        return f"undef.{grn_float:.3f}"
-
-    integer_part = int(grn_float)  # Actual integer part for formatting
-    separator = '.' if notation_type == 'dot' else 'x'
-
-    # Rule: Single number integer part (1-9) is TM Helix.
-    # Rule: Two-number integer part (e.g., 12, 23, 32) is Loop AB.CCC or BA.CCC.
-    is_tm_helix_category = 1 <= integer_part <= 9  # TMH can be H1-H9
-
-    if is_tm_helix_category:  # TM Helix (H1-H9)
-        is_insertion = abs(grn_float - round(grn_float, 2)) > 1e-5
-        if is_insertion:  # TM with insertion: H.YYY or HxYYY
-            decimal_val = int(round((grn_float - integer_part) * 1000))
-            return f"{integer_part}{separator}{decimal_val:03d}"
-        else:  # Standard TM: H.YY or HxYY
-            grn_for_yy = round(grn_float, 2)
-            decimal_val = int(round((grn_for_yy - integer_part) * 100))
-            return f"{integer_part}{separator}{decimal_val:02d}"
-    else:  # Loop (e.g. integer_part 12, 23, 32) or other multi-digit int part non-TM
-        # Loops (AB.CCC or BA.CCC) ALWAYS use 3 digits for fractional part
-        decimal_val = int(round((grn_float - integer_part) * 1000))
-        return f"{integer_part}{separator}{decimal_val:03d}"
-
-
-# ---------------------------------------------------------------------------
-#   3. GRN String Validator
-# ---------------------------------------------------------------------------
-def check_str_grn_valid(grn_str: str) -> bool:
-    grn_str = grn_str.strip()
-    n_pattern_dot = re.compile(r'^n\.([1-9]\d*)$')
-    if n_pattern_dot.match(grn_str): return True
-
-    c_pattern_dot = re.compile(r'^c\.([1-9]\d*)$')  # Canonical C-term is c.VAL
-    if c_pattern_dot.match(grn_str): return True
-    # Allow legacy cVAL for parsing by str2float, but check_str_grn_valid enforces c.VAL
-    # If legacy cVAL should also pass validation:
-    # c_pattern_x_legacy = re.compile(r'^c([1-9]\d*)$')
-    # if c_pattern_x_legacy.match(grn_str): return True
-
-    tm_loop_pattern = re.compile(r'^([1-9]\d*)([x.])(\d+)$')
-    m_tm_loop = tm_loop_pattern.match(grn_str)
-    if m_tm_loop:
-        s_integer_part = m_tm_loop.group(1)
-        s_fractional_part = m_tm_loop.group(3)
-        try:
-            integer_part = int(s_integer_part)
-        except ValueError:
-            return False
-
-        is_tm_helix_category = 1 <= integer_part <= 9  # H1-H9 are TMs
-        frac_len = len(s_fractional_part)
-
-        if is_tm_helix_category:
-            if frac_len == 2: return True
-            if frac_len == 3:
-                # A string "X.YY0" or "XxYY0" for a TM is not canonical if X.YY is the true base.
-                # parse_grn_float2str(X.YY_float) -> "X.YY"
-                # parse_grn_float2str(X.YYZ_float_insertion) -> "X.YYZ"
-                # So, a valid 3-digit TM string should not be equivalent to a 2-digit one.
-                if s_fractional_part.endswith('0'):
-                    # Check if it's like "X.Y00" which should be "X.Y0"
-                    # or "X.YY0" which should be "X.YY"
-                    # Example: "1.500" vs "1.50". "1.520" vs "1.52".
-                    # If 0.xxx represents X.YY, then X.YY0 is invalid.
-                    # If 0.x represents X.Y, then X.Y00 and X.Y0 are invalid (should be X.Y0).
-                    # A robust check: convert to float, then back to 2-digit string. If it matches first 2 digits,
-                    # and original was 3 digits ending in 0, it's likely an invalid verbose form.
-                    temp_float = parse_grn_str2float(
-                        f"{s_integer_part}.{s_fractional_part[:2]}")  # e.g., 1.50 from 1.500
-                    temp_str_canonical_2digit = parse_grn_float2str(temp_float, m_tm_loop.group(2))  # separator
-
-                    if temp_str_canonical_2digit == f"{s_integer_part}{m_tm_loop.group(2)}{s_fractional_part[:2]}":
-                        return False  # e.g. 1.500 is invalid because 1.50 is canonical
-                return True  # Valid 3-digit insertion like 1.521
-            return False  # Must be 2 or 3 digits
-        else:  # Loop (integer part has >= 2 digits like 12, 23, 32 or > 9)
-            return frac_len == 3  # Loops always 3 digits
-    return False
+    
+    # N-terminal region (negative values)
+    if grn_float < 0:
+        # Convert to n.XX format
+        position = int(abs(grn_float) * 100)
+        return f"n.{position}"
+    
+    # C-terminal region (100+)
+    elif grn_float >= 100:
+        # For values like 100.05, convert to c.5 format
+        position = int(round((grn_float - 100) * 100))
+        return f"c.{position}"
+    
+    # Loop region (values between 10 and 100)
+    elif grn_float >= 10:
+        # Extract the parts
+        int_part = int(grn_float)
+        decimal_part = round((grn_float - int_part) * 1000)
+        
+        # Get helix numbers
+        helix1 = int(int_part // 10)  # First digit
+        helix2 = int(int_part % 10)   # Second digit
+        
+        # Format with proper zero padding for the distance
+        return f"{helix1}{helix2}.{decimal_part:03d}"
+    
+    # Standard transmembrane region
+    else:
+        # Split into helix and position parts
+        helix = int(grn_float)
+        position = int(round((grn_float - helix) * 100))
+        
+        # Format with proper zero padding
+        return f"{helix}x{position:02d}"
 
 
-# ---------------------------------------------------------------------------
-#   4. Sorting Helper: Get Flanking TMs for a Loop
-# ---------------------------------------------------------------------------
-def get_prev_next_tm(grn_float: float) -> Tuple[int, int]:
-    loop_id_integer = int(grn_float)
-    # Loop IDs are two digits, e.g., 12 (H1-H2), 23 (H2-H3),
-    # or "reversed" like 32 (interpreted as H2-H3 region).
-    if 10 <= loop_id_integer <= 87:  # Max could be 87 (H7-H8, B=8, A=7 for BA)
-        s_loop_id = str(loop_id_integer)
-        if len(s_loop_id) == 2:
-            try:
-                digit1 = int(s_loop_id[0])
-                digit2 = int(s_loop_id[1])
-                if not (1 <= digit1 <= 8 and 1 <= digit2 <= 8 and digit1 != digit2):
-                    return (99, 99)
-                # For sorting, "helix_A" should be the N-terminal flanking helix of the loop segment.
-                # If ID is "12", N-flank is 1, C-flank is 2.
-                # If ID is "32", it's between H2 and H3. N-flank for this segment is H2.
-                n_flank = min(digit1, digit2)
-                c_flank = max(digit1, digit2)
-                return n_flank, c_flank
-            except ValueError:
-                pass
-    return (99, 99)
-
-
-# ---------------------------------------------------------------------------
-#   6. Main GRN Float Sorter
-# ---------------------------------------------------------------------------
-def sort_grns(grns_float_list: List[float]) -> List[float]:
-    grns_ntail = sorted([x for x in grns_float_list if x <= -0.5])
-    grns_ctail = sorted([x for x in grns_float_list if x >= 100.5])
-
-    body_grns_all_numerically_sorted = sorted([
-        x for x in grns_float_list
-        if 0.999 < x < 100.5 and int(x) > 0  # Valid body floats (H1.xx up to before C-term)
-    ])
-
-    grns_tm_only = []  # TMs H1-H9
-    grns_loops_ab_type = []  # Loops like AB.CCC or BA.CCC
-    # No grns_other_body if all single-digit int parts are TMs up to H9,
-    # and all 2-digit int parts (10-87) are AB/BA loops.
-
-    for x_float in body_grns_all_numerically_sorted:
-        integer_part = int(x_float)
-        if 1 <= integer_part <= 9:  # TM Helix (H1-H9)
-            grns_tm_only.append(x_float)
-        else:  # Must be a loop (e.g., 12.xxx, 23.xxx, 32.xxx)
-            helix_A, helix_B = get_prev_next_tm(x_float)
-            if helix_A != 99:  # It's a recognized AB/BA.CCC type loop
-                grns_loops_ab_type.append(x_float)
-            else:
-                # This case should be rare if all body GRNs are TMs H1-H9 or AB/BA loops
-                print(f"Warning: GRN float {x_float} in body not classified as TM H1-H9 or AB/BA Loop.")
-                # Decide where to put these: for now, append after TMs and AB loops
-                # This would require an grns_other_body list again if such cases exist
-                # and a final merge step. For simplicity, assume valid inputs are TM or AB/BA loop.
-                # If they can exist, they need a defined sorting rule.
-                # For now, we can add them to a temporary list and append at the end of body.
-                # For the given test case, grns_other_body will be empty.
-                pass  # Or add to a grns_unclassified_body list
-
-    # TMs and AB_Loops are already sorted numerically among themselves
-    # because they came from body_grns_all_numerically_sorted.
-
-    loop_idx = 0
-    tm_idx = 0
-    sorted_body_interleaved = []
-
-    while tm_idx < len(grns_tm_only) and loop_idx < len(grns_loops_ab_type):
-        current_tm_float = grns_tm_only[tm_idx]
-        current_loop_float = grns_loops_ab_type[loop_idx]
-
-        # helix_A_of_loop is the N-terminal flanking helix of this loop segment
-        helix_A_of_loop, _ = get_prev_next_tm(current_loop_float)
-
-        if int(current_tm_float) <= helix_A_of_loop:
-            sorted_body_interleaved.append(current_tm_float)
-            tm_idx += 1
+def normalize_grn_format(grn: str) -> str:
+    """
+    Normalize a GRN string to the standardized format.
+    
+    Converts legacy formats to the new standard:
+    - '12x05' -> '12.005' (loop with x notation)
+    - '12.5' -> '12.005' (loop without zero padding)
+    - '1.2' -> '1x20' (standard GRN with dot instead of x)
+    
+    Args:
+        grn: GRN string to normalize
+        
+    Returns:
+        Normalized GRN string
+    
+    Examples:
+        >>> normalize_grn_format('12x05')
+        '12.005'
+        >>> normalize_grn_format('12.5')
+        '12.005'
+        >>> normalize_grn_format('1x50')
+        '1.50'
+        >>> normalize_grn_format('1.50')
+        '1.50'
+        >>> normalize_grn_format('1.5')
+        '1.50'
+    """
+    # Check if already in standard format
+    for pattern_name, pattern_str in GRN_PATTERNS.items():
+        if re.match(pattern_str, grn):
+            return grn
+    
+    # Legacy loop format with x (e.g., '12x05')
+    loop_x_pattern = re.compile(r'^([1-8])([1-8])x(\d+)$')
+    match = loop_x_pattern.match(grn)
+    if match:
+        helix_pair = match.group(1) + match.group(2)
+        distance = int(match.group(3))
+        return f"{helix_pair}.{distance:03d}"
+    
+    # Legacy loop format without zero padding (e.g., '12.5', '12.47')
+    loop_no_padding_pattern = re.compile(r'^([0-9])([0-9])\.(\d+)$')
+    match = loop_no_padding_pattern.match(grn)
+    if match:
+        helix_pair = match.group(1) + match.group(2)
+        distance_str = match.group(3)
+        
+        # If already 3 digits, keep as is
+        if len(distance_str) == 3:
+            return grn
+        # Otherwise pad to 3 digits
         else:
-            sorted_body_interleaved.append(current_loop_float)
-            loop_idx += 1
+            distance = int(distance_str)
+            return f"{helix_pair}.{distance:03d}"
+    
+    # Standard GRN with x notation (e.g., '1x50')
+    std_x_pattern = re.compile(r'^([1-8])x(\d+)$')
+    match = std_x_pattern.match(grn)
+    if match:
+        helix = match.group(1)
+        position = int(match.group(2))
+        return f"{helix}.{position:02d}"
+    
+    # Standard GRN with dot notation - normalize to 2-digit format (e.g., '1.5' -> '1.50')
+    std_dot_pattern = re.compile(r'^([1-8])\.(\d+)$')
+    match = std_dot_pattern.match(grn)
+    if match and len(match.group(1)) == 1:
+        helix = match.group(1)
+        position = int(match.group(2))
+        # Normalize to 2-digit format (1.5 -> 1.50, 1.50 -> 1.50)
+        return f"{helix}.{position:02d}"
+    
+    # Return as is if can't normalize
+    return grn
 
-    sorted_body_interleaved.extend(grns_tm_only[tm_idx:])
-    sorted_body_interleaved.extend(grns_loops_ab_type[loop_idx:])
 
-    # If there were grns_unclassified_body, they would be merged here based on some rule
-    # or simply appended if they always come last in the body.
-    # For the given test case, this part is not critical as other_body is empty.
-
-    result = grns_ntail + sorted_body_interleaved + grns_ctail
-    return [round(x, 3) for x in result]
+def validate_grn_string(grn: str) -> Tuple[bool, str]:
+    """
+    Validate a GRN string against standard patterns and return validation status.
+    
+    Args:
+        grn: GRN string to validate
+        
+    Returns:
+        Tuple of (is_valid, message) where:
+          - is_valid: Boolean indicating if the GRN string is valid
+          - message: Validation message (error message if invalid, success message if valid)
+    
+    Examples:
+        >>> validate_grn_string('1x50')
+        (True, 'Valid standard GRN format')
+        >>> validate_grn_string('12.003')
+        (True, 'Valid loop GRN format')
+        >>> validate_grn_string('9x50')
+        (False, 'Invalid helix number: 9 (expected 1-8)')
+    """
+    # If empty or None, it's invalid
+    if not grn:
+        return False, "Empty or None GRN string"
+    
+    # Check against all defined patterns
+    for pattern_name, pattern_str in GRN_PATTERNS.items():
+        pattern = re.compile(pattern_str)
+        if pattern.match(grn):
+            # Now validate against more specific rules
+            
+            # N-terminal rules
+            if pattern_name == 'n_term':
+                if grn[2] == '0':  # n.01 not allowed (leading zero)
+                    return False, f"Invalid N-terminal GRN format: leading zero not allowed in {grn}"
+                return True, "Valid N-terminal GRN format"
+                
+            # C-terminal rules
+            elif pattern_name == 'c_term':
+                if grn[2] == '0':  # c.01 not allowed (leading zero)
+                    return False, f"Invalid C-terminal GRN format: leading zero not allowed in {grn}"
+                return True, "Valid C-terminal GRN format"
+                
+            # Standard GRN rules
+            elif pattern_name == 'standard':
+                # Additional validation for standard format if needed
+                helix_str, position_str = grn.split('x')
+                try:
+                    helix = int(helix_str)
+                    position = int(position_str)
+                    
+                    # Check helix range (typically 1-8 for GPCRs)
+                    if not (1 <= helix <= 8):
+                        return False, f"Invalid helix number: {helix} (expected 1-8)"
+                        
+                    # Check position (typically 1-99)
+                    if not (1 <= position <= 99):
+                        return False, f"Invalid position number: {position} (expected 1-99)"
+                except ValueError:
+                    return False, f"Non-numeric values in GRN: {grn}"
+                
+                return True, "Valid standard GRN format"
+                
+            # Standard dot notation rules
+            elif pattern_name == 'standard_dot':
+                # Additional validation for standard dot format
+                helix_str, position_str = grn.split('.')
+                try:
+                    helix = int(helix_str)
+                    position = int(position_str)
+                    
+                    # Check helix range
+                    if not (0 <= helix <= 9):
+                        return False, f"Invalid helix number: {helix} (expected 0-9)"
+                        
+                    # Check position
+                    if not (0 <= position <= 99):
+                        return False, f"Invalid position number: {position} (expected 0-99)"
+                except ValueError:
+                    return False, f"Non-numeric values in GRN: {grn}"
+                
+                return True, "Valid standard dot notation GRN format"
+                
+            # Loop region rules  
+            elif pattern_name == 'loop':
+                # Additional validation for loop format
+                match = pattern.match(grn)
+                helix1, helix2, distance = match.groups()
+                try:
+                    helix1_int = int(helix1)
+                    helix2_int = int(helix2)
+                    distance_int = int(distance)
+                    
+                    # Check helix range
+                    if not (1 <= helix1_int <= 8) or not (1 <= helix2_int <= 8):
+                        return False, f"Invalid helix numbers in loop: {helix1}, {helix2} (expected 1-8)"
+                        
+                    # Helices should be adjacent or at least make sense
+                    if abs(helix1_int - helix2_int) > 1 and not (helix1_int == 1 and helix2_int == 8):
+                        return False, f"Non-adjacent helices in loop: {helix1}, {helix2}"
+                        
+                    # Check distance range (typically 1-999)
+                    if not (1 <= distance_int <= 999):
+                        return False, f"Invalid distance in loop: {distance} (expected 1-999)"
+                except ValueError:
+                    return False, f"Non-numeric values in loop GRN: {grn}"
+                
+                return True, "Valid loop GRN format"
+    
+    # If no pattern matched
+    return False, f"GRN string '{grn}' does not match any known pattern"
 
 
 # ---------------------------------------------------------------------------
-#   7. String List Sorter (Orchestrator)
+#   2. Legacy check function (kept for compatibility)
 # ---------------------------------------------------------------------------
-def sort_grns_str(grns_str_list: List[str], output_notation_type: str = 'dot') -> List[str]:
-    grns_float = []
-    for s in grns_str_list:
-        f = parse_grn_str2float(s)
-        if abs(f - ERROR_FLOAT) > 1e-6:
-            grns_float.append(f)
-        else:
-            print(f"Info: Skipping unparsable/invalid GRN string from sort input: {s}")
-    sorted_grns_float = sort_grns(grns_float)
-    return [parse_grn_float2str(f, notation_type=output_notation_type) for f in sorted_grns_float]
+def check_str_grn_valid(grn_str):
+    float_val = parse_grn_str2float(grn_str)
+    return float_val != ERROR_FLOAT
 
 
-def init_grn_intervals(grn_config):
-    getcontext().prec = 4
+# ---------------------------------------------------------------------------
+#   3. Helper Functions
+# ---------------------------------------------------------------------------
+def get_prev_next_tm(loop_grn_float):
+    """
+    For a given loop GRN float, extract the previous and next TM helices.
+    
+    Loop format: AB.CCC where A and B are helix numbers
+    """
+    if loop_grn_float < 10:  # Not a loop
+        return None, None
+        
+    int_part = int(loop_grn_float)
+    prev_tm = int_part // 10
+    next_tm = int_part % 10
+    
+    return prev_tm, next_tm
 
-    std_grns = []
-    for interval_key, (left_str, right_str) in grn_config.items():
-        # Convert the string GRN values to Decimal
-        float_left = Decimal(parse_grn_str2float(left_str))
-        float_right = Decimal(parse_grn_str2float(right_str))
-        # Check if left is greater than right and swap if necessary
-        if float_left > float_right:
-            float_left, float_right = float_right, float_left
-        # Generate a list of Decimals from left to right with a step of .01
-        y = (float_right - float_left).quantize(Decimal('0.01'))
-        n = int(y * 100) + 1
-        grns_float = [(float_left + Decimal(x) * Decimal('0.01')).quantize(Decimal('0.01')) for x in range(n)]
-        # Convert the list of Decimals back to the standardized GRN strings
-        grns_str = [parse_grn_float2str(x) for x in grns_float]
-        # Use the grns_str directly (they're already in proper format)
-        std_grns.extend(grns_str)
-    return std_grns
+
+# ---------------------------------------------------------------------------
+#   4. Sorting Functions
+# ---------------------------------------------------------------------------
+def sort_grns(grn_floats: List[float]) -> List[float]:
+    """
+    Sort a list of GRN floats in the standard order.
+    
+    Order:
+    1. N-terminal (negative values)
+    2. TM regions (1-8)
+    3. Loops (10-99)
+    4. C-terminal (100+)
+    
+    Within each category, sort by value.
+    """
+    # Separate into categories
+    n_term = [g for g in grn_floats if g < 0]
+    tm_regions = [g for g in grn_floats if 0 <= g < 10]
+    loops = [g for g in grn_floats if 10 <= g < 100]
+    c_term = [g for g in grn_floats if g >= 100]
+    
+    # Sort each category
+    n_term.sort(reverse=True)  # Most negative last (closer to TM1)
+    tm_regions.sort()
+    loops.sort()
+    c_term.sort()
+    
+    # Combine in order
+    return n_term + tm_regions + loops + c_term
+
+
+def sort_grns_str(grn_strs: List[str]) -> List[str]:
+    """Sort a list of GRN strings."""
+    # Convert to floats, sort, convert back
+    grn_floats = [parse_grn_str2float(g) for g in grn_strs]
+    sorted_floats = sort_grns(grn_floats)
+    return [parse_grn_float2str(f) for f in sorted_floats]
+
+
+# ---------------------------------------------------------------------------
+#   5. GRN Interval and Configuration Management
+# ---------------------------------------------------------------------------
+def init_grn_intervals(protein_family, min_seq_id=0.3, max_gaps=20, max_e_value=10e-5, config_dir=None):
+    """Initialize GRN intervals from configuration files."""
+    if config_dir is None:
+        # Use default config directory
+        config_dir = Path(__file__).parent / 'configs'
+    else:
+        config_dir = Path(config_dir)
+        
+    config_file = config_dir / f'{protein_family}.json'
+    
+    if not config_file.exists():
+        logger.warning(f"Config file not found: {config_file}")
+        return {}
+        
+    with open(config_file, 'r') as f:
+        config_data = json.load(f)
+        
+    intervals = {}
+    for grn_range in config_data.get('grn_ranges', []):
+        start_grn = grn_range['start']
+        end_grn = grn_range['end']
+        intervals[f"{start_grn}-{end_grn}"] = (
+            parse_grn_str2float(start_grn),
+            parse_grn_str2float(end_grn)
+        )
+    
+    return intervals
 
 
 class GRNConfigManager:
-    def __init__(self, path=None, config_path='config.json', protein_family='gpcr_a'):
-        if path is None:
-            # Try different possible locations for configs
-            possible_paths = [
-                'data/grn/configs/',
-                os.path.join(os.path.dirname(__file__), 'configs/'),
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configs/')
-            ]
-
-            for possible_path in possible_paths:
-                test_path = os.path.join(possible_path, config_path)
-                if os.path.exists(test_path):
-                    path = possible_path
-                    break
-
-            # Default to package directory if not found
-            if path is None:
-                path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configs/')
-
-        self.config_path = os.path.join(path, config_path)
-        self.config = None
-        self.protein_family = protein_family
-
-    def load_config(self):
-        if self.config is None:
+    """Manages GRN configurations for different protein families."""
+    
+    def __init__(self, config_dir=None):
+        if config_dir is None:
+            self.config_dir = Path(__file__).parent / 'configs'
+        else:
+            self.config_dir = Path(config_dir)
+            
+        self.configs = {}
+        self._load_configs()
+    
+    def _load_configs(self):
+        """Load all available configuration files."""
+        if not self.config_dir.exists():
+            logger.warning(f"Config directory not found: {self.config_dir}")
+            return
+            
+        for config_file in self.config_dir.glob('*.json'):
+            family_name = config_file.stem
             try:
-                with open(self.config_path, 'r') as f:
-                    self.config = json.load(f)
-            except FileNotFoundError:
-                # Provide a fallback config for testing
-                self.config = {
-                    "microbial_opsins": {
-                        "standard": {
-                            "TM1": ["1.01", "1.50"],
-                            "TM2": ["2.01", "2.50"],
-                            "TM3": ["3.01", "3.50"],
-                            "TM4": ["4.01", "4.50"],
-                            "TM5": ["5.01", "5.50"],
-                            "TM6": ["6.01", "6.50"],
-                            "TM7": ["7.01", "7.50"]
-                        },
-                        "strict": {
-                            "TM1": ["1.50", "1.50"],
-                            "TM2": ["2.50", "2.50"],
-                            "TM3": ["3.50", "3.50"],
-                            "TM4": ["4.50", "4.50"],
-                            "TM5": ["5.50", "5.50"],
-                            "TM6": ["6.50", "6.50"],
-                            "TM7": ["7.50", "7.50"]
-                        }
-                    },
-                    "gpcr_a": {
-                        "standard": {
-                            "TM1": ["1.01", "1.50"],
-                            "TM2": ["2.01", "2.50"],
-                            "TM3": ["3.01", "3.50"],
-                            "TM4": ["4.01", "4.50"],
-                            "TM5": ["5.01", "5.50"],
-                            "TM6": ["6.01", "6.50"],
-                            "TM7": ["7.01", "7.50"]
-                        },
-                        "strict": {
-                            "TM1": ["1.50", "1.50"],
-                            "TM2": ["2.50", "2.50"],
-                            "TM3": ["3.50", "3.50"],
-                            "TM4": ["4.50", "4.50"],
-                            "TM5": ["5.50", "5.50"],
-                            "TM6": ["6.50", "6.50"],
-                            "TM7": ["7.50", "7.50"]
-                        }
-                    }
-                }
-        return self.config
-
-    def list_available_datasets(self):
-        self.load_config()
-        datasets = {}
-        for family, configs in self.config.items():
-            datasets[family] = {
-                'standard': 'standard' in configs,
-                'strict': 'strict' in configs
-            }
-        return datasets
-
-    def get_config(self, strict=False, protein_family=None):
-        if protein_family is None:
-            protein_family = self.protein_family
-        self.load_config()
-        config_type = 'strict' if strict else 'standard'
-        family_config = self.config.get(protein_family, {})
-        raw_config = family_config.get(config_type, {})
-        
-        # Normalize keys to uppercase for consistency
-        normalized_config = {}
-        for key, value in raw_config.items():
-            normalized_key = key.upper() if key.lower().startswith('tm') else key
-            normalized_config[normalized_key] = value
-        
-        return normalized_config
-
-    def init_grns(self, strict=False, protein_family=None):
-        if protein_family is None:
-            protein_family = self.protein_family
-        grn_config = self.get_config(strict=strict, protein_family=protein_family)
-        return init_grn_intervals(grn_config)
-
-
-def get_grn_interval(left: str = '8x48', right: str = '9x71', table: pd.DataFrame = pd.DataFrame([]),
-                     config_manager: GRNConfigManager = None, grns_str: list = [],
-                     protein_family: str = 'gpcr_a', strict: bool = True):
-    # Priority 1: Use provided GRNs string list if available
-    if grns_str:
-        grns_float = sort_grns([round(parse_grn_str2float(x), 2) for x in grns_str])
-    # Priority 2: Use the provided table's columns as GRNs if no GRNs string list is provided
-    elif not grns_str and not table.empty:
-        grns_str = table.columns.tolist()
-        grns_float = [round(parse_grn_str2float(x), 3) for x in grns_str]
-    # Priority 3: Default initialization using a new initialization of config_manager if no list or table provided
-    else:
-        if config_manager is None:
-            config_manager = GRNConfigManager()
-        grn_config = config_manager.get_config(strict=strict, protein_family=protein_family)
-        grns_str = init_grn_intervals(grn_config)
-        grns_float = sort_grns([round(parse_grn_str2float(x), 2) for x in grns_str])
-
-    n_tail_grn = []
-    grns_str_interval = []
-    c_tail_grn = []
-    if 'n' in left:
-        start = int(left.split('n.')[1])
-        end = 1
-        if 'n' in right:
-            end = int(right.split('n.')[1])
-        len_n_tail = start - end + 1
-        n_tail_grn = [('n.' + str(start - i)) for i in range(len_n_tail) if ('n.' + str(start - i)) in grns_str]
-        if not 'n' in right:
-            std_grns = [x for x in grns_str if 'x' in x]
-            left = std_grns[0]
-    if 'c' in right:
-        end = int(right.split('c.')[1])
-        start = 1
-        if 'c' in left:
-            start = int(left.split('c.')[1])
-        len_c_tail = end - start
-        c_tail_grn = [('c.' + str(start + i)) for i in range(len_c_tail + 1) if ('c.' + str(start + i)) in grns_str]
-        if not 'c' in left:
-            std_grns = [x for x in grns_str if 'x' in x]
-            right = std_grns[-1]
-    if ('x' in left) and ('x' in right):
-        left_grn = parse_grn_str2float(left)
-        right_grn = parse_grn_str2float(right)
-        sorted_grns = sort_grns(grns_float)
-        assert left_grn in sorted_grns, print('could not find left grn pivot in columns')
-        assert right_grn in sorted_grns, print('could not find right grn pivot in columns')
-        float_interval = sorted_grns[sorted_grns.index(left_grn):sorted_grns.index(right_grn) + 1]
-        grns_str_interval = [parse_grn_float2str(round(x, 6)) for x in float_interval]
-    return n_tail_grn + grns_str_interval + c_tail_grn
-
-
-def init_std_grns(grn_intervals):
-    std_grns = []
-    for interval in grn_intervals.items():
-        grns = get_grn_interval(*interval[1])
-        grns = [g for g in grns if len(g) < 5]
-        std_grns += grns
-    return std_grns
-
-
-def map_grn_to_color(grn):
-    if 'n' in grn:
-        return 'rgb(31, 119, 180)'
-    if 'c' in grn:
-        return 'rgb(255, 127, 14)'
-    grn_f = parse_grn_str2float(grn)
-    if grn_f > 10:
-        return 'rgb(44, 160, 44)'
-    else:
-        return 'rgb(214, 39, 40)'
-
-
-def get_seq(gene: str, grn_table: pd.DataFrame):
-    seq_list = list(grn_table.loc[gene].values)
-    seq = ''.join([x[0] for x in seq_list if x != '-'])
-    seq.replace('-', '')
-    return seq
-
-
-def get_annot_seq(gene: str, grn_table: pd.DataFrame):
-    seq_list = list(grn_table.loc[gene].values)
-    return [x for x in seq_list if x != '-']
-
-
-def remove_gaps_from_sequences(sequence_dict):
-    return {key: sequence.replace('-', '') for key, sequence in sequence_dict.items()}
-
-
-def flatten(l):
-    return [item for sublist in l for item in sublist if len(item) == 4]
-
-
-from typing import List
-
-
-# Assuming ERROR_FLOAT and parse_grn_str2float are defined as in your provided code.
-# If not, you'll need to include them or ensure they are accessible.
-# For example:
-# ERROR_FLOAT = -999.999
-# def parse_grn_str2float(grn_str: str) -> float:
-#     # ... (implementation from your provided code) ...
-#     pass
-
-def get_tm_residues(grn_str_list: List[str]) -> List[str]:
-    """
-    Filters a list of GRN strings to return only those representing TM residues.
-
-    Args:
-        grn_str_list: A list of GRN strings.
-
-    Returns:
-        A list of GRN strings that correspond to TM residues (H1-H9).
-    """
-    tm_residue_strings = []
-    for grn_s in grn_str_list:
-        f_val = parse_grn_str2float(grn_s)
-
-        # Skip if the GRN string is unparsable
-        if abs(f_val - ERROR_FLOAT) < 1e-6:
-            continue
-
-        # The integer part of the float determines the segment type.
-        # N-terminal residues result in f_val <= -0.5
-        # C-terminal residues result in f_val >= 100.5
-        # TM helices (H1-H9) have an integer part from 1 to 9.
-        # Loops (e.g., 12.xxx, 23.xxx) have integer parts >= 10.
-
-        integer_part = int(f_val)
-
-        if 1 <= integer_part <= 9:
-            # This condition specifically identifies TM helices H1-H9
-            tm_residue_strings.append(grn_s)
-
-    return tm_residue_strings
+                with open(config_file, 'r') as f:
+                    self.configs[family_name] = json.load(f)
+            except Exception as e:
+                logger.error(f"Error loading config {config_file}: {e}")
+    
+    def get_intervals(self, protein_family):
+        """Get GRN intervals for a specific protein family."""
+        if protein_family not in self.configs:
+            logger.warning(f"No config found for protein family: {protein_family}")
+            return {}
+            
+        return init_grn_intervals(protein_family, config_dir=self.config_dir)
 
 
 # ---------------------------------------------------------------------------
-#   Test Suite
+#   6. GRN Interval Calculation
+# ---------------------------------------------------------------------------
+def get_grn_interval(grn_target, intervals):
+    """
+    Get the GRN interval that contains the target GRN.
+    
+    Args:
+        grn_target: Target GRN (string or float)
+        intervals: Dictionary of interval_name -> (start_float, end_float)
+        
+    Returns:
+        Interval name or None if not found
+    """
+    if isinstance(grn_target, str):
+        grn_target_float = parse_grn_str2float(grn_target)
+    else:
+        grn_target_float = grn_target
+        
+    for interval_name, (start, end) in intervals.items():
+        if start <= grn_target_float <= end:
+            return interval_name
+            
+    return None
+
+
+def init_std_grns(intervals):
+    """Initialize standard GRNs from intervals."""
+    std_grns = []
+    for interval_name, (start, end) in intervals.items():
+        # Add the start and end of each interval
+        std_grns.append(parse_grn_float2str(start))
+        std_grns.append(parse_grn_float2str(end))
+    
+    # Remove duplicates and sort
+    std_grns = list(set(std_grns))
+    return sort_grns_str(std_grns)
+
+
+# ---------------------------------------------------------------------------
+#   7. Visualization Support
+# ---------------------------------------------------------------------------
+def map_grn_to_color(grn, color_map=None):
+    """Map a GRN to a color for visualization."""
+    if color_map is None:
+        # Default color scheme based on helix
+        color_map = {
+            1: '#FF0000',  # Red
+            2: '#FF7F00',  # Orange
+            3: '#FFFF00',  # Yellow
+            4: '#00FF00',  # Green
+            5: '#0000FF',  # Blue
+            6: '#4B0082',  # Indigo
+            7: '#9400D3',  # Violet
+            8: '#FF1493',  # Deep Pink
+        }
+    
+    grn_float = parse_grn_str2float(grn)
+    
+    # N-terminal: Gray
+    if grn_float < 0:
+        return '#808080'
+    # C-terminal: Black
+    elif grn_float >= 100:
+        return '#000000'
+    # Loops: Light gray
+    elif grn_float >= 10:
+        return '#C0C0C0'
+    # TM regions: Use helix color
+    else:
+        helix = int(grn_float)
+        return color_map.get(helix, '#FFFFFF')
+
+
+# ---------------------------------------------------------------------------
+#   8. Sequence Utilities
+# ---------------------------------------------------------------------------
+def get_seq(name, grn_table):
+    """Get sequence from GRN table for a specific protein."""
+    if name not in grn_table.index:
+        return None
+        
+    row = grn_table.loc[name]
+    # Filter out gaps and unknowns
+    seq_parts = [val[0] for val in row.values if val not in [GRN_GAP_SYMBOL, GRN_UNKNOWN_SYMBOL, '-', 'X']]
+    return ''.join(seq_parts)
+
+
+def get_annot_seq(name, grn_table):
+    """Get annotated sequence with residue numbers from GRN table."""
+    if name not in grn_table.index:
+        return None
+        
+    row = grn_table.loc[name]
+    # Include residue position information
+    annot_parts = []
+    for grn, val in row.items():
+        if val not in [GRN_GAP_SYMBOL, GRN_UNKNOWN_SYMBOL, '-', 'X']:
+            annot_parts.append(f"{val}({grn})")
+    
+    return ''.join(annot_parts)
+
+
+def remove_gaps_from_sequences(seq_dict):
+    """Remove gaps from sequences in a dictionary."""
+    cleaned_dict = {}
+    for name, seq in seq_dict.items():
+        cleaned_seq = seq.replace('-', '').replace('.', '')
+        cleaned_dict[name] = cleaned_seq
+    return cleaned_dict
+
+
+# ---------------------------------------------------------------------------
+#   9. Utility Functions
+# ---------------------------------------------------------------------------
+def flatten(lst):
+    """Flatten a nested list."""
+    result = []
+    for item in lst:
+        if isinstance(item, list):
+            result.extend(flatten(item))
+        else:
+            result.append(item)
+    return result
+
+
+def get_tm_residues(grn_list):
+    """Filter TM residues from a GRN list."""
+    tm_residues = []
+    for grn in grn_list:
+        grn_float = parse_grn_str2float(grn)
+        # TM regions are between 1 and 8 (not loops)
+        if 1 <= grn_float < 10:
+            tm_residues.append(grn)
+    return tm_residues
+
+
+# ---------------------------------------------------------------------------
+#   10. Testing Function
 # ---------------------------------------------------------------------------
 def run_all_tests():
-    print("--- Testing parse_grn_str2float ---")
-    str2float_tests = [
-        ('n.10', -10.0), ('n1', -1.0), ('n.1', -1.0),
-        ('n.0', ERROR_FLOAT), ('n0', ERROR_FLOAT),
-        ('c.5', 105.0), ('c1', 101.0), ('c.12', 112.0), ('c12', 112.0),
-        ('c.0', ERROR_FLOAT), ('c0', ERROR_FLOAT),
-        ('1.50', 1.50), ('1x50', 1.50),
-        ('0.50', ERROR_FLOAT), ('0x50', ERROR_FLOAT),
-        ('1.501', 1.501), ('1x501', 1.501),
-        ('12.003', 12.003), ('12x003', 12.003), ('32.001', 32.001), ('32x001', 32.001),
-        ('9.123', 9.123), ('9x123', 9.123),  # TMH9
-        ('bad', ERROR_FLOAT), ('n.x', ERROR_FLOAT), ('1.x2', ERROR_FLOAT)
+    """Run all test cases for GRN utilities."""
+    test_cases = [
+        # Standard formats
+        ('1x50', 1.50),
+        ('7x53', 7.53),
+        ('3x25', 3.25),
+        
+        # N-terminal
+        ('n.10', -0.10),
+        ('n.5', -0.05),
+        ('n.25', -0.25),
+        
+        # C-terminal
+        ('c.5', 100.05),
+        ('c.10', 100.10),
+        ('c.25', 100.25),
+        
+        # Loops
+        ('12.003', 12.003),
+        ('23.015', 23.015),
+        ('67.100', 67.100),
     ]
-    all_s2f_passed = True
-    for grn_s, expected_f in str2float_tests:
-        res_f = parse_grn_str2float(grn_s)
-        if abs(res_f - expected_f) > 1e-6:
-            print(f"FAIL: parse_grn_str2float('{grn_s}') -> {res_f} (Expected: {expected_f})")
-            all_s2f_passed = False
-    print(f"parse_grn_str2float tests {'PASSED' if all_s2f_passed else 'FAILED'}.")
-
-    print("\n--- Testing parse_grn_float2str ---")
-    float2str_tests = [
-        (-10.0, 'dot', 'n.10'), (-1.0, 'x', 'n.1'), (-0.5, 'dot', 'n.1'),
-        (0.0, 'dot', 'undef.0.000'), (0.4, 'dot', 'undef.0.400'),
-        (105.0, 'dot', 'c.5'), (101.0, 'x', 'c.1'),  # C-term now always dot
-        (100.0, 'dot', 'undef.100.000'), (100.4, 'dot', 'undef.100.400'),
-        (1.50, 'dot', '1.50'), (1.50, 'x', '1x50'),
-        (1.501, 'dot', '1.501'), (1.501, 'x', '1x501'),
-        (7.520, 'dot', '7.52'), (7.520, 'x', '7x52'),
-        (7.5206, 'dot', '7.521'),
-        (12.003, 'dot', '12.003'), (12.003, 'x', '12x003'),
-        (32.001, 'dot', '32.001'), (32.001, 'x', '32x001'),  # Loop BA.CCC
-        (9.12, 'dot', '9.12'), (9.12, 'x', '9x12'),  # TMH9 canonical
-        (9.123, 'dot', '9.123'), (9.123, 'x', '9x123'),  # TMH9 insertion
-    ]
-    all_f2s_passed = True
-    for f_val, note, expected_s in float2str_tests:
-        res_s = parse_grn_float2str(f_val, note)
-        if res_s != expected_s:
-            print(f"FAIL: parse_grn_float2str({f_val}, '{note}') -> '{res_s}' (Expected: '{expected_s}')")
-            all_f2s_passed = False
-    print(f"parse_grn_float2str tests {'PASSED' if all_f2s_passed else 'FAILED'}.")
-
-    print("\n--- Testing check_str_grn_valid ---")
-    validity_tests = [
-        ('n.10', True), ('n.1', True), ('n.0', False), ('n10', False),
-        ('c.5', True), ('c.12', True), ('c1', False), ('c12', False),  # cX legacy not valid output
-        ('1.50', True), ('1x50', True), ('1.501', True), ('1x501', True),
-        ('0.50', False), ('1.500', False),  # ('1x500', False) implicit
-        ('9.12', True), ('9x12', True), ('9.123', True), ('9x123', True),  # TMH9
-        ('12.003', True), ('12x003', True), ('32.001', True), ('32x001', True),
-        ('12.10', False),  # Loop must be 3 fractional
-    ]
-    all_valid_passed = True
-    for grn_s, expected_v in validity_tests:
-        res_v = check_str_grn_valid(grn_s)
-        if res_v != expected_v:
-            print(f"FAIL: check_str_grn_valid('{grn_s}') -> {res_v} (Expected: {expected_v})")
-            all_valid_passed = False
-    print(f"check_str_grn_valid tests {'PASSED' if all_valid_passed else 'FAILED'}.")
-
-    print("\n--- Testing sort_grns_str ---")
-    # Input includes n.0, c0, 0.50 which will be filtered by parse_grn_str2float
-    grn_list_str_input = ["c.10", "n.10", "1.50", "c.1", "12.003", "n.1", "2.601", "1x60", "8.70", "12x000", "2.30",
-                          "23.001", "9.100", "32.001", "n.0", "c0", "0.50"]
-    # Expected sort of valid inputs:
-    expected_sorted_dot = ["n.10", "n.1",  # N-Term
-                           "1.50", "1.60",  # TM1
-                           "12.000", "12.003",  # Loop H1-H2
-                           "2.30", "2.601",  # TM2
-                           "23.001",  # Loop H2-H3
-                           "32.001",  # Loop H2-H3 (BA notation, numerically after 23.xxx)
-                           "8.70",  # TM8
-                           "9.10",  # TM9
-                           "c.1", "c.10"]  # C-Term
-    all_sort_passed = True
-
-    sorted_dot = sort_grns_str(grn_list_str_input, 'dot')
-    print(f"Input: {grn_list_str_input}")
-    print(f"Sorted (dot): {sorted_dot}")
-    print(f"Expected (dot): {expected_sorted_dot}")
-    if sorted_dot != expected_sorted_dot:
-        print("FAIL sort_grns_str (dot)")
-        all_sort_passed = False
-        grns_float_debug = []
-        for s_debug in grn_list_str_input:
-            f_debug = parse_grn_str2float(s_debug)
-            if abs(f_debug - ERROR_FLOAT) > 1e-6: grns_float_debug.append(f_debug)
-        print(f"DEBUG: Floats parsed for sort: {grns_float_debug}")
-        print(f"DEBUG: Floats after sort_grns: {sort_grns(grns_float_debug)}")
-
-    # Generate expected_sorted_x based on corrected parse_grn_float2str for C-term
-    temp_floats_for_x = [parse_grn_str2float(s) for s in expected_sorted_dot if
-                         abs(parse_grn_str2float(s) - ERROR_FLOAT) > 1e-6]
-    expected_sorted_x = [parse_grn_float2str(f, 'x') for f in temp_floats_for_x]
-
-    sorted_x = sort_grns_str(grn_list_str_input, 'x')
-    print(f"Sorted (x):   {sorted_x}")
-    print(f"Expected (x): {expected_sorted_x}")
-    if sorted_x != expected_sorted_x:
-        print("FAIL sort_grns_str (x)")
-        all_sort_passed = False
-    print(f"sort_grns_str tests {'PASSED' if all_sort_passed else 'FAILED'}.")
+    
+    print("Testing parse_grn_str2float and parse_grn_float2str...")
+    for grn_str, expected_float in test_cases:
+        # Test string to float
+        result_float = parse_grn_str2float(grn_str)
+        assert abs(result_float - expected_float) < 0.0001, f"Failed: {grn_str} -> {result_float} (expected {expected_float})"
+        
+        # Test float to string
+        result_str = parse_grn_float2str(expected_float)
+        # Normalize both for comparison
+        normalized_input = normalize_grn_format(grn_str)
+        normalized_result = normalize_grn_format(result_str)
+        assert normalized_input == normalized_result, f"Failed: {expected_float} -> {result_str} (expected {grn_str})"
+    
+    print("All tests passed!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_all_tests()

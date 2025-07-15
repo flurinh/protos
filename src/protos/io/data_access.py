@@ -443,9 +443,8 @@ class GlobalRegistry:
         # Cache of processor-specific registries
         self._processor_registries = {}
         
-        # Initialize entity registry
-        entity_registry_path = os.path.join(os.path.dirname(self.registry_file), 'entity_registry.json')
-        self.entity_registry = EntityRegistry(entity_registry_path)
+        # Initialize entity registry with ProtosPaths
+        self.entity_registry = EntityRegistry(self.paths)
         
     def _load_registry(self) -> Dict[str, Dict[str, Any]]:
         """Load registry from file or create if not exists."""
@@ -767,36 +766,53 @@ class EntityRegistry:
     sequence, structure, GRN, and embedding formats all sharing the same entity ID.
     """
     
-    def __init__(self, registry_file: Optional[str] = None):
+    def __init__(self, registry_file: Optional[Union[str, 'ProtosPaths']] = None):
         """
         Initialize the entity registry.
         
         Args:
-            registry_file: Path to entity registry JSON file
+            registry_file: Path to entity registry JSON file OR ProtosPaths instance
         """
-        self.registry_file = registry_file or os.path.join('data', 'entity_registry.json')
-        self.entities = self._load_registry()
+        if registry_file is None:
+            # Fallback for backward compatibility
+            self.registry_file = os.path.join('data', 'entity_registry.json')
+        elif isinstance(registry_file, str):
+            # Direct path provided
+            self.registry_file = registry_file
+        else:
+            # ProtosPaths instance provided
+            self.registry_file = str(registry_file.get_registry_path('entity_registry.json'))
+            
+        self.entities = {}  # Initialize empty first
+        self._original_id_cache = {}  # Initialize cache
         
-        # Cache for reverse lookups (original_id -> entity_id)
-        self._original_id_cache = self._build_original_id_cache()
+        # Load registry (which will also rebuild cache)
+        self.entities = self._load_registry()
         
         # Migrate old format if needed
         self._migrate_to_multi_format()
     
     def _load_registry(self) -> Dict[str, Dict[str, Any]]:
         """Load entity registry from file or create if not exists."""
+        entities = {}
         if os.path.exists(self.registry_file):
             try:
                 with open(self.registry_file, 'r') as f:
                     data = json.load(f)
-                    return data.get('entities', {})
+                    entities = data.get('entities', {})
             except Exception as e:
                 logger.error(f"Error loading entity registry: {e}")
-                return {}
+                entities = {}
         else:
             # Ensure directory exists
             os.makedirs(os.path.dirname(self.registry_file), exist_ok=True)
-            return {}
+            entities = {}
+        
+        # Rebuild cache after loading to include aliases
+        self.entities = entities
+        self._rebuild_cache()
+        
+        return entities
     
     def _save_registry(self) -> None:
         """Save entity registry to file."""
@@ -1069,16 +1085,16 @@ class EntityRegistry:
     
     def find_entity_by_original_id(self, original_id: str, format_type: Optional[str] = None) -> Optional[str]:
         """
-        Find entity hash ID by original ID.
+        Find entity hash ID by original ID or alias.
         
         Args:
-            original_id: Original identifier (e.g., PDB ID)
+            original_id: Original identifier or alias (e.g., PDB ID, UniProt ID)
             format_type: Optional format type for filtering
             
         Returns:
             Entity hash ID or None if not found
         """
-        # Direct cache lookup (no type prefix in multi-format system)
+        # Direct cache lookup (includes both original IDs and aliases)
         if original_id in self._original_id_cache:
             entity_id = self._original_id_cache[original_id]
             
@@ -1090,10 +1106,20 @@ class EntityRegistry:
                     return None
             return entity_id
         
-        # Fallback to searching all entities
+        # Fallback to searching all entities (in case cache is out of sync)
         for entity_id, info in self.entities.items():
+            # Check original ID
             if info.get('original_id') == original_id:
                 if format_type is None or format_type in info.get('formats', {}):
+                    # Update cache
+                    self._original_id_cache[original_id] = entity_id
+                    return entity_id
+            
+            # Check aliases
+            if original_id in info.get('aliases', []):
+                if format_type is None or format_type in info.get('formats', {}):
+                    # Update cache
+                    self._original_id_cache[original_id] = entity_id
                     return entity_id
         
         return None
@@ -1286,3 +1312,175 @@ class EntityRegistry:
                 stats['by_dataset'][dataset_id] = stats['by_dataset'].get(dataset_id, 0) + 1
         
         return stats
+    
+    def get_human_id(self, entity_id: str) -> Optional[str]:
+        """
+        Get the human-readable identifier for an entity.
+        
+        This is an alias for get_original_id for clarity in the dual ID system.
+        
+        Args:
+            entity_id: Entity hash ID
+            
+        Returns:
+            Human-readable identifier or None if not found
+        """
+        return self.get_original_id(entity_id)
+    
+    def get_hash_id(self, identifier: str) -> Optional[str]:
+        """
+        Get the hash ID for any identifier.
+        
+        This method converts human-readable IDs to hash IDs, or validates
+        existing hash IDs.
+        
+        Args:
+            identifier: Any identifier (human-readable or hash)
+            
+        Returns:
+            Entity hash ID or None if not found
+        """
+        # Use resolve_identifier but check if entity actually exists
+        entity_id = self.resolve_identifier(identifier)
+        
+        # Verify entity exists before returning
+        if self.entity_exists(entity_id):
+            return entity_id
+        
+        # Check if it's an original ID
+        found_id = self.find_entity_by_original_id(identifier)
+        if found_id:
+            return found_id
+            
+        return None
+    
+    def add_alias(self, entity_id: str, alias: str) -> bool:
+        """
+        Add an alias (alternate human-readable ID) for an entity.
+        
+        This allows entities to be found by multiple names (e.g., PDB ID,
+        UniProt ID, custom name).
+        
+        Args:
+            entity_id: Entity hash ID
+            alias: Alternative human-readable identifier
+            
+        Returns:
+            True if alias was added successfully
+        """
+        if entity_id not in self.entities:
+            return False
+            
+        # Initialize aliases list if not present
+        if 'aliases' not in self.entities[entity_id]:
+            self.entities[entity_id]['aliases'] = []
+        
+        # Add alias if not already present
+        if alias not in self.entities[entity_id]['aliases']:
+            self.entities[entity_id]['aliases'].append(alias)
+            # Add to cache for fast lookup
+            self._original_id_cache[alias] = entity_id
+            self.entities[entity_id]['modified'] = datetime.now().isoformat()
+            self._save_registry()
+            
+        return True
+    
+    def get_aliases(self, entity_id: str) -> List[str]:
+        """
+        Get all aliases for an entity.
+        
+        Args:
+            entity_id: Entity hash ID
+            
+        Returns:
+            List of aliases (not including the original_id)
+        """
+        if entity_id not in self.entities:
+            return []
+        return self.entities[entity_id].get('aliases', [])
+    
+    def list_entities_detailed(self, 
+                              format_type: Optional[str] = None,
+                              dataset: Optional[str] = None,
+                              output_format: str = "hash") -> List[Union[str, Tuple[str, str], Dict[str, Any]]]:
+        """
+        List entities with flexible output formats.
+        
+        Args:
+            format_type: Filter by format type (structure, sequence, etc.)
+            dataset: Filter by dataset membership
+            output_format: Output format - "hash", "human", "both", "full"
+                          - "hash": List of hash IDs
+                          - "human": List of human-readable IDs
+                          - "both": List of (hash_id, human_id) tuples
+                          - "full": List of dictionaries with full entity info
+            
+        Returns:
+            List of entities in requested format
+        """
+        # Get base list of entity IDs
+        entity_ids = self.list_entities(format_type, dataset)
+        
+        if output_format == "hash":
+            return entity_ids
+            
+        elif output_format == "human":
+            human_ids = []
+            for entity_id in entity_ids:
+                human_id = self.get_original_id(entity_id)
+                if human_id:
+                    human_ids.append(human_id)
+            return human_ids
+            
+        elif output_format == "both":
+            pairs = []
+            for entity_id in entity_ids:
+                human_id = self.get_original_id(entity_id) or entity_id
+                pairs.append((entity_id, human_id))
+            return pairs
+            
+        elif output_format == "full":
+            full_info = []
+            for entity_id in entity_ids:
+                info = self.entities[entity_id].copy()
+                info['entity_id'] = entity_id
+                full_info.append(info)
+            return full_info
+            
+        else:
+            raise ValueError(f"Invalid output_format: {output_format}")
+    
+    def resolve_identifiers(self, identifiers: List[str]) -> Dict[str, str]:
+        """
+        Batch resolve multiple identifiers to hash IDs.
+        
+        Args:
+            identifiers: List of any identifiers (human or hash)
+            
+        Returns:
+            Dictionary mapping input identifiers to hash IDs
+        """
+        results = {}
+        for identifier in identifiers:
+            hash_id = self.resolve_identifier(identifier)
+            results[identifier] = hash_id
+        return results
+    
+    def _rebuild_cache(self) -> None:
+        """
+        Rebuild the original ID cache including aliases.
+        
+        This is called after loading the registry to ensure all
+        human-readable IDs (including aliases) are in the cache.
+        """
+        self._original_id_cache = {}
+        
+        for entity_id, info in self.entities.items():
+            # Add original ID
+            original_id = info.get('original_id')
+            if original_id:
+                self._original_id_cache[original_id] = entity_id
+            
+            # Add all aliases
+            for alias in info.get('aliases', []):
+                self._original_id_cache[alias] = entity_id

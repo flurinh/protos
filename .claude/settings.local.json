@@ -71,7 +71,10 @@
       "Bash(head:*)",
       "Bash(done)",
       "Bash(touch:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(tree:*)",
+      "Bash(~/miniconda3/envs/protos/bin/python -m pytest tests/test_core/test_integration.py -xvs)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

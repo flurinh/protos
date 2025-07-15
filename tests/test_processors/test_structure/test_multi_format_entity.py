@@ -8,9 +8,9 @@ import shutil
 from pathlib import Path
 
 from protos.io.paths import ProtosPaths
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
-from protos.processing.sequence.seq_processor import SeqProcessor
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.structure import StructureProcessor
+from protos.processing.sequence import SequenceProcessor
+from protos.processing.grn import GRNProcessor
 from protos.io.data_access import GlobalRegistry, generate_entity_id
 
 
@@ -34,8 +34,8 @@ class TestMultiFormatEntity:
     def test_structure_to_sequence_same_entity(self, setup_test_environment):
         """Test that a structure and its extracted sequence share the same entity ID."""
         # Create processors
-        struct_processor = CifBaseProcessor(name="struct_test")
-        seq_processor = SeqProcessor(name="seq_test")
+        struct_processor = StructureProcessor(name="struct_test")
+        seq_processor = SequenceProcessor(name="seq_test")
         
         # Load a real structure
         structure = struct_processor.load_structure("1ubq")

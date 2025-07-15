@@ -10,7 +10,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 from protos.io.paths.path_config import ProtosPaths
 
 
@@ -24,9 +24,8 @@ class TestGRNBaseProcessorRealData:
         ProtosPaths.set_data_root(str(tmp_path))
         
         # Initialize processor
-        self.processor = GRNBaseProcessor(
-            name="test_grn_real",
-            processor_data_dir='grn'
+        self.processor = GRNProcessor(
+            name="test_grn_real"
         )
         
         # Create test reference data
@@ -177,9 +176,8 @@ class TestGRNBaseProcessorRealData:
         self.processor.save_grn_table("test_save")
         
         # Create new processor and load saved data
-        new_processor = GRNBaseProcessor(
-            name="test_reload",
-            processor_data_dir='grn'
+        new_processor = GRNProcessor(
+            name="test_reload"
         )
         new_processor.load_grn_table("test_save")
         

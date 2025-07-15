@@ -12,8 +12,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Union, Optional, Any
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-from protos.processing.schema.grn_utils_updated import (
+from protos.processing.grn import GRNProcessor
+from protos.processing.grn.grn_utils import (
     parse_grn_str2float,
     parse_grn_float2str,
     normalize_grn_format,
@@ -48,7 +48,7 @@ def diagnose_grn_table(
         diagnose_loops: Whether to diagnose loop regions
         diagnose_tails: Whether to diagnose N and C-terminal regions
         check_schiff_base: Whether to check for Schiff base lysine
-        use_processor: Whether to use GRNBaseProcessor for loading
+        use_processor: Whether to use GRNProcessor for loading
         data_root: Root data directory (if None, uses PROTOS_DATA_ROOT)
         
     Returns:
@@ -58,11 +58,11 @@ def diagnose_grn_table(
     logger.info(f"Loading GRN table from {grn_table_path}")
     
     if use_processor:
-        # Use GRNBaseProcessor
+        # Use GRNProcessor
         if data_root is None:
             data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
         
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name='diagnose_grn',
             data_root=data_root,
             processor_data_dir='grn',

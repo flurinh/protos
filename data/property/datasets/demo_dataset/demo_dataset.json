@@ -1,14 +1,14 @@
 {
   "metadata": {
-    "created_at": "2025-07-01T00:14:25.470198",
-    "modified_at": "2025-07-01T00:14:25.470198",
+    "created_at": "2025-07-11T14:13:25.728488",
+    "modified_at": "2025-07-11T14:13:25.728670",
     "description": ""
   },
   "entities": {
     "b0f24384f2": {
       "demo_property": {
         "value": "cross_format_test",
-        "assigned_at": "2025-07-01T00:14:25.470198",
+        "assigned_at": "2025-07-11T14:13:25.728664",
         "metadata": {}
       }
     }

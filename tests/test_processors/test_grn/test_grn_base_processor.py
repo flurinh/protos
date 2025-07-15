@@ -1,5 +1,5 @@
 """
-Tests for the GRNBaseProcessor class.
+Tests for the GRNProcessor class.
 
 This test suite validates GRN (Generic Residue Numbering) processor functionality.
 """
@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 from protos.io.paths.path_config import ProtosPaths
 
 
@@ -38,15 +38,12 @@ def sample_grn_table():
 
 def test_basic_initialization():
     """Test basic GRN processor initialization."""
-    processor = GRNBaseProcessor(
-        name="test_grn",
-        processor_data_dir="grn"
-    )
+    processor = GRNProcessor(name="test_grn")
     
     assert processor.name == "test_grn"
-    # data_root comes from global configuration now
-    assert processor.processor_data_dir == "grn"
-    assert os.path.exists(processor.data_path)
+    # Processor type is automatically determined
+    assert processor.processor_type == "grn"
+    assert processor.data_path.exists()
     assert processor.dataset is None
     assert len(processor.grns) == 0
     assert len(processor.ids) == 0
@@ -54,25 +51,16 @@ def test_basic_initialization():
 
 def test_save_load_grn_table(sample_grn_table):
     """Test saving and loading GRN tables."""
-    processor = GRNBaseProcessor(
-        name="test_grn",
-        processor_data_dir="grn",
-        preload=False
-    )
+    processor = GRNProcessor(name="test_grn", preload=False)
     
     # Set the data and save
     processor.data = sample_grn_table
+    processor.ids = list(sample_grn_table.index)
+    processor.grns = list(sample_grn_table.columns)
     processor.save_grn_table("test_grn_table")
     
-    # Verify table was saved successfully (using processor methods)
-    assert processor.is_dataset_available("test_grn_table")
-    
     # Create new processor to test loading
-    processor2 = GRNBaseProcessor(
-        name="test_grn2",
-        processor_data_dir="grn",
-        preload=False
-    )
+    processor2 = GRNProcessor(name="test_grn2", preload=False)
     processor2.load_grn_table("test_grn_table")
     
     # Verify data loaded correctly
@@ -90,13 +78,12 @@ def test_save_load_grn_table(sample_grn_table):
 
 def test_get_residue_by_grn(sample_grn_table):
     """Test getting residue information by GRN position."""
-    processor = GRNBaseProcessor(
-        name="test_grn",
-        preload=False
-    )
+    processor = GRNProcessor(name="test_grn", preload=False)
     
     # Set data and save
     processor.data = sample_grn_table
+    processor.ids = list(sample_grn_table.index)
+    processor.grns = list(sample_grn_table.columns)
     processor.save_grn_table("test_grn")
     processor.load_grn_table("test_grn")
     
@@ -115,13 +102,12 @@ def test_get_residue_by_grn(sample_grn_table):
 
 def test_grn_lookup_methods(sample_grn_table):
     """Test GRN lookup methods."""
-    processor = GRNBaseProcessor(
-        name="test_grn",
-        preload=False
-    )
+    processor = GRNProcessor(name="test_grn", preload=False)
     
     # Set data and save
     processor.data = sample_grn_table
+    processor.ids = list(sample_grn_table.index)
+    processor.grns = list(sample_grn_table.columns)
     processor.save_grn_table("test_grn")
     processor.load_grn_table("test_grn")
     
@@ -139,13 +125,12 @@ def test_grn_lookup_methods(sample_grn_table):
 
 def test_filter_grn_columns(sample_grn_table):
     """Test filtering data by GRN columns."""
-    processor = GRNBaseProcessor(
-        name="test_grn",
-        preload=False
-    )
+    processor = GRNProcessor(name="test_grn", preload=False)
     
     # Set data and save
     processor.data = sample_grn_table
+    processor.ids = list(sample_grn_table.index)
+    processor.grns = list(sample_grn_table.columns)
     processor.save_grn_table("test_grn")
     processor.load_grn_table("test_grn")
     
@@ -161,7 +146,7 @@ def test_filter_grn_columns(sample_grn_table):
 
 def test_merge_grn_tables():
     """Test merging multiple GRN tables."""
-    processor = GRNBaseProcessor(
+    processor = GRNProcessor(
         name="test_grn",
         preload=False
     )
@@ -196,7 +181,7 @@ def test_merge_grn_tables():
 
 def test_dot_notation_handling():
     """Test handling of dot notation (3.50 vs 3x50)."""
-    processor = GRNBaseProcessor(
+    processor = GRNProcessor(
         name="test_grn",
         preload=False
     )
@@ -225,7 +210,7 @@ def test_dot_notation_handling():
 
 def test_empty_grn_table():
     """Test handling of empty GRN table."""
-    processor = GRNBaseProcessor(
+    processor = GRNProcessor(
         name="test_grn",
         preload=False
     )
@@ -246,7 +231,7 @@ def test_empty_grn_table():
 
 def test_dataset_listing(sample_grn_table):
     """Test listing available GRN datasets."""
-    processor = GRNBaseProcessor(
+    processor = GRNProcessor(
         name="test_grn",
         preload=False
     )
@@ -268,7 +253,7 @@ def test_dataset_listing(sample_grn_table):
 
 def test_na_handling(sample_grn_table):
     """Test handling of NA values in GRN tables."""
-    processor = GRNBaseProcessor(
+    processor = GRNProcessor(
         name="test_grn",
         preload=False
     )
@@ -293,7 +278,7 @@ def test_na_handling(sample_grn_table):
 
 def test_grn_table_format_validation():
     """Test GRN table format validation and loading."""
-    processor = GRNBaseProcessor(
+    processor = GRNProcessor(
         name="test_grn",
         preload=False
     )

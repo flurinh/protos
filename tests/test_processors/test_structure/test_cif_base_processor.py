@@ -1,7 +1,7 @@
 """
-Tests for the CifBaseProcessor class using real data from downloads.
+Tests for the StructureProcessor class using real data from downloads.
 
-This test suite validates the CifBaseProcessor by testing all its functionality
+This test suite validates the StructureProcessor by testing all its functionality
 using real PDB structures downloaded from RCSB PDB.
 """
 
@@ -14,7 +14,7 @@ import numpy as np
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 from protos.loaders.download_structures import download_protein_structures
 from protos.loaders.alphafold_utils import download_alphafold_structures
 from protos.processing.structure.struct_utils import STRUCT_COLUMNS
@@ -22,12 +22,9 @@ from protos.processing.structure.struct_utils import STRUCT_COLUMNS
 
 @pytest.fixture
 def processor(test_structures):
-    """Create a CifBaseProcessor instance for testing with real data paths."""
-    processor = CifBaseProcessor(
-        name="test_processor",
-        processor_data_dir="structure",
-        structure_dir="mmcif",
-        dataset_dir="structure_dataset"
+    """Create a StructureProcessor instance for testing with real data paths."""
+    processor = StructureProcessor(
+        name="test_processor"
     )
     # Store available test structures for reference
     processor._test_structures = test_structures
@@ -53,14 +50,14 @@ def test_initialization(processor):
     """Test basic processor initialization."""
     # Verify the processor was initialized correctly
     assert processor.name == "test_processor"
-    assert "structure" in processor.processor_data_dir
-    assert "mmcif" in processor.structure_dir
-    assert "structure_dataset" in processor.dataset_dir
+    assert processor.processor_type == "structure"
     
     # Verify paths are set correctly using Path objects
     assert processor.data_path.exists()
-    assert processor.path_structure_dir.name == "mmcif"
-    assert processor.path_dataset_dir.name == "structure_dataset"
+    assert processor.path_structure_dir.exists()
+    assert processor.path_dataset_dir.exists()
+    assert "mmcif" in str(processor.path_structure_dir)
+    assert "structure_dataset" in str(processor.path_dataset_dir)
 
 
 def test_find_available_pdb_files(processor):
@@ -78,7 +75,7 @@ def test_find_available_pdb_files(processor):
 def test_download_structure(processor):
     """Test downloading a structure directly with the processor."""
     # Mock the download function to avoid actual network calls during tests
-    with patch.object(CifBaseProcessor, 'download_cif') as mock_download:
+    with patch.object(StructureProcessor, 'download_cif') as mock_download:
         # Configure the mock to return success
         mock_download.return_value = True
         
@@ -94,7 +91,7 @@ def test_download_structure(processor):
 def test_download_structures(processor):
     """Test downloading multiple structures with the processor."""
     # Mock the download function to avoid actual network calls during tests
-    with patch.object(CifBaseProcessor, 'download_cif') as mock_download:
+    with patch.object(StructureProcessor, 'download_cif') as mock_download:
         # Configure the mock to return success
         mock_download.return_value = True
         
@@ -302,9 +299,11 @@ def test_create_and_load_dataset(processor):
     
     processor.create_dataset(
         dataset_id=dataset_id,
-        name=dataset_name,
-        description=dataset_description,
-        content=test_pdbs
+        pdb_ids=test_pdbs,
+        metadata={
+            "name": dataset_name,
+            "description": dataset_description
+        }
     )
     
     # Load the dataset
@@ -326,9 +325,11 @@ def test_delete_dataset(processor):
     dataset_id = "delete_test_dataset"
     processor.create_dataset(
         dataset_id=dataset_id,
-        name="Delete Test Dataset",
-        description="Dataset for testing deletion",
-        content=test_pdbs
+        pdb_ids=test_pdbs,
+        metadata={
+            "name": "Delete Test Dataset",
+            "description": "Dataset for testing deletion"
+        }
     )
     
     # Delete the dataset

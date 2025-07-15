@@ -1,5 +1,5 @@
 """
-Tests for CifBaseProcessor entity integration using real biological data.
+Tests for StructureProcessor entity integration using real biological data.
 """
 
 import pytest
@@ -9,7 +9,7 @@ import pandas as pd
 from pathlib import Path
 
 from protos.io.paths import ProtosPaths
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 from protos.io.data_access import GlobalRegistry, generate_entity_id
 from protos.io import cif_utils
 
@@ -52,7 +52,7 @@ def conftest_setup(request):
 
 
 class TestCifBaseProcessorEntityIntegration:
-    """Test entity integration in CifBaseProcessor."""
+    """Test entity integration in StructureProcessor."""
     
     def test_load_structure_with_resolve_identifier(self, conftest_setup):
         """Test that load_structure uses resolve_identifier correctly with real biological data."""
@@ -64,7 +64,7 @@ class TestCifBaseProcessorEntityIntegration:
         test_pdb_id = pdb_ids[0]
         
         # Create processor
-        processor = CifBaseProcessor(name="test_structure")
+        processor = StructureProcessor(name="test_structure")
         
         # Load real structure by PDB ID
         result = processor.load_structure(test_pdb_id)
@@ -106,7 +106,7 @@ class TestCifBaseProcessorEntityIntegration:
     def test_list_structures_returns_names(self, setup_paths):
         """Test that list_structures returns PDB IDs, not hash IDs."""
         # Create processor
-        processor = CifBaseProcessor(name="test_list")
+        processor = StructureProcessor(name="test_list")
         
         # Register some test entities
         global_registry = GlobalRegistry()
@@ -136,7 +136,7 @@ class TestCifBaseProcessorEntityIntegration:
     
     def test_entity_id_consistency(self, setup_paths):
         """Test that same PDB ID always gets same entity ID."""
-        processor = CifBaseProcessor(name="test_consistency")
+        processor = StructureProcessor(name="test_consistency")
         
         # Get entity ID multiple times
         entity_id1 = processor.get_entity_id_for_pdb("1ABC")
@@ -157,7 +157,7 @@ class TestCifBaseProcessorEntityIntegration:
         source_pdb_id = pdb_ids[0]
         
         # Create processor and load a real structure
-        processor = CifBaseProcessor(name="test_save")
+        processor = StructureProcessor(name="test_save")
         source_structure = processor.load_structure(source_pdb_id)
         assert source_structure is not None
         

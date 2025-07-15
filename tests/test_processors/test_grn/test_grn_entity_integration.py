@@ -1,5 +1,5 @@
 """
-Tests for GRNBaseProcessor entity integration using real data.
+Tests for GRNProcessor entity integration using real data.
 """
 
 import pytest
@@ -9,7 +9,7 @@ import pandas as pd
 from pathlib import Path
 
 from protos.io.paths import ProtosPaths
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 from protos.io.data_access import GlobalRegistry, generate_entity_id
 
 
@@ -22,12 +22,12 @@ def setup_test_environment():
 
 
 class TestGRNEntityIntegration:
-    """Test entity integration in GRNBaseProcessor."""
+    """Test entity integration in GRNProcessor."""
     
     def test_save_grn_table_with_entity_ids(self, setup_test_environment):
         """Test that saving a GRN table includes entity IDs."""
         # Create processor
-        processor = GRNBaseProcessor(name="test_grn")
+        processor = GRNProcessor(name="test_grn")
         
         # Load a real GRN table from ref directory
         processor.load_grn_table("ref/mo_ref")
@@ -57,7 +57,7 @@ class TestGRNEntityIntegration:
     def test_load_grn_table_registers_entities(self, setup_test_environment):
         """Test that loading a GRN table registers all entities."""
         # Create processor
-        processor = GRNBaseProcessor(name="test_load")
+        processor = GRNProcessor(name="test_load")
         
         # Load table with entity registration
         processor.load_grn_table("ref/mo_ref", register_entities=True)
@@ -74,7 +74,7 @@ class TestGRNEntityIntegration:
     def test_load_grn_entity(self, setup_test_environment):
         """Test loading a single GRN entity."""
         # Create processor and load table
-        processor = GRNBaseProcessor(name="test_entity")
+        processor = GRNProcessor(name="test_entity")
         processor.load_grn_table("ref/mo_ref")
         
         # Get a test sequence ID
@@ -95,7 +95,7 @@ class TestGRNEntityIntegration:
     def test_list_grn_entities(self, setup_test_environment):
         """Test listing GRN entities returns sequence IDs not hashes."""
         # Create processor and load table
-        processor = GRNBaseProcessor(name="test_list")
+        processor = GRNProcessor(name="test_list")
         processor.load_grn_table("ref/mo_ref")
         
         # List entities
@@ -112,7 +112,7 @@ class TestGRNEntityIntegration:
     def test_get_entity_grn_positions(self, setup_test_environment):
         """Test getting GRN positions for an entity."""
         # Create processor and load table
-        processor = GRNBaseProcessor(name="test_positions")
+        processor = GRNProcessor(name="test_positions")
         processor.load_grn_table("ref/mo_ref")
         
         # Get a test sequence with some GRN positions
@@ -134,7 +134,7 @@ class TestGRNEntityIntegration:
     def test_grn_table_multiple_entities(self, setup_test_environment):
         """Test that GRN tables correctly handle multiple entities."""
         # Create processor
-        processor = GRNBaseProcessor(name="test_multi")
+        processor = GRNProcessor(name="test_multi")
         
         # Create a test GRN table with multiple sequences
         test_data = pd.DataFrame({

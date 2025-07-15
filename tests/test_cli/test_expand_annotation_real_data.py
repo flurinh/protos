@@ -13,7 +13,7 @@ from protos.cli.grn.assign_grns import (
     align_blosum62,
     format_alignment
 )
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 from protos.core.base_processor import BaseProcessor
 from protos.io.paths.path_config import ProtosPaths
 
@@ -28,15 +28,13 @@ class TestExpandAnnotationRealData:
         ProtosPaths.set_data_root(str(tmp_path))
         
         # Initialize processors
-        grn_processor = GRNBaseProcessor(
-            name='test_expand',
-            processor_data_dir='grn'
+        grn_processor = GRNProcessor(
+            name='test_expand'
         )
         
-        from protos.processing.sequence.seq_processor import SeqProcessor
-        seq_processor = SeqProcessor(
-            name='test_expand',
-            processor_data_dir='sequence'
+        from protos.processing.sequence import SequenceProcessor
+        seq_processor = SequenceProcessor(
+            name='test_expand'
         )
         
         # Create minimal test GRN reference data

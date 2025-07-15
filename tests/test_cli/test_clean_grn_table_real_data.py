@@ -8,7 +8,7 @@ import pytest
 import pandas as pd
 
 from protos.cli.grn.clean_grn_table import clean_grn_table, process_table
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 from protos.io.paths.path_config import ProtosPaths
 
 
@@ -22,9 +22,8 @@ class TestCleanGRNTableRealData:
         ProtosPaths.set_data_root(str(tmp_path))
         
         # Initialize processor
-        processor = GRNBaseProcessor(
-            name='test_clean',
-            processor_data_dir='grn'
+        processor = GRNProcessor(
+            name='test_clean'
         )
         
         # Load test data from reference using dataset ID

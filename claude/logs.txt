@@ -100,3 +100,30 @@
 [2025-06-27 17:29] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/TODO.md - Reorganized with philosophy, path, registry sections and prioritized todos
 [2025-06-27 17:31] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/io/data_access.py - Added resolve_identifier and get_original_id methods to EntityRegistry
 [2025-06-27 17:31] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/core/base_processor.py - Updated load_entity to use resolve_identifier, list_entities to return names by default
+[2025-07-01 12:25] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/valerie.md - Created GPCR agonist/inverse agonist analysis workflow with detailed assumptions
+[2025-07-01 13:57] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/grn_annotation_approaches.md - Documented three GRN annotation approaches with examples
+[2025-07-01 14:07] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/valerie.py - Added better error handling and debugging output for GRN annotation testing
+[2025-07-11 14:09] [MODIFY] /claude/todo.txt - Added path-registry-review task for entity/registry/dataset management review
+[2025-07-11 14:32] [CREATE] /data_management_explanation.md - Comprehensive explanation of Protos data management current status and issues
+[2025-07-11 14:40] [MODIFY] /data_management_explanation.md - Added critical sections on multi-entity formats and standardized dataset management requirements
+[2025-07-11 14:43] [MODIFY] /data_management_explanation.md - Added drag-and-drop workflow section addressing common use case and usability issues
+[2025-07-11 14:48] [MODIFY] /claude/todo.txt - Created comprehensive bottom-up implementation plan for entity/registry/dataset overhaul
+[2025-07-11 14:54] [MODIFY] /src/protos/io/data_access.py - Enhanced EntityRegistry with dual ID support: get_human_id, get_hash_id, add_alias, get_aliases, list_entities_detailed, resolve_identifiers, and updated find_entity_by_original_id to support aliases
+[2025-07-11 14:56] [CREATE] /src/protos/io/identifier_utils.py - Created identifier resolution utilities module with resolve_to_entity_id, resolve_to_human_id, and batch resolution functions
+[2025-07-11 15:00] [CREATE] /test_entities.py - Comprehensive test script for entity registry and dual ID system functionality
+[2025-07-11 15:00] [CREATE] /FILESYSTEM_NAMING_CONVENTION.md - Critical documentation explaining human-readable filesystem naming vs hash-based registry system
+[2025-07-11 15:01] [CREATE] /IMPLEMENTATION_NOTES_ENTITY_SYSTEM.md - Detailed implementation notes for filesystem naming convention and required processor updates
+[2025-07-11 15:08] [MODIFY] /data_management_explanation.md - Added critical ProtosPaths principle as fundamental non-negotiable requirement
+[2025-07-11 15:08] [MODIFY] /README.md - Emphasized ProtosPaths as the ONLY path system and zero-configuration design
+[2025-07-11 15:08] [MODIFY] /claude/todo.txt - Added Phase 0 for ProtosPaths integration as critical prerequisite
+[2025-07-11 15:08] [CREATE] /PROTOSPATHS_PRINCIPLE.md - Comprehensive documentation of ProtosPaths as the ONE path system with zero configuration design
+[2025-07-11 15:37] [CREATE] /DATA_MANAGEMENT_UNIFIED.md - Comprehensive unified data management guide combining ProtosPaths, entity/registry/dataset system, and human-readable filesystem principles
+[2025-07-11 15:37] [DELETE] Removed redundant files: data_management_explanation.md, FILESYSTEM_NAMING_CONVENTION.md, IMPLEMENTATION_NOTES_ENTITY_SYSTEM.md, PROTOSPATHS_PRINCIPLE.md - all content merged into DATA_MANAGEMENT_UNIFIED.md
+[2025-07-11 15:43] [MODIFY] /DATA_MANAGEMENT_UNIFIED.md - Added detailed processor-entity-dataset interaction section, clarified automatic initialization cascade, and emphasized that users only interact with processors
+[2025-07-11 16:04] [MODIFY] /TODO.md - Replaced with new data management implementation plan strictly following unified approach
+[2025-07-11 16:24] [MODIFY] /src/protos/core/base_processor.py - Completed Phase 2.2: Implemented entity operations (load_entity, delete_entity) with human-readable names
+[2025-07-11 18:19] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data - Starting test-data cleanup and setup
+[2025-07-11 22:46] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/tests/test_processors/test_grn/test_grn_data_organization.py - Comprehensive test for GRN processor data organization
+[2025-07-11 22:55] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/tests/test_processors/test_grn/test_grn_data_organization.py - Fixed most tests, 19/22 passing, demonstrating GRN data organization
+[2025-07-14 23:23] [MODIFY] examples/grn_basic_annotation.py - Updated to use mo_ref as reference table and follow strict Protos path principles
+[2025-07-14 23:51] [MODIFY] examples/grn_basic_annotation.py - Added GRN annotation expansion functionality for non-strict regions

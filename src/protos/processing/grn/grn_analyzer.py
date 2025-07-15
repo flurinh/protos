@@ -1,14 +1,40 @@
 import pandas as pd
+from typing import Optional, List, Dict, Union
+from protos.processing.grn.grn_processor import GRNProcessor
 from protos.processing.grn.grn_table_utils import *   # get_occs_of_cys, get_dists_from_cterminus, get_dists_from_h8
+from protos.processing.grn.grn_utils import get_seq
 from protos.processing.aa_dicts import *
 
 
 class GRNAnalyzer:
+    """Analyzer for GRN tables.
+    
+    This class provides analysis functionality for GRN tables loaded
+    through a GRNProcessor instance.
+    """
+    
     def __init__(self,
-                 grn_data: pd.DataFrame,
-                 table_name = 'GRN default table',):
+                 grn_processor: Optional[GRNProcessor] = None,
+                 grn_data: Optional[pd.DataFrame] = None,
+                 table_name: str = 'GRN default table'):
+        """Initialize GRN Analyzer.
+        
+        Args:
+            grn_processor: GRNProcessor instance to use for data loading
+            grn_data: Pre-loaded GRN data (if processor not provided)
+            table_name: Name for the analysis
+        """
         self.table_name = table_name
-        self.data = grn_data
+        self.processor = grn_processor
+        
+        # Use provided data or load from processor
+        if grn_data is not None:
+            self.data = grn_data
+        elif self.processor is not None and self.processor.data is not None:
+            self.data = self.processor.data
+        else:
+            raise ValueError("Either grn_data or grn_processor with loaded data must be provided")
+            
         self.features = pd.DataFrame(index=self.data.index.tolist())
         self.map = pd.DataFrame(columns=self.data.columns.tolist())
 
@@ -28,31 +54,56 @@ class GRNAnalyzer:
         self.data = None
 
     def reset_data(self, on_reset_delete=True):
+        """Reset data from processor."""
+        if self.processor is None:
+            raise ValueError("Cannot reset data without a processor instance")
+            
         if on_reset_delete:
             self.features = pd.DataFrame(index=self.data.index.tolist())
             self.map = pd.DataFrame(columns=self.data.columns.tolist())
-        self.data = self.load_grn_table()
+            
+        # Reload data from processor
+        if self.processor.data is not None:
+            self.data = self.processor.data
+        else:
+            raise ValueError("Processor has no loaded data")
 
     # =============================================================================================
 
-    def get_entries(self, indices):
-        pass
+    def get_entries(self, indices: List[str]) -> pd.DataFrame:
+        """Get specific entries from the data."""
+        return self.data.loc[indices]
 
-    def get_interval(self, interval):
-        # check if interval is present in data
-        return None
+    def get_interval(self, interval: List[str]) -> pd.DataFrame:
+        """Get data for specific GRN interval.
+        
+        Args:
+            interval: List of GRN positions to include
+            
+        Returns:
+            DataFrame with only specified columns
+        """
+        # Filter to columns that exist in data
+        existing_cols = [col for col in interval if col in self.data.columns]
+        if not existing_cols:
+            raise ValueError(f"None of the requested columns {interval} exist in data")
+        return self.data[existing_cols]
 
-    def get_seq(self, idx):
-        pass
+    def get_seq(self, idx: str) -> str:
+        """Get sequence for a specific index."""
+        return get_seq(idx, self.data)
 
-    def get_seqs(self):
-        pass
+    def get_seqs(self) -> Dict[str, str]:
+        """Get all sequences."""
+        return {idx: get_seq(idx, self.data) for idx in self.data.index}
 
-    def get_len(self, idx):
-        pass
+    def get_len(self, idx: str) -> int:
+        """Get length of sequence for a specific index."""
+        return len(get_seq(idx, self.data))
 
-    def get_lens(self):
-        return None
+    def get_lens(self) -> pd.Series:
+        """Get lengths of all sequences."""
+        return pd.Series({idx: self.get_len(idx) for idx in self.data.index})
 
     def populate_map_features(self, mode='aminoacid', selection=['C']):
         if mode == 'aminoacid':
@@ -60,7 +111,7 @@ class GRNAnalyzer:
         if mode == 'characteristics':
             selection = AA_CHARACTERISTICS[selection]
             print("applying amino acid map to GRN table, selected:", selection)
-        self.map = self.data.applymap(lambda x: 1 if x[0] in selection else 0)
+        self.map = self.data.map(lambda x: 1 if x[0] in selection else 0)
 
     def populate_length_features(self, grn_interval: list = []):
         lens = []

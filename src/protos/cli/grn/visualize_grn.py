@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from typing import Dict, List, Tuple, Union, Optional, Any
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-from protos.processing.schema.grn_utils_updated import (
+from protos.processing.grn import GRNProcessor
+from protos.processing.grn.grn_utils import (
     parse_grn_str2float,
     parse_grn_float2str,
     normalize_grn_format,
@@ -204,7 +204,7 @@ def visualize_grn_table(
         title: Plot title
         figsize: Figure size
         dpi: DPI for saved figure
-        use_processor: Whether to use GRNBaseProcessor for loading
+        use_processor: Whether to use GRNProcessor for loading
         data_root: Root data directory (if None, uses PROTOS_DATA_ROOT)
         
     Returns:
@@ -212,11 +212,11 @@ def visualize_grn_table(
     """
     # Load the GRN table
     if use_processor:
-        # Use GRNBaseProcessor
+        # Use GRNProcessor
         if data_root is None:
             data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
         
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name='visualize_grn',
             data_root=data_root,
             processor_data_dir='grn',
@@ -356,7 +356,7 @@ def visualize_grn_distribution(
         title: Plot title
         figsize: Figure size
         dpi: DPI for saved figure
-        use_processor: Whether to use GRNBaseProcessor for loading
+        use_processor: Whether to use GRNProcessor for loading
         data_root: Root data directory (if None, uses PROTOS_DATA_ROOT)
         
     Returns:
@@ -364,11 +364,11 @@ def visualize_grn_distribution(
     """
     # Load the GRN table
     if use_processor:
-        # Use GRNBaseProcessor
+        # Use GRNProcessor
         if data_root is None:
             data_root = os.environ.get('PROTOS_DATA_ROOT', 'data')
         
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name='visualize_grn_dist',
             data_root=data_root,
             processor_data_dir='grn',

@@ -1,0 +1,9 @@
+{
+  "id": "rho_ref",
+  "name": "rho_ref",
+  "description": "Dataset containing 1 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "1F88"
+  ]
+}

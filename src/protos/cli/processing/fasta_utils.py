@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Dict, Optional, List
 from protos.io.fasta_utils import read_fasta, write_fasta, validate_fasta_format, clean_sequence
-from protos.processing.sequence.seq_processor import SeqProcessor
+from protos.processing.sequence import SequenceProcessor
 from protos.io.data_access import GlobalRegistry
 from protos.commands.register_data import register_sequence_file
 

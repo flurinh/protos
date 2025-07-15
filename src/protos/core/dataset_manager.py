@@ -234,8 +234,25 @@ class DatasetManager:
         Returns:
             List of dataset information dictionaries
         """
-        # Get datasets from registry
-        return self.registry.list_datasets()
+        # Get dataset IDs from registry
+        dataset_ids = self.registry.list_datasets()
+        
+        # Build information dictionaries
+        datasets = []
+        for dataset_id in dataset_ids:
+            metadata = self.registry.get_dataset_metadata(dataset_id)
+            dataset_info = {
+                'id': dataset_id,
+                'name': metadata.get('name', dataset_id) if metadata else dataset_id,
+                'description': metadata.get('description', '') if metadata else '',
+                'items': metadata.get('items', 0) if metadata else 0,
+                'type': metadata.get('type', self.processor_type) if metadata else self.processor_type
+            }
+            if metadata:
+                dataset_info.update(metadata)
+            datasets.append(dataset_info)
+        
+        return datasets
     
     def delete_dataset(self, dataset_id: str) -> bool:
         """

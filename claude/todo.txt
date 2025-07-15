@@ -230,3 +230,219 @@ Atomic tasks (no breakdown needed):
     </task>
   </subtasks>
 </task>
+<task id="data-management-implementation" status="in_progress" priority="high">
+  <description>Implement data management system EXACTLY as specified in DATA_MANAGEMENT_UNIFIED.md</description>
+  <subtasks>
+    
+    <!-- PHASE 1: Verify and Fix Core Components -->
+    <task id="dm-impl.1" status="pending" priority="high">
+      <description>Phase 1: Ensure core components match specification</description>
+      <subtasks>
+        <task id="dm-impl.1.1" status="pending" priority="high">
+          <description>Verify ProtosPaths implementation</description>
+          <subtasks>
+            <task id="dm-impl.1.1.1" status="pending" priority="high">
+              <description>Ensure ProtosPaths uses working_dir/data as default</description>
+            </task>
+            <task id="dm-impl.1.1.2" status="pending" priority="high">
+              <description>Verify all path methods exist and work correctly</description>
+            </task>
+            <task id="dm-impl.1.1.3" status="pending" priority="high">
+              <description>Ensure directory creation on initialization</description>
+            </task>
+          </subtasks>
+        </task>
+        <task id="dm-impl.1.2" status="pending" priority="high">
+          <description>Fix EntityRegistry to match specification</description>
+          <subtasks>
+            <task id="dm-impl.1.2.1" status="pending" priority="high">
+              <description>EntityRegistry must accept ProtosPaths in __init__</description>
+            </task>
+            <task id="dm-impl.1.2.2" status="pending" priority="high">
+              <description>Hash IDs used internally only - never exposed to users</description>
+            </task>
+            <task id="dm-impl.1.2.3" status="pending" priority="high">
+              <description>All public methods work with human-readable names</description>
+            </task>
+            <task id="dm-impl.1.2.4" status="pending" priority="high">
+              <description>File paths always use human-readable names</description>
+            </task>
+          </subtasks>
+        </task>
+        <task id="dm-impl.1.3" status="pending" priority="high">
+          <description>Create/Fix DatasetManager to match specification</description>
+          <subtasks>
+            <task id="dm-impl.1.3.1" status="pending" priority="high">
+              <description>DatasetManager must accept ProtosPaths</description>
+            </task>
+            <task id="dm-impl.1.3.2" status="pending" priority="high">
+              <description>Datasets store hash IDs internally but expose human names</description>
+            </task>
+            <task id="dm-impl.1.3.3" status="pending" priority="high">
+              <description>Implement all dataset operations from spec</description>
+            </task>
+          </subtasks>
+        </task>
+      </subtasks>
+    </task>
+    
+    <!-- PHASE 2: Update BaseProcessor -->
+    <task id="dm-impl.2" status="pending" priority="high">
+      <description>Phase 2: Update BaseProcessor to match specification exactly</description>
+      <subtasks>
+        <task id="dm-impl.2.1" status="pending" priority="high">
+          <description>Fix initialization cascade</description>
+          <subtasks>
+            <task id="dm-impl.2.1.1" status="pending" priority="high">
+              <description>BaseProcessor creates ProtosPaths if not provided</description>
+            </task>
+            <task id="dm-impl.2.1.2" status="pending" priority="high">
+              <description>BaseProcessor creates EntityRegistry with ProtosPaths</description>
+            </task>
+            <task id="dm-impl.2.1.3" status="pending" priority="high">
+              <description>BaseProcessor creates DatasetManager with ProtosPaths</description>
+            </task>
+          </subtasks>
+        </task>
+        <task id="dm-impl.2.2" status="pending" priority="high">
+          <description>Implement entity operations exactly as specified</description>
+          <subtasks>
+            <task id="dm-impl.2.2.1" status="pending" priority="high">
+              <description>list_entities() returns human names only</description>
+            </task>
+            <task id="dm-impl.2.2.2" status="pending" priority="high">
+              <description>load_entity(name) works with human names, handles unregistered files</description>
+            </task>
+            <task id="dm-impl.2.2.3" status="pending" priority="high">
+              <description>save_entity(name, data) uses human name for file, auto-registers</description>
+            </task>
+            <task id="dm-impl.2.2.4" status="pending" priority="high">
+              <description>entity_exists(name) checks by human name</description>
+            </task>
+            <task id="dm-impl.2.2.5" status="pending" priority="high">
+              <description>delete_entity(name) removes file and updates registry</description>
+            </task>
+          </subtasks>
+        </task>
+        <task id="dm-impl.2.3" status="pending" priority="high">
+          <description>Implement dataset operations exactly as specified</description>
+          <subtasks>
+            <task id="dm-impl.2.3.1" status="pending" priority="high">
+              <description>list_datasets() returns dataset names for this processor</description>
+            </task>
+            <task id="dm-impl.2.3.2" status="pending" priority="high">
+              <description>create_dataset(name, entities) accepts human names</description>
+            </task>
+            <task id="dm-impl.2.3.3" status="pending" priority="high">
+              <description>load_dataset(name) returns dict of human_name: data</description>
+            </task>
+            <task id="dm-impl.2.3.4" status="pending" priority="high">
+              <description>add_to_dataset/remove_from_dataset work with human names</description>
+            </task>
+            <task id="dm-impl.2.3.5" status="pending" priority="high">
+              <description>get_dataset_info returns human-readable information</description>
+            </task>
+          </subtasks>
+        </task>
+      </subtasks>
+    </task>
+    
+    <!-- PHASE 3: Update Specific Processors -->
+    <task id="dm-impl.3" status="pending" priority="high">
+      <description>Phase 3: Update all processors to follow the pattern</description>
+      <subtasks>
+        <task id="dm-impl.3.1" status="pending" priority="high">
+          <description>Update CifBaseProcessor</description>
+          <subtasks>
+            <task id="dm-impl.3.1.1" status="pending" priority="high">
+              <description>All files saved as pdb_id.cif (human-readable)</description>
+            </task>
+            <task id="dm-impl.3.1.2" status="pending" priority="high">
+              <description>load_structure/save_structure use human names</description>
+            </task>
+            <task id="dm-impl.3.1.3" status="pending" priority="high">
+              <description>Remove any hash ID usage from filenames</description>
+            </task>
+          </subtasks>
+        </task>
+        <task id="dm-impl.3.2" status="pending" priority="high">
+          <description>Update SeqProcessor</description>
+          <subtasks>
+            <task id="dm-impl.3.2.1" status="pending" priority="high">
+              <description>Implement filename sanitization for complex identifiers</description>
+            </task>
+            <task id="dm-impl.3.2.2" status="pending" priority="high">
+              <description>All FASTA files use sanitized human names</description>
+            </task>
+          </subtasks>
+        </task>
+        <task id="dm-impl.3.3" status="pending" priority="high">
+          <description>Update GRNBaseProcessor</description>
+          <subtasks>
+            <task id="dm-impl.3.3.1" status="pending" priority="high">
+              <description>GRN tables use human-readable protein IDs in rows</description>
+            </task>
+            <task id="dm-impl.3.3.2" status="pending" priority="high">
+              <description>Table files have descriptive names (not hash-based)</description>
+            </task>
+            <task id="dm-impl.3.3.3" status="pending" priority="high">
+              <description>Register each protein in table as entity</description>
+            </task>
+          </subtasks>
+        </task>
+        <task id="dm-impl.3.4" status="pending" priority="high">
+          <description>Update PropertyProcessor</description>
+          <subtasks>
+            <task id="dm-impl.3.4.1" status="pending" priority="high">
+              <description>Property tables use human-readable entity names</description>
+            </task>
+            <task id="dm-impl.3.4.2" status="pending" priority="high">
+              <description>Remove custom dataset implementation, use BaseProcessor's</description>
+            </task>
+          </subtasks>
+        </task>
+      </subtasks>
+    </task>
+    
+    <!-- PHASE 4: Testing and Validation -->
+    <task id="dm-impl.4" status="pending" priority="high">
+      <description>Phase 4: Comprehensive testing of new system</description>
+      <subtasks>
+        <task id="dm-impl.4.1" status="pending" priority="high">
+          <description>Create test for zero-configuration usage</description>
+        </task>
+        <task id="dm-impl.4.2" status="pending" priority="high">
+          <description>Test drag-and-drop workflow</description>
+        </task>
+        <task id="dm-impl.4.3" status="pending" priority="high">
+          <description>Test cross-format entity tracking</description>
+        </task>
+        <task id="dm-impl.4.4" status="pending" priority="high">
+          <description>Verify no hash IDs appear in user-facing operations</description>
+        </task>
+        <task id="dm-impl.4.5" status="pending" priority="high">
+          <description>Update test_entities.py to match new specification</description>
+        </task>
+      </subtasks>
+    </task>
+    
+    <!-- PHASE 5: Remove Old Code -->
+    <task id="dm-impl.5" status="pending" priority="medium">
+      <description>Phase 5: Clean up legacy code</description>
+      <subtasks>
+        <task id="dm-impl.5.1" status="pending" priority="medium">
+          <description>Remove identifier_utils.py (hash IDs are internal only)</description>
+        </task>
+        <task id="dm-impl.5.2" status="pending" priority="medium">
+          <description>Remove any user-facing hash ID methods</description>
+        </task>
+        <task id="dm-impl.5.3" status="pending" priority="medium">
+          <description>Clean up old entity-registry-overhaul code</description>
+        </task>
+      </subtasks>
+    </task>
+    
+  </subtasks>
+</task>
+
+<!-- PROJECT TASKS END -->

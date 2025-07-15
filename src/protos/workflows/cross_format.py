@@ -11,9 +11,9 @@ from pathlib import Path
 import pandas as pd
 
 from protos.io.data_access import GlobalRegistry, generate_entity_id
-from protos.processing.sequence.seq_processor import SeqProcessor
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.sequence import SequenceProcessor
+from protos.processing.structure import StructureProcessor
+from protos.processing.grn import GRNProcessor
 from protos.processing.embedding.embedding_processor import EmbeddingProcessor
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def sequence_to_structure_workflow(
     """
     # Initialize processors
     seq_proc = SeqProcessor(name=seq_processor_name)
-    struct_proc = CifBaseProcessor(name=struct_processor_name)
+    struct_proc = StructureProcessor(name=struct_processor_name)
     
     # Save sequence (registers entity)
     entity_id = seq_proc.save_sequence_entity(
@@ -116,7 +116,7 @@ def structure_to_sequence_workflow(
         - metadata: Extraction metadata with lineage
     """
     # Initialize processors
-    struct_proc = CifBaseProcessor(name=struct_processor_name)
+    struct_proc = StructureProcessor(name=struct_processor_name)
     seq_proc = SeqProcessor(name=seq_processor_name)
     
     # Load structure

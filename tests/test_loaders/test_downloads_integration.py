@@ -15,7 +15,7 @@ from protos.loaders.alphafold_utils import download_alphafold_structures
 from protos.loaders.uniprot_utils import map_uniprot_to_pdb
 from protos.io.paths.path_config import ProtosPaths
 from protos.core.base_processor import BaseProcessor
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 from Bio.PDB import PDBList
 
 
@@ -24,15 +24,12 @@ def integration_processor():
     """Create processors for integration testing."""
     # ProtosPaths already configured in conftest.py to use tests/test-data
     
-    # Create both base and structure processors
-    base_proc = BaseProcessor(
-        name="test_integration",
-        processor_data_dir="downloads"
-    )
+    # Note: BaseProcessor is abstract and cannot be instantiated directly
+    # Using StructureProcessor for testing instead
+    base_proc = None  # BaseProcessor is abstract
     
-    struct_proc = CifBaseProcessor(
-        name="test_structures",
-        processor_data_dir="structure"
+    struct_proc = StructureProcessor(
+        name="test_structures"
     )
     
     return base_proc, struct_proc

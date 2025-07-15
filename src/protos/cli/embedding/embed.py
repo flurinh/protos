@@ -10,7 +10,7 @@ import logging
 from typing import List, Optional
 
 from protos.processing.embedding.embedding_processor import EmbeddingProcessor
-from protos.processing.sequence.seq_processor import SeqProcessor
+from protos.processing.sequence import SequenceProcessor
 from protos.io.data_access import GlobalRegistry
 
 logger = logging.getLogger(__name__)

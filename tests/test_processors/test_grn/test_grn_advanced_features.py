@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 from protos.processing.grn.grn_utils import (
     sort_grns_str,
     get_grn_interval,
@@ -18,9 +18,7 @@ from protos.processing.grn.grn_utils import (
     get_tm_residues,
     map_grn_to_color,
     parse_grn_str2float,
-    parse_grn_float2str
-)
-from protos.processing.schema.grn_utils_updated import (
+    parse_grn_float2str,
     validate_grn_string
 )
 
@@ -82,7 +80,7 @@ class TestGRNSorting:
     
     def test_sort_columns_in_processor(self, temp_data_dir, comprehensive_grn_table):
         """Test sorting columns in the processor."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -115,7 +113,7 @@ class TestGRNFiltering:
     
     def test_filter_by_ids(self, temp_data_dir, comprehensive_grn_table):
         """Test filtering by protein IDs."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -134,7 +132,7 @@ class TestGRNFiltering:
     
     def test_filter_data_by_occurances(self, temp_data_dir, comprehensive_grn_table):
         """Test filtering by occurrence threshold."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -161,7 +159,7 @@ class TestGRNSequenceDict:
     
     def test_get_seq_dict(self, temp_data_dir, comprehensive_grn_table):
         """Test getting sequence dictionary from GRN table."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -214,7 +212,7 @@ class TestGRNIntervals:
     
     def test_get_grn_interval(self, temp_data_dir, comprehensive_grn_table):
         """Test getting GRN intervals."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -238,7 +236,7 @@ class TestGRNIntervals:
     
     def test_apply_interval(self, temp_data_dir, comprehensive_grn_table):
         """Test applying GRN interval to filter data."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -367,7 +365,7 @@ class TestGRNDict:
     
     def test_get_grn_dict(self, temp_data_dir, comprehensive_grn_table):
         """Test getting GRN dictionary."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -403,7 +401,7 @@ class TestGRNMaps:
     
     def test_get_maps(self, temp_data_dir, comprehensive_grn_table):
         """Test getting GRN maps."""
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )
@@ -442,7 +440,7 @@ class TestRemoveDuplicates:
         index = ['7BMH', '7BMH_dup', '1ABC', '7BMH']
         grn_table = pd.DataFrame(data, index=index)
         
-        processor = GRNBaseProcessor(
+        processor = GRNProcessor(
             name="test_grn",
             preload=False
         )

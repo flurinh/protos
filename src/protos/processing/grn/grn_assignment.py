@@ -6,25 +6,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Any, Optional, Union
 
-def parse_grn_str2float(grn_str: str) -> float:
-    """Convert GRN string to float."""
-    if 'x' in grn_str:
-        parts = grn_str.split('x')
-        return float(parts[0]) + float(parts[1]) / 100
-    elif '.' in grn_str:
-        return float(grn_str)
-    else:
-        return float(grn_str)
-
-def parse_grn_float2str(grn_float: float) -> str:
-    """Convert GRN float to string using dot notation."""
-    if grn_float < 0:
-        return f"-{abs(int(grn_float)):03d}"
-    elif grn_float >= 100:
-        return f"{int(grn_float):03d}"
-    else:
-        # Always format with 2 decimals for consistency
-        return f"{grn_float:.2f}"
+# Import GRN utility functions from grn_utils
+from protos.processing.grn.grn_utils import parse_grn_str2float, parse_grn_float2str
 
 def get_grn_interval(start_grn: str, end_grn: str, grns_str: List[str]) -> List[str]:
     """Get GRN interval between start and end."""

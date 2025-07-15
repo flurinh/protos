@@ -1,0 +1,38 @@
+{
+  "name": "gpcr_agonist_inverse_agonist",
+  "description": "Class A GPCR structures with agonists and inverse agonists",
+  "pdb_ids": [
+    "3SN6",
+    "4LDO",
+    "3P0G",
+    "6MXT",
+    "7JOZ",
+    "7CKZ",
+    "6VMS",
+    "7E2Y",
+    "6G79",
+    "4MQS",
+    "4MQT",
+    "7ARO",
+    "6GDG",
+    "2RH1",
+    "3NY8",
+    "3NYA",
+    "5JQH",
+    "1U19",
+    "1GZM",
+    "6CM4",
+    "6LUQ",
+    "6A93",
+    "6A94",
+    "6WGT",
+    "3UON",
+    "5CXV",
+    "5UEN",
+    "3VGA"
+  ],
+  "metadata": {
+    "agonist_count": 13,
+    "inverse_agonist_count": 15
+  }
+}

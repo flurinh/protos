@@ -1,54 +1,2254 @@
 {
-  "retinal_binders": {
-    "path": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/retinal_binders.json",
-    "metadata": {
-      "name": "retinal_binders",
-      "description": "Structure dataset with 1 PDB IDs",
-      "items": 1,
-      "created_at": "2025-06-29T20:59:09.560122",
-      "processor_type": "structure",
-      "dataset_type": "structure",
-      "source": "user"
+  "entities": {
+    "424a23c283": {
+      "original_id": "48C12_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 256,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.389309"
+        }
+      },
+      "created": "2025-07-14T22:17:15.106150",
+      "modified": "2025-07-15T11:39:00.389335"
     },
-    "timestamp": "2025-06-29T20:59:09.567787"
-  },
-  "review_proteins": {
-    "path": "/mnt/c/Users/hidbe/PycharmProjects/protos/data/structure/structure_dataset/review_proteins.json",
-    "metadata": {
-      "name": "Review Protein Structures",
-      "description": "Small proteins for functionality review",
-      "items": 3,
-      "created_at": "2025-06-30T18:48:37.162370",
-      "processor_type": "structure",
-      "dataset_type": "structure",
-      "source": "user"
+    "0e20023021": {
+      "original_id": "AR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 236,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.401880"
+        }
+      },
+      "created": "2025-07-14T22:17:15.113526",
+      "modified": "2025-07-15T11:39:00.401893"
     },
-    "timestamp": "2025-06-30T18:48:37.169159"
-  },
-  "review_small_proteins": {
-    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\data\\structure\\structure_dataset\\review_small_proteins.json",
-    "metadata": {
-      "name": "Small Protein Structures",
-      "description": "Well-studied small proteins for demonstration",
-      "items": 3,
-      "created_at": "2025-06-30T22:05:55.807559",
-      "processor_type": "structure",
-      "dataset_type": "structure",
-      "source": "user"
+    "a73843b3f9": {
+      "original_id": "AR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 235,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.412460"
+        }
+      },
+      "created": "2025-07-14T22:17:15.119924",
+      "modified": "2025-07-15T11:39:00.412470"
     },
-    "timestamp": "2025-06-30T22:05:55.811645"
-  },
-  "demo_structures": {
-    "path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\data\\structure\\structure_dataset\\demo_structures.json",
-    "metadata": {
-      "name": "Demo Protein Structures",
-      "description": "Small proteins for demonstration",
-      "items": 3,
-      "created_at": "2025-07-01T00:14:11.129022",
-      "processor_type": "structure",
-      "dataset_type": "structure",
-      "source": "user"
+    "e831545451": {
+      "original_id": "AR3_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 240,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.424083"
+        }
+      },
+      "created": "2025-07-14T22:17:15.126775",
+      "modified": "2025-07-15T11:39:00.424103"
     },
-    "timestamp": "2025-07-01T00:14:11.129022"
+    "4011aa2a9c": {
+      "original_id": "ARII_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 224,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.433750"
+        }
+      },
+      "created": "2025-07-14T22:17:15.133306",
+      "modified": "2025-07-15T11:39:00.433756"
+    },
+    "2af9058625": {
+      "original_id": "ARI_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 235,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.443051"
+        }
+      },
+      "created": "2025-07-14T22:17:15.140011",
+      "modified": "2025-07-15T11:39:00.443060"
+    },
+    "307e4e676d": {
+      "original_id": "ASR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 217,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.453877"
+        }
+      },
+      "created": "2025-07-14T22:17:15.146230",
+      "modified": "2025-07-15T11:39:00.453884"
+    },
+    "e34228598c": {
+      "original_id": "AaClR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 272,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.463068"
+        }
+      },
+      "created": "2025-07-14T22:17:15.154227",
+      "modified": "2025-07-15T11:39:00.463076"
+    },
+    "dccd7477f1": {
+      "original_id": "AbHeR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 253,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.473858"
+        }
+      },
+      "created": "2025-07-14T22:17:15.162553",
+      "modified": "2025-07-15T11:39:00.473863"
+    },
+    "f8455d9e90": {
+      "original_id": "AntR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 215,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.483709"
+        }
+      },
+      "created": "2025-07-14T22:17:15.169831",
+      "modified": "2025-07-15T11:39:00.483716"
+    },
+    "745ba5c3fa": {
+      "original_id": "B1ChR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 262,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.493025"
+        }
+      },
+      "created": "2025-07-14T22:17:15.176600",
+      "modified": "2025-07-15T11:39:00.493031"
+    },
+    "9b8bf4a15a": {
+      "original_id": "BcXeR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 222,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.501733"
+        }
+      },
+      "created": "2025-07-14T22:17:15.183208",
+      "modified": "2025-07-15T11:39:00.501738"
+    },
+    "69964e819e": {
+      "original_id": "BeRGC_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 626,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.510430"
+        }
+      },
+      "created": "2025-07-14T22:17:15.189740",
+      "modified": "2025-07-15T11:39:00.510445"
+    },
+    "343600007f": {
+      "original_id": "CaChR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 715,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.520376"
+        }
+      },
+      "created": "2025-07-14T22:17:15.198880",
+      "modified": "2025-07-15T11:39:00.520382"
+    },
+    "24f25cddd3": {
+      "original_id": "CaRGC_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 626,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.529205"
+        }
+      },
+      "created": "2025-07-14T22:17:15.206085",
+      "modified": "2025-07-15T11:39:00.529211"
+    },
+    "193fbf0ae8": {
+      "original_id": "CfRhoPDE_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 671,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.538439"
+        }
+      },
+      "created": "2025-07-14T22:17:15.220857",
+      "modified": "2025-07-15T11:39:00.538446"
+    },
+    "877d489d6d": {
+      "original_id": "ChR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 250,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.548092"
+        }
+      },
+      "created": "2025-07-14T22:17:15.230551",
+      "modified": "2025-07-15T11:39:00.548098"
+    },
+    "47d8ad9655": {
+      "original_id": "ChRWR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 280,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.558988"
+        }
+      },
+      "created": "2025-07-14T22:17:15.239183",
+      "modified": "2025-07-15T11:39:00.558994"
+    },
+    "e446b99089": {
+      "original_id": "ChRmine_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 270,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.567770"
+        }
+      },
+      "created": "2025-07-14T22:17:15.246951",
+      "modified": "2025-07-15T11:39:00.567782"
+    },
+    "3ede1a7a23": {
+      "original_id": "CnChR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 284,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.578153"
+        }
+      },
+      "created": "2025-07-14T22:17:15.254733",
+      "modified": "2025-07-15T11:39:00.578161"
+    },
+    "300890deaa": {
+      "original_id": "CrChR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 280,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.586909"
+        }
+      },
+      "created": "2025-07-14T22:17:15.262868",
+      "modified": "2025-07-15T11:39:00.586913"
+    },
+    "c6b31f251e": {
+      "original_id": "CsR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 225,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.597076"
+        }
+      },
+      "created": "2025-07-14T22:17:15.270503",
+      "modified": "2025-07-15T11:39:00.597083"
+    },
+    "559ca4763d": {
+      "original_id": "Ct_RB_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 902,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.607612"
+        }
+      },
+      "created": "2025-07-14T22:17:15.278245",
+      "modified": "2025-07-15T11:39:00.607618"
+    },
+    "e1d58f394b": {
+      "original_id": "ESR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 236,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.617921"
+        }
+      },
+      "created": "2025-07-14T22:17:15.285695",
+      "modified": "2025-07-15T11:39:00.617926"
+    },
+    "01f4f49cf0": {
+      "original_id": "ErNaR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 271,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.626694"
+        }
+      },
+      "created": "2025-07-14T22:17:15.293521",
+      "modified": "2025-07-15T11:39:00.626701"
+    },
+    "f9178fd7a7": {
+      "original_id": "FR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 296,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.635045"
+        }
+      },
+      "created": "2025-07-14T22:17:15.302777",
+      "modified": "2025-07-15T11:39:00.635051"
+    },
+    "cdd40b9750": {
+      "original_id": "GPR_A18L_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 217,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.644148"
+        }
+      },
+      "created": "2025-07-14T22:17:15.310161",
+      "modified": "2025-07-15T11:39:00.644156"
+    },
+    "7165fc3749": {
+      "original_id": "GR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 246,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.654547"
+        }
+      },
+      "created": "2025-07-14T22:17:15.317464",
+      "modified": "2025-07-15T11:39:00.654554"
+    },
+    "38279fc1f7": {
+      "original_id": "GpRGC2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 506,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.664505"
+        }
+      },
+      "created": "2025-07-14T22:17:15.326716",
+      "modified": "2025-07-15T11:39:00.664514"
+    },
+    "8efd6e7597": {
+      "original_id": "GtACR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 277,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.674010"
+        }
+      },
+      "created": "2025-07-14T22:17:15.337192",
+      "modified": "2025-07-15T11:39:00.674025"
+    },
+    "ab4813ab1b": {
+      "original_id": "GtACR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 291,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.683437"
+        }
+      },
+      "created": "2025-07-14T22:17:15.345456",
+      "modified": "2025-07-15T11:39:00.683443"
+    },
+    "975dd6e847": {
+      "original_id": "GtCCR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 300,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.694210"
+        }
+      },
+      "created": "2025-07-14T22:17:15.353605",
+      "modified": "2025-07-15T11:39:00.694215"
+    },
+    "4e4ce73b4b": {
+      "original_id": "GtCCR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 240,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.703646"
+        }
+      },
+      "created": "2025-07-14T22:17:15.363168",
+      "modified": "2025-07-15T11:39:00.703652"
+    },
+    "795664f941": {
+      "original_id": "GtCCR3_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 300,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.714057"
+        }
+      },
+      "created": "2025-07-14T22:17:15.373433",
+      "modified": "2025-07-15T11:39:00.714066"
+    },
+    "24a766a112": {
+      "original_id": "GtCCR4_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 265,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.723620"
+        }
+      },
+      "created": "2025-07-14T22:17:15.381362",
+      "modified": "2025-07-15T11:39:00.723627"
+    },
+    "3993c36f93": {
+      "original_id": "GtCCR5_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 371,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.732716"
+        }
+      },
+      "created": "2025-07-14T22:17:15.389198",
+      "modified": "2025-07-15T11:39:00.732722"
+    },
+    "6d0b770395": {
+      "original_id": "H75BPR_D97N_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 221,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.741500"
+        }
+      },
+      "created": "2025-07-14T22:17:15.398706",
+      "modified": "2025-07-15T11:39:00.741506"
+    },
+    "0e23439be9": {
+      "original_id": "HKR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 1396,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.749905"
+        }
+      },
+      "created": "2025-07-14T22:17:15.407034",
+      "modified": "2025-07-15T11:39:00.749910"
+    },
+    "4f9c31e7bb": {
+      "original_id": "HKR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 2410,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.759967"
+        }
+      },
+      "created": "2025-07-14T22:17:15.414958",
+      "modified": "2025-07-15T11:39:00.759977"
+    },
+    "3eac5c95ab": {
+      "original_id": "HcCCR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 240,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.768858"
+        }
+      },
+      "created": "2025-07-14T22:17:15.423557",
+      "modified": "2025-07-15T11:39:00.768864"
+    },
+    "be9afe1c17": {
+      "original_id": "HcKCR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 255,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.777610"
+        }
+      },
+      "created": "2025-07-14T22:17:15.433645",
+      "modified": "2025-07-15T11:39:00.777616"
+    },
+    "f85864569b": {
+      "original_id": "HcKCR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 259,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.787438"
+        }
+      },
+      "created": "2025-07-14T22:17:15.442030",
+      "modified": "2025-07-15T11:39:00.787443"
+    },
+    "9348ed8624": {
+      "original_id": "HmBRII_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 250,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.796989"
+        }
+      },
+      "created": "2025-07-14T22:17:15.449755",
+      "modified": "2025-07-15T11:39:00.796994"
+    },
+    "b3ad62546d": {
+      "original_id": "HmBRI_D94N_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 236,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.806007"
+        }
+      },
+      "created": "2025-07-14T22:17:15.457416",
+      "modified": "2025-07-15T11:39:00.806012"
+    },
+    "a8e364038b": {
+      "original_id": "HmHR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 276,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.815741"
+        }
+      },
+      "created": "2025-07-14T22:17:15.464930",
+      "modified": "2025-07-15T11:39:00.815747"
+    },
+    "9f4244bb18": {
+      "original_id": "HmSRIII_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 232,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.826150"
+        }
+      },
+      "created": "2025-07-14T22:17:15.472584",
+      "modified": "2025-07-15T11:39:00.826156"
+    },
+    "cb189a972a": {
+      "original_id": "HmSRII_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 236,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.835767"
+        }
+      },
+      "created": "2025-07-14T22:17:15.480297",
+      "modified": "2025-07-15T11:39:00.835774"
+    },
+    "c2e894d737": {
+      "original_id": "HmSRI_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 236,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.845720"
+        }
+      },
+      "created": "2025-07-14T22:17:15.488333",
+      "modified": "2025-07-15T11:39:00.845726"
+    },
+    "2a54394cb0": {
+      "original_id": "HsBR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 222,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.855516"
+        }
+      },
+      "created": "2025-07-14T22:17:15.496291",
+      "modified": "2025-07-15T11:39:00.855524"
+    },
+    "de0f368151": {
+      "original_id": "HsHR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 239,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.865155"
+        }
+      },
+      "created": "2025-07-14T22:17:15.504516",
+      "modified": "2025-07-15T11:39:00.865161"
+    },
+    "48913704d5": {
+      "original_id": "HsSRI_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 239,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.874959"
+        }
+      },
+      "created": "2025-07-14T22:17:15.512317",
+      "modified": "2025-07-15T11:39:00.874964"
+    },
+    "23ab520c18": {
+      "original_id": "HulaCCR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 428,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.884616"
+        }
+      },
+      "created": "2025-07-14T22:17:15.520568",
+      "modified": "2025-07-15T11:39:00.884623"
+    },
+    "e32d693f9e": {
+      "original_id": "HwBR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 254,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.896574"
+        }
+      },
+      "created": "2025-07-14T22:17:15.528300",
+      "modified": "2025-07-15T11:39:00.896591"
+    },
+    "e64974a2a5": {
+      "original_id": "HwMR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 233,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.909016"
+        }
+      },
+      "created": "2025-07-14T22:17:15.536542",
+      "modified": "2025-07-15T11:39:00.909029"
+    },
+    "22b6d4c0c6": {
+      "original_id": "HxAR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 258,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.919896"
+        }
+      },
+      "created": "2025-07-14T22:17:15.544518",
+      "modified": "2025-07-15T11:39:00.919905"
+    },
+    "f679c49782": {
+      "original_id": "IaNaR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 265,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.929158"
+        }
+      },
+      "created": "2025-07-14T22:17:15.552532",
+      "modified": "2025-07-15T11:39:00.929166"
+    },
+    "5b00f80849": {
+      "original_id": "Jaws_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 276,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.938144"
+        }
+      },
+      "created": "2025-07-14T22:17:15.560558",
+      "modified": "2025-07-15T11:39:00.938150"
+    },
+    "8b5a3cd2d8": {
+      "original_id": "JsNaR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 275,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.947359"
+        }
+      },
+      "created": "2025-07-14T22:17:15.568900",
+      "modified": "2025-07-15T11:39:00.947365"
+    },
+    "2f81ce7c58": {
+      "original_id": "KR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 244,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.955980"
+        }
+      },
+      "created": "2025-07-14T22:17:15.576985",
+      "modified": "2025-07-15T11:39:00.955990"
+    },
+    "cb5d889320": {
+      "original_id": "KR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 271,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.964889"
+        }
+      },
+      "created": "2025-07-14T22:17:15.585147",
+      "modified": "2025-07-15T11:39:00.964894"
+    },
+    "dc8754fcb0": {
+      "original_id": "Kin4B8_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 255,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.974531"
+        }
+      },
+      "created": "2025-07-14T22:17:15.593714",
+      "modified": "2025-07-15T11:39:00.974538"
+    },
+    "2523c05b82": {
+      "original_id": "MacR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 216,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.985304"
+        }
+      },
+      "created": "2025-07-14T22:17:15.601894",
+      "modified": "2025-07-15T11:39:00.985310"
+    },
+    "75449674c0": {
+      "original_id": "Mac_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 246,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:00.994914"
+        }
+      },
+      "created": "2025-07-14T22:17:15.610231",
+      "modified": "2025-07-15T11:39:00.994919"
+    },
+    "8ed759855c": {
+      "original_id": "Med12BPR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 203,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.006176"
+        }
+      },
+      "created": "2025-07-14T22:17:15.618693",
+      "modified": "2025-07-15T11:39:01.006183"
+    },
+    "7d40c04751": {
+      "original_id": "MerMAID1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 262,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.016349"
+        }
+      },
+      "created": "2025-07-14T22:17:15.627499",
+      "modified": "2025-07-15T11:39:01.016358"
+    },
+    "0f4c1de7f0": {
+      "original_id": "MrHR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 223,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.026214"
+        }
+      },
+      "created": "2025-07-14T22:17:15.636285",
+      "modified": "2025-07-15T11:39:01.026222"
+    },
+    "d382ebe094": {
+      "original_id": "MsSzR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 202,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.038703"
+        }
+      },
+      "created": "2025-07-14T22:17:15.645470",
+      "modified": "2025-07-15T11:39:01.038712"
+    },
+    "c305805c0e": {
+      "original_id": "MtSzR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 217,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.048936"
+        }
+      },
+      "created": "2025-07-14T22:17:15.654115",
+      "modified": "2025-07-15T11:39:01.048944"
+    },
+    "3c30354899": {
+      "original_id": "NR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 304,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.058243"
+        }
+      },
+      "created": "2025-07-14T22:17:15.662593",
+      "modified": "2025-07-15T11:39:01.058250"
+    },
+    "84d76018fa": {
+      "original_id": "NdR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 253,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.069388"
+        }
+      },
+      "created": "2025-07-14T22:17:15.671448",
+      "modified": "2025-07-15T11:39:01.069396"
+    },
+    "436ab1b08d": {
+      "original_id": "NdR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 279,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.080820"
+        }
+      },
+      "created": "2025-07-14T22:17:15.680056",
+      "modified": "2025-07-15T11:39:01.080826"
+    },
+    "355b0bd07f": {
+      "original_id": "NeoR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 509,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.090002"
+        }
+      },
+      "created": "2025-07-14T22:17:15.689229",
+      "modified": "2025-07-15T11:39:01.090008"
+    },
+    "da95ee63cd": {
+      "original_id": "NmClR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 263,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.099534"
+        }
+      },
+      "created": "2025-07-14T22:17:15.697868",
+      "modified": "2025-07-15T11:39:01.099541"
+    },
+    "32591f8b9d": {
+      "original_id": "NmNaR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 279,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.108437"
+        }
+      },
+      "created": "2025-07-14T22:17:15.706531",
+      "modified": "2025-07-15T11:39:01.108444"
+    },
+    "21cef9b218": {
+      "original_id": "NmPR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 244,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.119369"
+        }
+      },
+      "created": "2025-07-14T22:17:15.715524",
+      "modified": "2025-07-15T11:39:01.119380"
+    },
+    "f2165ee017": {
+      "original_id": "NpHR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 259,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.129333"
+        }
+      },
+      "created": "2025-07-14T22:17:15.724863",
+      "modified": "2025-07-15T11:39:01.129338"
+    },
+    "a0e477cdae": {
+      "original_id": "NpSRII_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 217,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.138876"
+        }
+      },
+      "created": "2025-07-14T22:17:15.734427",
+      "modified": "2025-07-15T11:39:01.138882"
+    },
+    "2f7c16ec92": {
+      "original_id": "NsXeR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 232,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.149565"
+        }
+      },
+      "created": "2025-07-14T22:17:15.743836",
+      "modified": "2025-07-15T11:39:01.149571"
+    },
+    "e71a2f208d": {
+      "original_id": "O1O2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 223,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.161317"
+        }
+      },
+      "created": "2025-07-14T22:17:15.753521",
+      "modified": "2025-07-15T11:39:01.161323"
+    },
+    "8a6539c686": {
+      "original_id": "OLPVR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 222,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.172715"
+        }
+      },
+      "created": "2025-07-14T22:17:15.763192",
+      "modified": "2025-07-15T11:39:01.172735"
+    },
+    "0886307c46": {
+      "original_id": "OLPVRII_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 212,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.182303"
+        }
+      },
+      "created": "2025-07-14T22:17:15.772711",
+      "modified": "2025-07-15T11:39:01.182308"
+    },
+    "a25da8d28d": {
+      "original_id": "OcHeR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 266,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.192971"
+        }
+      },
+      "created": "2025-07-14T22:17:15.782533",
+      "modified": "2025-07-15T11:39:01.192978"
+    },
+    "e303490c95": {
+      "original_id": "OtHKR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 912,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.204057"
+        }
+      },
+      "created": "2025-07-14T22:17:15.792280",
+      "modified": "2025-07-15T11:39:01.204062"
+    },
+    "b887dbeb2f": {
+      "original_id": "PhaeoRD1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 330,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.215662"
+        }
+      },
+      "created": "2025-07-14T22:17:15.801675",
+      "modified": "2025-07-15T11:39:01.215667"
+    },
+    "ee43c0f90f": {
+      "original_id": "PhaeoRD2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 301,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.225466"
+        }
+      },
+      "created": "2025-07-14T22:17:15.811178",
+      "modified": "2025-07-15T11:39:01.225472"
+    },
+    "598e96412f": {
+      "original_id": "PoClR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 296,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.235447"
+        }
+      },
+      "created": "2025-07-14T22:17:15.820672",
+      "modified": "2025-07-15T11:39:01.235452"
+    },
+    "fb4f454390": {
+      "original_id": "PoXeR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 248,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.245924"
+        }
+      },
+      "created": "2025-07-14T22:17:15.830637",
+      "modified": "2025-07-15T11:39:01.245929"
+    },
+    "d5cc4678b7": {
+      "original_id": "PsACR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 291,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.255249"
+        }
+      },
+      "created": "2025-07-14T22:17:15.840013",
+      "modified": "2025-07-15T11:39:01.255257"
+    },
+    "fff0b6d196": {
+      "original_id": "PsChR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 227,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.265675"
+        }
+      },
+      "created": "2025-07-14T22:17:15.850058",
+      "modified": "2025-07-15T11:39:01.265685"
+    },
+    "bc02ce2b1e": {
+      "original_id": "PspR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 226,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.275259"
+        }
+      },
+      "created": "2025-07-14T22:17:15.859924",
+      "modified": "2025-07-15T11:39:01.275265"
+    },
+    "bfe109877e": {
+      "original_id": "PsuACR_353_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 300,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.285115"
+        }
+      },
+      "created": "2025-07-14T22:17:15.869686",
+      "modified": "2025-07-15T11:39:01.285121"
+    },
+    "b32f99e86f": {
+      "original_id": "RgRGC1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 319,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.294383"
+        }
+      },
+      "created": "2025-07-14T22:17:15.879079",
+      "modified": "2025-07-15T11:39:01.294390"
+    },
+    "71db42f4d3": {
+      "original_id": "RgRGC2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 320,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.304157"
+        }
+      },
+      "created": "2025-07-14T22:17:15.888777",
+      "modified": "2025-07-15T11:39:01.304163"
+    },
+    "3a855b4489": {
+      "original_id": "RmHR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 245,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.314068"
+        }
+      },
+      "created": "2025-07-14T22:17:15.898442",
+      "modified": "2025-07-15T11:39:01.314076"
+    },
+    "5ba92a045b": {
+      "original_id": "RxR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 229,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.322692"
+        }
+      },
+      "created": "2025-07-14T22:17:15.908185",
+      "modified": "2025-07-15T11:39:01.322703"
+    },
+    "e6685e84cb": {
+      "original_id": "S13_Bin138_Proteo_SR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 161,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.332540"
+        }
+      },
+      "created": "2025-07-14T22:17:15.918014",
+      "modified": "2025-07-15T11:39:01.332547"
+    },
+    "b7bbc9919e": {
+      "original_id": "SpaR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 227,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.342323"
+        }
+      },
+      "created": "2025-07-14T22:17:15.928720",
+      "modified": "2025-07-15T11:39:01.342330"
+    },
+    "0b824fc44a": {
+      "original_id": "SrRhPDE_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 264,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.351921"
+        }
+      },
+      "created": "2025-07-14T22:17:15.941109",
+      "modified": "2025-07-15T11:39:01.351928"
+    },
+    "2bae5a2b23": {
+      "original_id": "SrSRI_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 239,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.362424"
+        }
+      },
+      "created": "2025-07-14T22:17:15.954826",
+      "modified": "2025-07-15T11:39:01.362430"
+    },
+    "5026bc4133": {
+      "original_id": "SsGHR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 255,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.375371"
+        }
+      },
+      "created": "2025-07-14T22:17:15.969931",
+      "modified": "2025-07-15T11:39:01.375392"
+    },
+    "535a9ac658": {
+      "original_id": "SyHR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 223,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.385619"
+        }
+      },
+      "created": "2025-07-14T22:17:15.983330",
+      "modified": "2025-07-15T11:39:01.385625"
+    },
+    "97b27885de": {
+      "original_id": "SzR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 201,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.396312"
+        }
+      },
+      "created": "2025-07-14T22:17:15.996995",
+      "modified": "2025-07-15T11:39:01.396326"
+    },
+    "7f0390f280": {
+      "original_id": "SzR4_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 199,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.407563"
+        }
+      },
+      "created": "2025-07-14T22:17:16.010264",
+      "modified": "2025-07-15T11:39:01.407577"
+    },
+    "22606d8348": {
+      "original_id": "TATLA_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 244,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.418274"
+        }
+      },
+      "created": "2025-07-14T22:17:16.023511",
+      "modified": "2025-07-15T11:39:01.418282"
+    },
+    "cd131beaee": {
+      "original_id": "TAT_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 249,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.427306"
+        }
+      },
+      "created": "2025-07-14T22:17:16.038980",
+      "modified": "2025-07-15T11:39:01.427312"
+    },
+    "e976950df7": {
+      "original_id": "TR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 250,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.438257"
+        }
+      },
+      "created": "2025-07-14T22:17:16.052657",
+      "modified": "2025-07-15T11:39:01.438263"
+    },
+    "f8f116ffbf": {
+      "original_id": "TaHeR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 250,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.446719"
+        }
+      },
+      "created": "2025-07-14T22:17:16.067930",
+      "modified": "2025-07-15T11:39:01.446725"
+    },
+    "9bad6b4c92": {
+      "original_id": "Tara_RRB_2_retinals_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 994,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.455842"
+        }
+      },
+      "created": "2025-07-14T22:17:16.080192",
+      "modified": "2025-07-15T11:39:01.455849"
+    },
+    "8f7b014219": {
+      "original_id": "Tara_RRB_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 994,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.465686"
+        }
+      },
+      "created": "2025-07-14T22:17:16.094750",
+      "modified": "2025-07-15T11:39:01.465692"
+    },
+    "c0bcaefdd4": {
+      "original_id": "V2HeR3_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 247,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.475852"
+        }
+      },
+      "created": "2025-07-14T22:17:16.110437",
+      "modified": "2025-07-15T11:39:01.475858"
+    },
+    "0d70c445ef": {
+      "original_id": "VbACR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 540,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.485334"
+        }
+      },
+      "created": "2025-07-14T22:17:16.124709",
+      "modified": "2025-07-15T11:39:01.485339"
+    },
+    "205b52c017": {
+      "original_id": "VcChR1_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 837,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.493988"
+        }
+      },
+      "created": "2025-07-14T22:17:16.138333",
+      "modified": "2025-07-15T11:39:01.493995"
+    },
+    "07842bfed7": {
+      "original_id": "VcChR2_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 747,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.503944"
+        }
+      },
+      "created": "2025-07-14T22:17:16.151441",
+      "modified": "2025-07-15T11:39:01.503949"
+    },
+    "06b35262d6": {
+      "original_id": "VirR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 224,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.513807"
+        }
+      },
+      "created": "2025-07-14T22:17:16.165671",
+      "modified": "2025-07-15T11:39:01.513817"
+    },
+    "d2b232ccac": {
+      "original_id": "WiChR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 745,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.524846"
+        }
+      },
+      "created": "2025-07-14T22:17:16.177203",
+      "modified": "2025-07-15T11:39:01.524857"
+    },
+    "2637c0f2fb": {
+      "original_id": "XR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 252,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.535366"
+        }
+      },
+      "created": "2025-07-14T22:17:16.187812",
+      "modified": "2025-07-15T11:39:01.535375"
+    },
+    "b6dd7eec35": {
+      "original_id": "ZipACR_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 311,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.545257"
+        }
+      },
+      "created": "2025-07-14T22:17:16.199052",
+      "modified": "2025-07-15T11:39:01.545264"
+    },
+    "911b59de01": {
+      "original_id": "ZipACR__A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 311,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.554840"
+        }
+      },
+      "created": "2025-07-14T22:17:16.210692",
+      "modified": "2025-07-15T11:39:01.554846"
+    },
+    "caa761970c": {
+      "original_id": "cR3_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 234,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.564397"
+        }
+      },
+      "created": "2025-07-14T22:17:16.221699",
+      "modified": "2025-07-15T11:39:01.564402"
+    },
+    "2d71131852": {
+      "original_id": "cyR2_P7104R_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 236,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.574600"
+        }
+      },
+      "created": "2025-07-14T22:17:16.233437",
+      "modified": "2025-07-15T11:39:01.574611"
+    },
+    "6946588aac": {
+      "original_id": "cyR_N2098R_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 242,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.585008"
+        }
+      },
+      "created": "2025-07-14T22:17:16.244857",
+      "modified": "2025-07-15T11:39:01.585014"
+    },
+    "4b05308677": {
+      "original_id": "cyR_N4075R_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 226,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.595542"
+        }
+      },
+      "created": "2025-07-14T22:17:16.257258",
+      "modified": "2025-07-15T11:39:01.595548"
+    },
+    "33fdcd900f": {
+      "original_id": "dR3_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 238,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.605326"
+        }
+      },
+      "created": "2025-07-14T22:17:16.268926",
+      "modified": "2025-07-15T11:39:01.605331"
+    },
+    "323a9b54bc": {
+      "original_id": "iC___A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 281,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.615476"
+        }
+      },
+      "created": "2025-07-14T22:17:16.280276",
+      "modified": "2025-07-15T11:39:01.615482"
+    },
+    "60633db70b": {
+      "original_id": "vPyACR_21821_A",
+      "aliases": [],
+      "formats": {
+        "sequence": {
+          "file_path": "sequence/fasta/opsin_sequences_from_yaml",
+          "metadata": {
+            "length": 409,
+            "source_file": "opsin_sequences_from_yaml",
+            "is_part_of_dataset": true,
+            "type": "sequence_in_dataset"
+          },
+          "created": "2025-07-15T11:39:01.625911"
+        }
+      },
+      "created": "2025-07-14T22:17:16.291512",
+      "modified": "2025-07-15T11:39:01.625917"
+    }
   }
 }

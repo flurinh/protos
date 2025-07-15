@@ -1,0 +1,11 @@
+{
+  "example_sequence": {
+    "path": "fasta/example.fasta",
+    "metadata": {
+      "dataset_type": "fasta",
+      "description": "Example sequence file for testing",
+      "source": "reference"
+    },
+    "timestamp": "2023-01-01T00:00:00"
+  }
+}

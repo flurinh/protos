@@ -1,0 +1,21 @@
+{
+  "id": "mo_ref",
+  "name": "mo_ref",
+  "description": "Dataset containing 13 structures",
+  "type": "structure",
+  "pdb_ids": [
+    "5AHZ",
+    "5AWZ",
+    "6RF0",
+    "1CWQ",
+    "3QBG",
+    "2Z55",
+    "1UAZ",
+    "4QI1",
+    "3DDL",
+    "4PXK",
+    "6NWD",
+    "4KNF",
+    "5G54"
+  ]
+}

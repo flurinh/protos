@@ -10,9 +10,8 @@ import numpy as np
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-from protos.processing.grn.grn_processor import GRNProcessor
-from protos.processing.sequence.seq_processor import SeqProcessor
+from protos.processing.grn import GRNProcessor
+from protos.processing.sequence import SequenceProcessor
 from protos.processing.grn.grn_assignment import (
     calculate_missing_gene_numbers,
     assign_gene_nr,
@@ -27,7 +26,7 @@ from protos.processing.grn.grn_table_utils import (
 from protos.processing.grn.grn_utils import (
     init_grn_intervals
 )
-from protos.processing.schema.grn_assignment_utils import (
+from protos.processing.grn.grn_assignment import (
     get_correctly_aligned_grns
 )
 from protos.cli.grn.assign_grns import (
@@ -183,20 +182,17 @@ class TestGRNTableUtils:
     def test_grn_config_manager(self):
         """Test GRN configuration manager."""
         # Test with known protein family
-        config_manager = GRNConfigManager(protein_family='gpcr_a')
+        config_manager = GRNConfigManager()
         
-        # Should have strict and standard configs
-        strict_config = config_manager.get_config(strict=True)
-        standard_config = config_manager.get_config(strict=False)
+        # Get intervals for a specific protein family
+        intervals = config_manager.get_intervals('gpcr_a')
         
-        assert isinstance(strict_config, dict)
-        assert isinstance(standard_config, dict)
-        assert 'TM1' in strict_config
-        assert 'TM1' in standard_config
+        # Should return a dictionary of intervals
+        assert isinstance(intervals, dict)
         
-        # Strict boundaries should be narrower than standard
-        if 'TM1' in strict_config and 'TM1' in standard_config:
-            assert len(strict_config['TM1']) <= len(standard_config['TM1'])
+        # If no config exists, should return empty dict
+        empty_intervals = config_manager.get_intervals('unknown_family')
+        assert empty_intervals == {}
 
 
 class TestGRNAssignmentCLI:
@@ -281,24 +277,18 @@ class TestGRNAssignmentIntegration:
         # ProtosPaths already configured in conftest.py
         
         # Create processor (uses global test-data directory)
-        processor = GRNBaseProcessor(name='test_ref')
+        processor = GRNProcessor(name='test_ref', preload=False)
         
         # Save reference table to ref directory using processor
-        reference_grn_table.to_csv(processor.path_grn_ref / 'test_ref.csv')
+        reference_grn_table.to_csv(processor.path_ref_dir / 'test_ref.csv')
         
-        # Create processor
-        processor = GRNBaseProcessor(
-            name='test_ref',
-            preload=False
-        )
+        # Load the reference table using load_reference_table method
+        ref_table = processor.load_reference_table('test_ref')
         
-        # Load the reference table from ref subdirectory
-        processor.load_grn_table('ref/test_ref')
-        
-        assert not processor.data.empty
-        assert len(processor.data) == 4
-        assert '1.50' in processor.data.columns
-        assert '7.53' in processor.data.columns
+        assert not ref_table.empty
+        assert len(ref_table) == 4
+        assert '1.50' in ref_table.columns
+        assert '7.53' in ref_table.columns
     
     def test_grn_assignment_workflow(self, reference_grn_table):
         """Test complete GRN assignment workflow."""
@@ -306,12 +296,11 @@ class TestGRNAssignmentIntegration:
         # In practice, would need actual sequence alignment tools
         
         # Create processors that use ProtosPaths
-        grn_proc = GRNBaseProcessor(name="grn_workflow_test")
-        seq_proc = SeqProcessor(name="grn_workflow_test")
+        grn_proc = GRNProcessor(name="grn_workflow_test")
+        seq_proc = SequenceProcessor(name="grn_workflow_test")
         
-        # 1. Save reference table using processor
-        grn_proc.data = reference_grn_table
-        grn_proc.save_grn_table('ref/test_ref_assignment')
+        # 1. Save reference table to ref directory
+        reference_grn_table.to_csv(grn_proc.path_ref_dir / 'test_ref_assignment.csv')
         
         # 2. Create test FASTA using sequence processor
         sequences = {
@@ -320,7 +309,7 @@ class TestGRNAssignmentIntegration:
         }
         
         for seq_id, seq in sequences.items():
-            seq_proc.save_sequence_entity(seq_id, seq)
+            seq_proc.save_entity(seq_id, seq)
         
         # 3. Mock the assignment process
         expected_result = pd.DataFrame({
@@ -348,24 +337,16 @@ class TestGRNAssignmentHelpers:
     
     def test_init_grn_intervals(self):
         """Test GRN interval initialization."""
-        # Use simpler config to test
-        grn_config = {
-            'TM1': ('1x50', '1x59'),  # Simple range that should work
-        }
+        # Test with protein family
+        intervals = init_grn_intervals('microbial_opsins')
         
-        intervals = init_grn_intervals(grn_config)
+        # Returns a dictionary of intervals, not a list
+        assert isinstance(intervals, dict)
         
-        assert isinstance(intervals, list)
-        # The function divides by 10, so 1x50-1x59 becomes 1x5
-        # Actually test with real GRNConfigManager format
-        from protos.processing.grn.grn_table_utils import GRNConfigManager
-        cm = GRNConfigManager('gpcr_a')
-        real_config = cm.get_config(strict=True)
-        if real_config:
-            real_intervals = init_grn_intervals(real_config)
-            assert isinstance(real_intervals, list)
-            # Just check it returns something
-            assert len(real_intervals) >= 0  # May be empty depending on implementation
+        # Test with non-existent protein family
+        empty_intervals = init_grn_intervals('non_existent_family')
+        assert isinstance(empty_intervals, dict)
+        assert len(empty_intervals) == 0
     
     def test_protein_family_specific_assignment(self):
         """Test protein family specific features."""
