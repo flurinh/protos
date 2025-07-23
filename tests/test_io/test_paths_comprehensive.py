@@ -30,12 +30,11 @@ class TestProtosPaths:
             del os.environ['PROTOS_DATA_ROOT']
         
         # Clear global data root
-        old_global = ProtosPaths.get_global_data_root()
-        ProtosPaths.set_data_root(None)
+        ProtosPaths._global_data_root = None
         
         try:
             # Create ProtosPaths without any parameters
-            paths = ProtosPaths(create_dirs=False)
+            paths = ProtosPaths()
             
             # Should use home directory by default (or env var if set)
             expected = os.path.expanduser("~/protos_data")
@@ -46,12 +45,12 @@ class TestProtosPaths:
             if old_env:
                 os.environ['PROTOS_DATA_ROOT'] = old_env
             # Restore global setting
-            ProtosPaths.set_data_root(old_global)
+            ProtosPaths._global_data_root = None
     
     def test_path_objects_not_strings(self):
         """Test that all path methods return Path objects, not strings."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=False)
+            paths = ProtosPaths(data_root=tmpdir)
             
             # Test processor paths
             for processor in ['structure', 'sequence', 'grn', 'property', 'embedding', 'ligand']:
@@ -59,14 +58,14 @@ class TestProtosPaths:
                 assert isinstance(path, str), f"get_processor_path({processor}) should return string for backward compatibility"
             
             # Test subdirectory paths
-            structure_path = paths.get_structure_subdir_path('structure_dir')
+            structure_path = paths.get_subdir_path("structure", 'structure_dir')
             assert isinstance(structure_path, str), "Subdirectory paths should return strings for backward compatibility"
     
     def test_directory_creation(self):
         """Test that ProtosPaths creates all required directories."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create ProtosPaths with directory creation
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             
             # Check base directory
             assert os.path.exists(tmpdir)
@@ -127,15 +126,15 @@ class TestProtosPaths:
     def test_no_datasource_references(self):
         """Test that DataSource enum is properly deprecated."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=False)
+            paths = ProtosPaths(data_root=tmpdir)
             
             # These methods should accept DataSource but ignore it
             from protos.io.paths.path_config import DataSource
             
             # Should not raise errors
-            path1 = paths.get_processor_path('structure', DataSource.USER)
-            path2 = paths.get_processor_path('structure', DataSource.REFERENCE)
-            path3 = paths.get_processor_path('structure', DataSource.AUTO)
+            path1 = paths.get_processor_path('structure')
+            path2 = paths.get_processor_path('structure')
+            path3 = paths.get_processor_path('structure')
             
             # All should return the same path
             assert path1 == path2 == path3
@@ -158,7 +157,7 @@ class TestProtosPaths:
                 os.chdir(tmpdir)
                 
                 # Create ProtosPaths with no parameters
-                paths = ProtosPaths(create_dirs=False)
+                paths = ProtosPaths()
                 
                 # Should still work
                 assert paths.data_root is not None
@@ -173,46 +172,46 @@ class TestProtosPaths:
     def test_subdirectory_methods(self):
         """Test all subdirectory access methods."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             
             # Test structure subdirectories
-            assert paths.get_structure_subdir_path('structure_dir').endswith('structure/mmcif')
-            assert paths.get_structure_subdir_path('cache_dir').endswith('structure/cache')
-            assert paths.get_structure_subdir_path('dataset_dir').endswith('structure/structure_dataset')
-            assert paths.get_structure_subdir_path('alignments_dir').endswith('structure/alignments')
-            assert paths.get_structure_subdir_path('temp_dir').endswith('structure/temp_cif')
-            assert paths.get_structure_subdir_path('datasets_dir').endswith('structure/datasets')
+            assert paths.get_subdir_path("structure", 'structure_dir').endswith('structure/mmcif')
+            assert paths.get_subdir_path("structure", 'cache_dir').endswith('structure/cache')
+            assert paths.get_subdir_path("structure", 'dataset_dir').endswith('structure/structure_dataset')
+            assert paths.get_subdir_path("structure", 'alignments_dir').endswith('structure/alignments')
+            assert paths.get_subdir_path("structure", 'temp_dir').endswith('structure/temp_cif')
+            assert paths.get_subdir_path("structure", 'datasets_dir').endswith('structure/datasets')
             
             # Test sequence subdirectories
-            assert paths.get_sequence_subdir_path('fasta_dir').endswith('sequence/fasta')
-            assert paths.get_sequence_subdir_path('alignment_dir').endswith('sequence/alignments')
-            assert paths.get_sequence_subdir_path('metadata_dir').endswith('sequence/metadata')
-            assert paths.get_sequence_subdir_path('datasets_dir').endswith('sequence/datasets')
+            assert paths.get_subdir_path("sequence", 'fasta_dir').endswith('sequence/fasta')
+            assert paths.get_subdir_path("sequence", 'alignment_dir').endswith('sequence/alignments')
+            assert paths.get_subdir_path("sequence", 'metadata_dir').endswith('sequence/metadata')
+            assert paths.get_subdir_path("sequence", 'datasets_dir').endswith('sequence/datasets')
             
             # Test GRN subdirectories
-            assert paths.get_grn_subdir_path('table_dir').endswith('grn/tables')
-            assert paths.get_grn_subdir_path('configs_dir').endswith('grn/configs')
-            assert paths.get_grn_subdir_path('assignment_dir').endswith('grn/assignments')
-            assert paths.get_grn_subdir_path('ref').endswith('grn/ref')
-            assert paths.get_grn_subdir_path('datasets_dir').endswith('grn/datasets')
+            assert paths.get_subdir_path('grn', 'table_dir').endswith('grn/tables')
+            assert paths.get_subdir_path('grn', 'configs_dir').endswith('grn/configs')
+            assert paths.get_subdir_path('grn', 'assignment_dir').endswith('grn/assignments')
+            assert paths.get_subdir_path('grn', 'ref').endswith('grn/ref')
+            assert paths.get_subdir_path('grn', 'datasets_dir').endswith('grn/datasets')
             
             # Test property subdirectories
-            assert paths.get_property_subdir_path('tables_dir').endswith('property/tables')
-            assert paths.get_property_subdir_path('datasets_dir').endswith('property/datasets')
+            assert paths.get_subdir_path("property", 'tables_dir').endswith('property/tables')
+            assert paths.get_subdir_path("property", 'datasets_dir').endswith('property/datasets')
             
             # Test embedding subdirectories
-            assert paths.get_embedding_subdir_path('embeddings_dir').endswith('embedding/embeddings')
-            assert paths.get_embedding_subdir_path('datasets_dir').endswith('embedding/datasets')
+            assert paths.get_subdir_path("embedding", 'embeddings_dir').endswith('embedding/embeddings')
+            assert paths.get_subdir_path("embedding", 'datasets_dir').endswith('embedding/datasets')
             
             # Test ligand subdirectories
-            assert paths.get_ligand_subdir_path('sdf_dir').endswith('ligand/sdf')
-            assert paths.get_ligand_subdir_path('cache_dir').endswith('ligand/cache')
-            assert paths.get_ligand_subdir_path('datasets_dir').endswith('ligand/datasets')
+            assert paths.get_subdir_path("ligand", 'sdf_dir').endswith('ligand/sdf')
+            assert paths.get_subdir_path("ligand", 'cache_dir').endswith('ligand/cache')
+            assert paths.get_subdir_path("ligand", 'datasets_dir').endswith('ligand/datasets')
     
     def test_registry_paths(self):
         """Test registry path methods."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=False)
+            paths = ProtosPaths(data_root=tmpdir)
             
             # Test processor registry paths
             struct_reg = paths.get_registry_path('structure')
@@ -225,7 +224,7 @@ class TestProtosPaths:
     def test_dataset_paths(self):
         """Test dataset path methods."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=False)
+            paths = ProtosPaths(data_root=tmpdir)
             
             # Test dataset paths for all processors
             struct_dataset = paths.get_dataset_path('structure', 'my_dataset')
@@ -248,13 +247,13 @@ class TestProtosPaths:
         """Test backward compatibility with old parameters."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Test with user_data_root (deprecated)
-            paths1 = ProtosPaths(user_data_root=tmpdir, create_dirs=False)
+            paths1 = ProtosPaths(data_root=tmpdir)
             assert paths1.data_root == tmpdir
             assert paths1.user_data_root == tmpdir
             assert paths1.ref_data_root == tmpdir
             
             # Test with ref_data_root (deprecated, should be ignored)
-            paths2 = ProtosPaths(data_root=tmpdir, ref_data_root="/some/other/path", create_dirs=False)
+            paths2 = ProtosPaths(data_root=tmpdir, ref_data_root="/some/other/path")
             assert paths2.data_root == tmpdir
             assert paths2.ref_data_root == tmpdir  # Should be same as data_root
     
@@ -263,7 +262,7 @@ class TestProtosPaths:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Use relative path
             rel_path = os.path.relpath(tmpdir)
-            paths = ProtosPaths(data_root=rel_path, create_dirs=False)
+            paths = ProtosPaths(data_root=rel_path)
             
             # Should be converted to absolute
             assert os.path.isabs(paths.data_root)

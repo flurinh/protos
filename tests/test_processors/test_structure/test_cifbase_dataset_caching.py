@@ -4,6 +4,7 @@ Test StructureProcessor dataset and caching functionality.
 
 import pytest
 import tempfile
+import os
 from pathlib import Path
 import pandas as pd
 import time
@@ -18,7 +19,7 @@ class TestCifBaseDatasetCaching:
     def test_save_and_load_dataset_pkl(self):
         """Test saving and loading datasets as PKL in structure_dataset/."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test structures
@@ -47,7 +48,7 @@ class TestCifBaseDatasetCaching:
             dataset_path = processor.save_data("my_dataset")
             
             # Check it saved to the right place
-            expected_path = processor.path_dataset_dir / "my_dataset.pkl"
+            expected_path = Path(processor.paths.get_subdir_path("structure", "dataset_dir")) / "my_dataset.pkl"
             assert expected_path.exists(), f"Dataset should be saved to {expected_path}"
             
             # Clear processor data
@@ -64,12 +65,12 @@ class TestCifBaseDatasetCaching:
     def test_individual_structure_caching(self):
         """Test that individual structures are cached in cache/."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create a CIF file in mmcif/
-            mmcif_dir = processor.path_structure_dir
-            test_cif = mmcif_dir / "test_protein.cif"
+            mmcif_dir = processor.paths.get_subdir_path("structure", "structure_dir")
+            test_cif = Path(mmcif_dir) / "test_protein.cif"
             test_cif.write_text("# Dummy CIF content")
             
             # Create test structure data
@@ -89,7 +90,7 @@ class TestCifBaseDatasetCaching:
             processor.save_entity("test_protein", test_data)
             
             # Check cache file exists
-            cache_file = processor.path_cache_dir / "test_protein.pkl"
+            cache_file = Path(processor.paths.get_subdir_path("structure", "cache_dir")) / "test_protein.pkl"
             assert cache_file.exists(), "Structure should be cached as PKL"
             
             # Load entity - should load from cache
@@ -101,7 +102,7 @@ class TestCifBaseDatasetCaching:
     def test_dataset_fallback_to_individual_structures(self):
         """Test that dataset loading falls back to individual structures if no PKL exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create individual structures - save as both formats
@@ -140,7 +141,7 @@ class TestCifBaseDatasetCaching:
     def test_cache_performance(self):
         """Test that cached loading is faster than parsing."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create a large structure
@@ -184,7 +185,7 @@ class TestCifBaseDatasetCaching:
     def test_dataset_manager_integration(self):
         """Test that dataset manager properly tracks datasets."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create structures

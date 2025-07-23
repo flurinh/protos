@@ -25,10 +25,15 @@ class TestSeqProcessorUpdated:
         assert processor.dataset_manager is not None
         assert processor.data_path.exists()
         
-        # Should have proper subdirectories
-        assert processor.path_fasta_dir.exists()
-        assert processor.path_alignments_dir.exists()
-        assert processor.path_metadata_dir.exists()
+        # Should have proper subdirectory paths (lazy creation - won't exist until used)
+        assert processor.path_fasta_dir is not None
+        assert processor.path_alignments_dir is not None
+        assert processor.path_metadata_dir is not None
+        
+        # Paths should be properly formed (subdirectory names from path_constants.py)
+        assert str(processor.path_fasta_dir).endswith('sequence/fasta')
+        assert str(processor.path_alignments_dir).endswith('sequence/alignments')
+        assert str(processor.path_metadata_dir).endswith('sequence/metadata')
     
     def test_no_custom_paths(self):
         """Test that processor has no custom path handling."""
@@ -51,7 +56,7 @@ class TestSeqProcessorUpdated:
     def test_accepts_protospaths(self):
         """Test processor accepts ProtosPaths instance."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Should use provided paths
@@ -61,7 +66,7 @@ class TestSeqProcessorUpdated:
     def test_path_properties_use_protospaths(self):
         """Test all path properties use ProtosPaths methods."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # All paths should go through ProtosPaths
@@ -72,7 +77,7 @@ class TestSeqProcessorUpdated:
     def test_save_and_load_single_sequence(self):
         """Test saving and loading single sequences with human names."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Save a single sequence
@@ -89,7 +94,7 @@ class TestSeqProcessorUpdated:
     def test_save_and_load_multi_sequence(self):
         """Test saving and loading multi-sequence files."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Save multiple sequences
@@ -113,7 +118,7 @@ class TestSeqProcessorUpdated:
     def test_filename_sanitization(self):
         """Test that problematic characters in names are handled."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Save with problematic name
@@ -133,7 +138,7 @@ class TestSeqProcessorUpdated:
     def test_drag_and_drop_workflow(self):
         """Test drag-and-drop file discovery."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Manually create a FASTA file (simulating drag-and-drop)
@@ -141,7 +146,7 @@ class TestSeqProcessorUpdated:
             fasta_dir.mkdir(parents=True, exist_ok=True)
             
             # Create a simple test file
-            test_file = fasta_dir / "dropped_sequences.fasta"
+            test_file = Path(fasta_dir) / "dropped_sequences.fasta"
             test_file.write_text(">seq1\nMAGICLAMP\n>seq2\nEVERYPROTEINS")
             
             # List entities should find it
@@ -156,7 +161,7 @@ class TestSeqProcessorUpdated:
     def test_dataset_operations(self):
         """Test dataset management with human names."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Create some test sequences
@@ -218,7 +223,7 @@ class TestSeqProcessorUpdated:
     def test_sequence_alignment(self):
         """Test sequence alignment functionality."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Test sequences
@@ -238,7 +243,7 @@ class TestSeqProcessorUpdated:
     def test_mutate_sequence(self):
         """Test sequence mutation."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Original sequence
@@ -254,7 +259,7 @@ class TestSeqProcessorUpdated:
     def test_find_best_match(self):
         """Test finding best matching sequence."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Reference sequences
@@ -279,7 +284,7 @@ class TestSeqProcessorUpdated:
     def test_get_sequence(self):
         """Test getting individual sequences."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Save a multi-sequence file
@@ -301,7 +306,7 @@ class TestSeqProcessorUpdated:
     def test_sequence_metadata(self):
         """Test sequence metadata calculation."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = SequenceProcessor(paths=paths)
             
             # Add some sequences to cache

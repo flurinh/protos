@@ -12,7 +12,7 @@ from protos.processing.sequence.seq_alignment import (
     format_alignment,
     calc_alignment_score_restricted_area
 )
-from protos.processing.sequence.seq_processor import SequenceProcessor
+from protos.processing.sequence.sequence_processor import SequenceProcessor
 from protos.io.paths.path_config import ProtosPaths
 
 
@@ -47,8 +47,8 @@ class TestSeqAlignmentIntegration:
         ref_db = {k: v for k, v in sample_sequences.items() if k != "AR"}
         
         # Save sequences using processor
-        seq_processor.save_data('query_seq', {'AR': query_seq}, format='json')
-        seq_processor.save_data('ref_db', ref_db, format='json')
+        seq_processor.save_data('query_seq', {'AR': query_seq}, file_format='json')
+        seq_processor.save_data('ref_db', ref_db, file_format='json')
         
         # Step 1: MMseqs2 search (using processor's data path for temp files)
         import tempfile

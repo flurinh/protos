@@ -127,3 +127,13 @@
 [2025-07-11 22:55] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/tests/test_processors/test_grn/test_grn_data_organization.py - Fixed most tests, 19/22 passing, demonstrating GRN data organization
 [2025-07-14 23:23] [MODIFY] examples/grn_basic_annotation.py - Updated to use mo_ref as reference table and follow strict Protos path principles
 [2025-07-14 23:51] [MODIFY] examples/grn_basic_annotation.py - Added GRN annotation expansion functionality for non-strict regions
+[2025-07-17 11:39] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/tests/test_processors/test_structure/test_cifbase_real_data_caching_fixed.py - Fixed incorrect path references: processor.self.path_resolver to processor.paths
+[2025-07-17 11:39] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/tests/test_processors/test_structure/test_cifbase_real_data_caching.py - Fixed incorrect path references: processor.self.path_resolver to processor.paths and self.path_resolver to processor.paths
+[2025-07-17 14:36] [MODIFY] /src/protos/processing/grn/grn_utils.py - Updated GRNConfigManager to use ProtosPaths exclusively for path management
+[2025-07-17 14:36] [MODIFY] /examples/grn_basic_annotation.py - Updated GRNConfigManager instantiation to use paths parameter
+[2025-07-17 14:36] [MODIFY] /tests/test_processors/test_grn/test_grn_processor_with_real_data.py - Updated GRNConfigManager usage to new API
+[2025-07-17 14:44] [MODIFY] /src/protos/processing/grn/run_grn_assignment.py - Updated to use new GRNConfigManager and GRNProcessor APIs
+[2025-07-20 18:37] [MODIFY] /tests/test_processors/interactions/test_list_operations_return_names.py - Fixed incomplete teardown function causing IndentationError
+[2025-07-20 18:48] [MODIFY] /tests/test_processors/interactions/test_multi_format_entity_scenarios.py - Fixed incomplete teardown function causing IndentationError
+[2025-07-20 18:56] [MODIFY] /tests/test_processors/test_structure/test_cifbase_real_data_caching_fixed.py - Fixed nested quotes in f-strings causing SyntaxError
+[2025-07-23 21:53] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/processing/ligand/ligand_processor.py - Fixed two issues: 1) Changed dataset_manager.get_dataset to load_dataset, 2) Changed user_data_root to data_root

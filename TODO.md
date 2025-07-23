@@ -278,7 +278,7 @@ pytest tests/test_io/test_dataset_manager.py -xvs  # All 14 tests passing!
 #### 2.1 Fix Initialization Cascade ✅
 ```bash
 # Run all base processor tests
-pytest tests/test_core/test_base_processor_updated.py -xvs  # Tests passing!
+pytest tests/test_core/test_base_processor.py -xvs  # Tests passing!
 ```
 
 **Tasks:**
@@ -962,3 +962,305 @@ TypeError: Can't instantiate abstract class BaseProcessor
 | Embedding | 21 | 20 | 1 | ✅ 95% |
 | Interactions | 15 | 0 | 15 | ❌ 0% |
 | **TOTAL** | **462** | **375** | **87** | ⚠️ 81% |
+
+## 🚨 NEW CRITICAL TEST FAILURES - PRIORITY FIX PLAN
+
+### Analysis of Current Test Failures (2025-07-15)
+
+Based on the test results, we have systematic issues that need to be addressed in order:
+
+### PHASE A: Critical Path and File System Issues 🔴🔴🔴
+
+#### A.1: Path Resolution Errors (HIGHEST PRIORITY)
+**Errors:**
+- `FileNotFoundError: [Errno 2] No such file or directory: '\\mnt\\c\\Users\\...'`
+- `RuntimeError: Failed to parse CIF file C:\Users\hidbe\protos_data\structure\mmcif\10abc.cif`
+- `OSError: Cannot save file into a non-existent directory`
+
+**Root Cause:** Windows/WSL path mixing and temp directory usage violating ProtosPaths principles
+
+**Tasks:**
+- [ ] Fix WSL path conversion in structure tests
+- [ ] Ensure ALL tests use ProtosPaths, not temp directories
+- [ ] Remove all hardcoded path separators (use pathlib)
+- [ ] Fix test data paths to use test-data directory
+
+#### A.2: Invalid Test Data Files
+**Error:** `RuntimeError: Failed to parse CIF file ... 10abc.cif: invalid vector subscript`
+
+**Root Cause:** Test trying to load non-existent or corrupted CIF file
+
+**Tasks:**
+- [ ] Remove references to '10abc.cif' (doesn't exist)
+- [ ] Ensure all test CIF files are valid
+- [ ] Use only existing test data files (1uaz, 3ddl, etc.)
+
+### PHASE B: GRN Processing Logic Fixes 🔴
+
+#### B.1: GRN Column Matching Errors
+**Error:** `KeyError: "Cannot match GRN columns. Data columns: ['1.39', '1.40', ...]`
+
+**Root Cause:** GRN processor trying to match columns that don't exist in data
+
+**Tasks:**
+- [ ] Fix GRN column validation to handle missing columns gracefully
+- [ ] Update filter_operations test to use correct expectations
+- [ ] Fix column_sorting test to handle all GRN formats (including 'n.1' format)
+
+#### B.2: GRN Config Manager Issues
+**Error:** `TypeError: GRNConfigManager.__init__() got an unexpected keyword argument 'protein_family'`
+
+**Tasks:**
+- [ ] Update GRNConfigManager to accept correct parameters
+- [ ] Fix assign_grns_sequences import issues
+- [ ] Update real data tests to use correct config
+
+### PHASE C: Structure Processor Fixes 🔴
+
+#### C.1: Missing Method Implementations
+**Errors:**
+- `TypeError: StructureProcessor.load_entity() got an unexpected keyword argument 'format'`
+- `AttributeError: 'StructureProcessor' object has no attribute '_load_dataset_impl'`
+
+**Tasks:**
+- [ ] Remove 'format' parameter from load_entity calls
+- [ ] Implement missing _load_dataset_impl method
+- [ ] Fix caching tests to use correct API
+
+#### C.2: Entity Handling Issues
+**Errors:**
+- `AssertionError: assert 'protein_a' in ['1tqn', '1uaz', ...]`
+- `AttributeError: 'ProtosPaths' object has no attribute 'ensure_processor_dirs'`
+
+**Tasks:**
+- [ ] Fix entity listing to include all loaded entities
+- [ ] Remove deprecated method calls
+- [ ] Update human names tests
+
+### PHASE D: Sequence and Integration Issues 🟡
+
+#### D.1: Sequence Processor
+**Error:** `TypeError: BaseProcessor.save_data() got an unexpected keyword argument 'format'`
+
+**Tasks:**
+- [ ] Remove 'format' parameter from save_data calls
+- [ ] Fix mmseqs2 test expectations
+
+#### D.2: Missing Import
+**Error:** `ImportError: cannot import name 'get_pairwise_alignment'`
+
+**Tasks:**
+- [ ] Implement missing get_pairwise_alignment function
+- [ ] Fix circular imports in GRN assignment modules
+
+### Implementation Order (Priority):
+
+1. **Day 1 - Critical Path Fixes (A.1, A.2)**
+   - Fix ALL path issues
+   - Remove temp directory usage
+   - Ensure valid test data
+
+2. **Day 2 - GRN Logic (B.1, B.2)**
+   - Fix column matching
+   - Update config manager
+   - Fix real data tests
+
+3. **Day 3 - Structure Processor (C.1, C.2)**
+   - Implement missing methods
+   - Fix API signatures
+   - Update entity handling
+
+4. **Day 4 - Integration (D.1, D.2)**
+   - Fix sequence tests
+   - Implement missing functions
+   - Run full test suite
+
+### Expected Outcome:
+- Reduce failures from current levels to < 10
+- All critical path issues resolved
+- Tests use ProtosPaths exclusively
+- No temp directory violations
+
+## 🚨 TEST FAILURE ANALYSIS - 2025-07-20
+
+### Test Results Summary
+- **Total Tests**: 535
+- **Passed**: 388 (72.5%)
+- **Failed**: 69 (12.9%)
+- **Errors**: 69 (12.9%)
+- **Skipped**: 9 (1.7%)
+
+### Progress Update
+- **Failed tests reduced**: From 87 to 69 (20% improvement)
+- **Passed tests increased**: From 375 to 388
+- **Errors reduced**: From 84 to 69
+
+### Issues Fixed (2025-07-20)
+
+#### 1. ✅ Syntax Errors Fixed
+- Fixed incomplete teardown functions causing IndentationError
+- Fixed tests that were preventing test collection
+
+#### 2. ✅ Path Reference Issues Fixed  
+- Fixed 8 files with incorrect `processor.self.path_resolver` → `processor.paths`
+- Fixed incorrect `.Path()` usage in 5 test files
+
+#### 3. ✅ GRN Position Handling Fixed
+- Fixed GRN columns being converted from "1.50" to 1.5 by pandas
+- Added `df.columns = df.columns.astype(str)` after CSV reads in grn_processor.py
+- Fixed `_get_closest_present_grn` to handle edge cases
+- Fixed tests using invalid formats like "45.50" instead of proper loop format "45.050"
+- All 7 GRN assignment tests now pass
+
+### Remaining Critical Issues
+
+#### 1. Abstract Method Implementation Issues (33 failures) 🔴
+**Primary Error**: `TypeError: Can't instantiate abstract class BaseProcessor with abstract methods load_entity, save_entity`
+
+**Affected Tests**:
+- Test classes trying to instantiate BaseProcessor directly
+- EntityTestProcessor missing implementations
+- Various processor tests
+
+**Root Cause**: BaseProcessor requires load_entity and save_entity implementations
+
+**Fix Required**:
+- Implement all required abstract methods in test processors
+- Fix method signatures to match BaseProcessor
+- Update test classes to use concrete implementations
+
+#### 2. Path Attribute Errors (15 failures) 🔴 ✅ FIXED
+**Primary Error**: `AttributeError: 'PosixPath' object has no attribute 'Path'`
+
+**Status**: Fixed - Corrected .Path() usage in test files
+
+#### 3. Entity Registry Concurrency Issues 🔴
+**Primary Error**: `FileExistsError: [WinError 183] Cannot create a file when that file already exists`
+
+**Affected Tests**:
+- Multiple tests trying to save entity_registry.json simultaneously
+- Cross-format workflow tests
+- Multi-format entity tests
+
+**Root Cause**: Multiple processes trying to write to entity_registry.json without file locking
+
+**Fix Required**:
+- Implement file locking for entity registry operations
+- Add atomic file write operations (write to temp, rename)
+- Ensure test isolation
+
+#### 5. CIF File Parsing Errors (10+ failures) 🟡
+**Primary Errors**:
+- `RuntimeError: Failed to parse CIF file: invalid vector subscript`
+- `OSError: Invalid argument: path with special characters`
+- `FileNotFoundError: No such file or directory (WSL path issues)`
+
+**Affected Tests**:
+- test_cif_base_processor.py tests
+- test_cifbase_real_data_caching.py tests
+
+**Root Cause**: Invalid test files and Windows/WSL path issues
+
+**Fix Required**:
+- Remove invalid test files (10abc.cif)
+- Fix Windows path handling for special characters
+- Correct WSL path conversion
+
+#### 6. Missing Attributes and Methods (15+ failures) 🟡
+**Primary Errors**:
+- `AttributeError: 'PropertyProcessor' object has no attribute 'data_dirs'`
+- `AttributeError: 'PropertyProcessor' object has no attribute 'assign_properties_batch'`
+- `AttributeError: type object 'ProtosPaths' has no attribute 'get_global_data_root'`
+
+**Root Cause**: API changes not reflected in all code
+
+**Fix Required**:
+- Update PropertyProcessor with missing attributes
+- Implement missing methods or update tests
+- Fix static method references
+
+#### 7. GRN Processor Issues (5+ failures) 🟡
+**Primary Errors**:
+- `KeyError: 'res_atom_name'` (expects 'atom_name')
+- `TypeError: GRNConfigManager.__init__() got an unexpected keyword argument`
+- `AssertionError: GRN sorting test failures`
+
+**Root Cause**: Column name inconsistencies and API changes
+
+**Fix Required**:
+- Standardize column names across processors
+- Update GRNConfigManager initialization
+- Fix GRN sorting logic for all formats
+
+#### 8. Embedding Processor Issues (5 failures) 🟢
+**Primary Errors**:
+- `ValueError: You have to specify either decoder_input_ids or decoder_inputs_embeds`
+- `NameError: name 'SeqProcessor' is not defined`
+
+**Root Cause**: Model configuration issues and missing imports
+
+**Fix Required**:
+- Fix ANKH model configuration
+- Add missing SeqProcessor import
+- Update embedding type handling
+
+### Priority Fix Order (Updated 2025-07-20)
+
+#### Completed Fixes ✅
+1. **Syntax Errors**: Fixed IndentationError in test files
+2. **Path References**: Fixed processor.self.path_resolver → processor.paths  
+3. **GRN Position Handling**: Fixed .50 columns being converted to floats
+4. **Path Attribute Errors**: Fixed .Path() usage in test files
+
+#### Next Priority Fixes
+1. **Day 1**: Implement missing abstract methods (33 tests)
+2. **Day 2**: Fix entity registry concurrency issues (15+ tests)
+3. **Day 3**: Fix remaining download/loader tests
+
+#### Week 2 - High Priority (Goal: <20 failures)
+4. **Day 4**: Fix CIF parsing and path issues (10+ tests)
+5. **Day 5**: Add missing attributes/methods (15+ tests)
+
+#### Week 3 - Medium Priority (Goal: <5 failures)
+6. **Day 6**: Fix GRN processor issues (5+ tests)
+7. **Day 7**: Fix embedding processor issues (5 tests)
+8. **Day 8**: Final cleanup and validation
+
+### Key Patterns to Address
+
+1. **API Consistency**: Many failures due to API changes not propagated everywhere
+2. **Path Handling**: Mix of string/Path objects causing type errors
+3. **Test Isolation**: Concurrent file access causing conflicts
+4. **Column Naming**: Inconsistent naming between processors
+5. **Missing Implementations**: Abstract methods not implemented in all subclasses
+
+### Success Metrics
+- All tests passing (535/535)
+- No path-related errors
+- No concurrency issues
+- Consistent API across all processors
+- All abstract methods properly implemented
+
+### Summary of Work Done (2025-07-20)
+
+1. **Fixed Syntax Errors**:
+   - Completed incomplete teardown functions in test files
+   - Fixed IndentationError preventing test collection
+
+2. **Fixed Path Reference Issues**:
+   - Updated 8 files: processor.self.path_resolver → processor.paths
+   - Fixed 5 files with incorrect .Path() usage
+
+3. **Fixed GRN Position Handling** (User's Main Concern):
+   - Added `df.columns = df.columns.astype(str)` in grn_processor.py after CSV reads
+   - This preserves "1.50" as string instead of converting to 1.5
+   - Fixed _get_closest_present_grn function to handle edge cases
+   - Updated tests using invalid GRN formats (45.50 → 45.050)
+   - Result: All 7 GRN assignment tests now pass
+
+4. **Test Results Improvement**:
+   - Failed tests: 87 → 69 (20% reduction)
+   - Passed tests: 375 → 388 (13 more passing)
+   - Errors: 84 → 69 (15 fewer errors)
+
+The main issue with GRN positions being converted to floats has been successfully resolved by ensuring pandas preserves column names as strings when reading CSV files.

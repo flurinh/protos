@@ -214,6 +214,25 @@ class SequenceProcessor(BaseProcessor):
         safe_name = safe_name.replace('<', '_').replace('>', '_').replace('"', '_')
         return safe_name
     
+    def load_sequence(self, identifier: str, use_cache: bool = True) -> Optional[Union[str, Dict[str, str]]]:
+        """
+        Load a sequence or sequences from FASTA file.
+        
+        This is the primary method for loading sequences, similar to load_structure
+        in CifBaseProcessor. It wraps load_entity with sequence-specific logic.
+        
+        Args:
+            identifier: Sequence identifier (can be filename without extension or sequence ID)
+            use_cache: Whether to use cached versions (for consistency with structure processor)
+            
+        Returns:
+            - For single sequences: The sequence string
+            - For multi-sequence files: Dictionary of seq_id -> sequence
+            - None if not found
+        """
+        # Simply delegate to load_entity which handles all the logic
+        return self.load_entity(identifier)
+    
     def load_sequences(self, fasta_file: str, dataset_name: Optional[str] = None, 
                       register_entities: bool = True) -> Dict[str, str]:
         """

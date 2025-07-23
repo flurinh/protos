@@ -75,7 +75,7 @@ for subdir in ['grn', 'structure', 'sequence']:
 # Check specific important files
 important_files = [
     'grn/ref/mo_ref.csv',
-    'grn/configs/config.json',
+    'grn/configs/motif.json',
     'structure/mmcif/example.cif'
 ]
 for file in important_files:

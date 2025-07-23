@@ -13,14 +13,12 @@ class TestCifBaseProcessorHumanNames:
     """Test StructureProcessor with human-readable names."""
     
     @pytest.fixture(autouse=True)
-    def setup(self):
+    def setup(self, monkeypatch):
         """Set up test environment."""
         # Configure test data path
         test_data_dir = Path(__file__).parent.parent.parent / "test-data"
-        ProtosPaths.set_data_root(str(test_data_dir))
+        monkeypatch.setenv("PROTOS_DATA_ROOT", str(test_data_dir))
         yield
-        # Clean up
-        ProtosPaths.set_data_root(None)
     
     def create_test_structure(self, pdb_id: str = "test_protein") -> pd.DataFrame:
         """Create a simple test structure DataFrame."""
@@ -153,7 +151,7 @@ class TestCifBaseProcessorHumanNames:
         # Simulate dropping a file by creating it directly in the structure directory
         import os
         import pickle
-        structure_dir = processor.path_structure_dir
+        structure_dir = processor.paths.get_subdir_path("structure", "structure_dir")
         os.makedirs(structure_dir, exist_ok=True)
         
         # Create a pkl file (simulating a dropped structure file)

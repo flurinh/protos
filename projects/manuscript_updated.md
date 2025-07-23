@@ -1,0 +1,234 @@
+# LAMBDA Methods
+
+## Datasets and Data Preprocessing
+
+To develop LAMBDA's unified predictive framework, we assembled comprehensive training data spanning both major opsin families—Type I and Type II—which together represent nature's diversity in retinal-based light sensing. Type I opsins contain all-trans retinal in their ground state and isomerize to 13-cis upon activation, while Type II opsins contain 11-cis retinal in darkness and isomerize to all-trans when illuminated. The $\lambda_{\text{max}}$ values in available databases typically report these dark-adapted states—all-trans for Type I and 11-cis for Type II—making direct spectral comparisons between opsin families impossible without accounting for retinal conformation. To address this challenge, LAMBDA predicts $\lambda_{\text{max}}$ for all four possible retinal states—11-cis, 13-cis, all-trans, and deprotonated—from a single protein sequence. This multi-output approach requires training data that captures how diverse protein environments modulate retinal absorption across all conformations, even hypothetical combinations not found in nature. We assembled datasets spanning 350-650 nm with sequences from over 200 species, totaling 1,799 retinal-binding proteins—sufficient diversity for deep neural networks to learn these complex tuning principles. Our primary data sources are the Visual Physiology Opsin Database (VPOD) for Type II opsins and the Inoue dataset for Type I microbial rhodopsins, which together provide coverage of natural opsin diversity.
+
+The Visual Physiology Opsin Database (VPOD), compiled by Frazer et al., provides 864 unique opsin sequences from 166 species, representing the most comprehensive collection of Type II opsins with experimentally validated $\lambda_{\text{max}}$ values. This dataset comprises 721 vertebrate visual opsins and 143 invertebrate opsins, with all $\lambda_{\text{max}}$ measurements taken using 11-cis retinal. The spectral coverage spans 350-611 nm with characteristic clustering around four major visual pigment families: UV-sensitive opsins (350-380 nm), blue-sensitive opsins (420-470 nm), green-sensitive opsins (480-530 nm), and red-sensitive opsins (530-570 nm). VPOD includes 318 wild-type sequences and 546 experimental mutants—the latter demonstrating how engineered mutations tune absorption wavelengths, directly relevant to optogenetic tool development.
+
+For Type I opsins, we incorporated the Inoue dataset comprising 884 microbial rhodopsin sequences from bacterial, archaeal and fungal sources, all with $\lambda_{\text{max}}$ measurements using all-trans retinal. These sequences, collected from NCBI non-redundant proteins, environmental metagenomes, and the Tara Oceans expedition, include diverse functional types—bacteriorhodopsins, halorhodopsins, sensory rhodopsins, and channelrhodopsins. In contrast to VPOD's clustered distribution, the Inoue dataset exhibits a continuous spectral distribution across 400-600 nm, reflecting the diverse ecological adaptations of microbial opsins unconstrained by specific visual functions.
+
+Together, these two datasets provide 1,748 opsin sequences spanning both major families, with Type II clustering revealing functional constraints while Type I's continuous distribution fills spectral gaps.
+
+To augment this opsin training data and test LAMBDA's ability to generalize beyond seven-transmembrane architectures, we included 51 engineered variants of human cellular retinol binding protein II (hCRBPII). hCRBPII belongs to the lipocalin family with a $\beta$-barrel structure completely distinct from the seven-transmembrane opsin fold, naturally functioning as a retinol (vitamin A) transport protein. Wang et al. engineered these proteins to bind all-trans retinal instead of retinol, creating artificial light-absorbing proteins with no biological function beyond spectroscopy. Just nine mutation sites across these 51 variants achieve a 219 nm spectral range (425-644 nm), demonstrating that dramatic spectral tuning occurs even in non-native retinal-binding scaffolds. Including these engineered proteins serves three purposes: testing whether spatial tuning principles extend beyond seven-transmembrane architectures, providing training examples in the far-red region (>600 nm) where natural opsins are sparse, and demonstrating that engineered proteins exhibit dramatic spectral tuning despite non-native retinal-binding scaffolds.
+
+The complete retinal-binding protein (RBP) dataset thus combines 1,799 sequences: 884 Type I opsins (49.1%), 864 Type II opsins (48.0%), and 51 hCRBPII variants (2.9%), spanning 350-644 nm across three distinct protein folds. Each protein sequence in our dataset has $\lambda_{\text{max}}$ measurements for its native retinal conformation—11-cis for Type II opsins, all-trans for Type I opsins and hCRBPII—yet LAMBDA must predict absorption wavelengths for all four possible retinal states. During training, the model computes loss only for available measurements, learning to generalize from predominantly single-conformation data to predict unmeasured states based on shared tuning principles.
+
+We ensured data quality by removing sequences with ambiguous amino acids (X, B, Z) and excluding entries missing $\lambda_{\text{max}}$ values. We verified the presence of the conserved retinal-binding lysine in all sequences, as this residue forms the essential Schiff base linkage with retinal required for light absorption. To prevent phylogenetic bias while maintaining spectral diversity across training, validation, and test sets, we implemented a two-level stratified splitting strategy. First, we stratified by dataset to maintain the proportions of VPOD, Inoue, and hCRBPII sequences in each split, then stratified by species within each dataset to ensure evolutionary diversity. Species with ten or more sequences received proportional representation across splits, while species with fewer sequences were randomly assigned to ensure all taxonomic groups appeared in the dataset. We allocated 90% of sequences (1,619) to training, 5% (90) to validation, and 5% (90) to test sets. This 90/5/5 split maximizes training data for our parameter-intensive graph neural network while reserving sufficient sequences for robust validation and testing across diverse protein families. This stratified approach ensures that our model learns generalizable spectral tuning principles rather than overfitting to specific protein families or wavelength ranges, setting the foundation for accurate predictions across diverse retinal-binding proteins.
+
+With 1,799 sequences spanning three distinct protein folds and ranging from 100 to 800 amino acids in length, direct sequence comparison becomes impossible due to different architectures, variable sequence lengths, and varying numbers of transmembrane helices. To enable meaningful comparison across these diverse proteins, we need a structural coordinate system that identifies functionally equivalent positions regardless of sequence identity.
+
+## Generic Residue Numbering (GRN) Assignment
+
+Generic Residue Numbering (GRN) systems assign standardized labels to amino acids based on their structural position within conserved protein architectures, enabling cross-sequence comparison of functionally equivalent residues. In the GRN system, each residue receives a label in the format X.YY, where X denotes the transmembrane helix (1-7) and YY indicates the position within that helix, with position 50 assigned to a functionally important residue chosen as a reference point.
+
+For example, in opsins the retinal-binding lysine that forms the Schiff base is designated 7.43 in Type II opsins, while the primary counterion stabilizing this positive charge is typically found at position 3.28, enabling consistent discussion of these residues across hundreds of diverse sequences.
+
+For Type I opsins, we utilized a GRN system developed through comprehensive structural analysis of the microbial rhodopsin landscape, where reference positions were defined based on proximity to the retinal. This system identifies key functional positions across Type I opsins—the Schiff base lysine at 7.50, the primary counterion at 3.57, and conserved waters coordinating at positions like 7.46—creating a common language for discussing microbial rhodopsin structure-function relationships. For Type II opsins, we annotated sequences using the established Ballesteros-Weinstein numbering system, originally developed for class A GPCRs.
+
+Unlike traditional multiple sequence alignments that align residues by sequence similarity, GRN systems function as structure-based alignments where positions are defined by their location in three-dimensional space and functional role, making them robust to insertions and deletions that would disrupt conventional alignments. To assign GRN coordinates to each sequence in our dataset, we used ProtOS (v1.0), which also handles GRN assignments in loop and tail regions. This alignment process successfully assigned GRN coordinates to over 98% of sequences in our dataset; the remaining 2% lacking sufficient homology to reference structures were excluded from further analysis. This structural encoding proves essential for our graph-based approach, as residues with the same GRN coordinates occupy equivalent spatial positions relative to retinal across all proteins of a specific type, regardless of their evolutionary origin or sequence identity. However, since Type I and Type II opsins use separate GRN systems, we must establish a mapping between them to create a unified framework.
+
+## Mapping generic residue numberings
+
+While Type I and Type II opsins have distinct binding pocket architectures with different GRN systems, we can create a unified spatial representation by mapping positions based on their location relative to retinal, guided by the principle that spatial arrangement determines spectral properties. To establish this mapping, we structurally aligned representative Type I and Type II opsin structures by superimposing their retinal molecules (RMSD < 0.5 Å), then identified pairs of GRN positions from each system that occupy similar three-dimensional locations within the aligned binding pockets. We tested all positions within 10 Å of retinal and selected position pairs with C-alpha distances < 3 Å after alignment as functionally equivalent. The spatial mapping process yielded correspondence between positions that occupy similar locations relative to retinal: while the Schiff base lysines at 7.43 (Type II) and 7.50 (Type I) represent an obvious functional match, the mapping also identifies less obvious spatial correspondences such as 3.28 (Type II) with 3.57 (Type I), representing different functional roles but similar spatial positions in the binding pocket.
+
+The complete mapping, shown in Table 1, identifies five key position pairs that form the core of the unified binding pocket representation, though many positions in each GRN system have no counterpart in the other due to the fundamentally different architectures.
+
+\newline
+
+\begin{table}[h]
+\centering
+\caption{Examples of spatial mapping between Type II and Type I opsin GRN positions based on structural alignment relative to retinal}
+\begin{tabular}{lll}
+\toprule
+{} & Type II (animal opsins) & Type I (microbial opsins)\\
+\midrule
+0 & 7x43 & 7x50 \\
+1 & 3x28 & 3x57 \\
+2 & 7x39 & 7x46 \\
+3 & 54x01 & 4x51 \\
+4 & 2x58 & 7x45 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For hCRBPII variants, which lack an established GRN system but share an identical fold across all 51 sequences, we used sequential position numbers as proxy GRN coordinates, applying the same conceptual framework of structure-based position labeling. With standardized structural coordinates established for all proteins, we can now construct graph representations that capture the interaction networks determining spectral properties.
+
+## Graph Construction
+
+Spectral tuning emerges from networks of interactions within the binding pocket—electrostatic effects propagate through hydrogen bond networks, charged residues influence neighbors, and the collective environment modulates retinal absorption. Graph representations naturally capture these interaction networks by encoding amino acids as nodes and their spatial relationships as edges, combining the accessibility of sequence-based methods with the mechanistic insights of structure-based approaches.
+
+We construct a unified graph topology through a systematic process. First, we identified all amino acid positions within 7 Ångströms of retinal across multiple high-resolution reference structures spanning Type I opsins, Type II opsins, and hCRBPII. This 7 Å cutoff captures not only direct retinal contacts (3-4 Å) but also second-shell residues that influence spectral tuning through hydrogen bond networks or medium-range electrostatic fields. This comprehensive approach yielded 108 unique GRN positions forming our master graph template: approximately 50 positions mapped between opsin types, plus 58 family-specific positions reflecting architectural differences.
+
+Individual proteins populate only subsets of this topology. Type II opsins typically contain 90-98 nodes (lacking microbial-specific positions), Type I opsins have 50-56 nodes (missing animal-specific loops and segments), and hCRBPII variants contain ~38 nodes (only $\beta$-barrel positions). This variable occupancy allows our single framework to accommodate three distinct protein architectures while preserving their structural relationships.
+
+We defined edges between nodes when residues lie within 4 Ångströms in any reference structure. This threshold captures direct molecular interactions: hydrogen bonds (2.5-3.5 Å), salt bridges (3-4 Å), and tight van der Waals contacts. By unifying contacts across all reference structures, we create a superset adjacency that accounts for conformational flexibility—if positions 3.28 and 7.43 contact in any opsin structure, all graphs containing both positions include this edge. This ensures our model considers all plausible interactions within opsin-like binding pockets.
+
+We exclude retinal and water molecules as explicit nodes. Only amino acid positions are represented, forcing the model to infer chromophore and solvent effects from the protein environment alone. This design choice prevents the model from memorizing static molecular configurations and instead requires learning how amino acid arrangements create the electrostatic fields, pocket geometries, and hydrogen bond networks that stabilize different retinal states. For instance, when polar residues flank the Schiff base, the model must learn that waters likely bridge them, even without explicit water representation.
+
+Each node combines structural identity with biochemical context through a dual encoding strategy. Simple amino acid identity fails to capture functional differences—lysine at position 7.50 (Schiff base) differs fundamentally from surface lysines despite identical chemistry. We employ Ankh (Large model), a protein language model trained on 45 million sequences, to generate 1280-dimensional embeddings for each residue. These embeddings encode conservation patterns, secondary structure propensities, and functional motifs learned from evolutionary data. By providing Ankh with complete protein sequences, we capture how each position's biochemical properties emerge from its protein context.
+
+We augment these Ankh embeddings with explicit GRN position information, ensuring the model distinguishes structurally equivalent positions across proteins. This dual representation—biochemical features from Ankh plus structural coordinates from GRN—enables learning both universal principles (how any lysine at position 7.50 forms the Schiff base) and sequence-specific effects (how surrounding residues modulate its properties).
+
+From this unified graph representation, LAMBDA predicts $\lambda_{\text{max}}$ for four retinal states simultaneously: 11-\textit{cis}, 13-\textit{cis}, all-\textit{trans}, and deprotonated. Rather than training separate models or requiring retinal conformation as input, our multi-output design reflects biological reality—the same protein scaffold accommodates multiple retinal configurations, each with distinct spectral properties. The model must discover which amino acid arrangements favor specific conformations, how pocket geometry constrains isomerization, and how electrostatics affect both protonation and spectral shifts.
+
+During training, we compute loss only for experimentally measured states: Type II opsins provide 11-\textit{cis} data, Type I opsins and hCRBPII contribute all-\textit{trans} measurements, while sparse 13-\textit{cis} and deprotonated data exist for select proteins. Despite each protein supervising just one output, the shared graph representation enables cross-conformational learning. Knowledge from Type II opsins (11-\textit{cis}) informs predictions for Type I opsins in hypothetical 11-\textit{cis} states, while patterns from microbial opsins enhance all-\textit{trans} predictions for animal opsins. This multi-task approach encourages the model to learn fundamental tuning principles that transcend specific protein-retinal combinations. To effectively learn from these diverse graph representations, we designed a specialized neural network architecture.
+
+## Model Architecture and Training
+
+LAMBDA employs a graph neural network architecture designed to process our heterogeneous protein graphs while capturing the complex, non-local interactions that determine spectral properties. The architecture comprises three main components: an input projection layer, multiple graph attention layers for message passing, and task-specific output heads for each retinal state.
+
+The input projection transforms our node features—1280-dimensional Ankh embeddings concatenated with positional encodings—into a 512-dimensional hidden representation. This dimensionality reduction creates a more computationally tractable representation while preserving essential information. We apply layer normalization and dropout ($p=0.1$) to improve training stability and generalization.
+
+The core of our architecture consists of 8 graph attention network (GAT) layers that iteratively refine node representations through neighborhood aggregation. Each GAT layer employs 8 attention heads with 64-dimensional features per head, enabling the model to attend to different aspects of node relationships simultaneously. The multi-head attention mechanism enables modeling binding pockets where a single residue participates in multiple interaction types—hydrogen bonding through its backbone while contributing electrostatic effects through its sidechain.
+
+Within each GAT layer, attention coefficients are computed as:
+
+\begin{equation}
+\alpha_{ij} = \text{softmax}_j(\text{LeakyReLU}(\mathbf{a}^T[\mathbf{W}h_i || \mathbf{W}h_j]))
+\end{equation}
+
+where $h_i$ and $h_j$ are node features, $\mathbf{W}$ is a learned transformation, $\mathbf{a}$ is an attention vector, and $||$ denotes concatenation. These coefficients weight the importance of each neighboring node when updating representations:
+
+\begin{equation}
+h_i' = \sigma\left(\sum_{j \in \mathcal{N}(i)} \alpha_{ij} \mathbf{W} h_j\right)
+\end{equation}
+
+We employ residual connections around each GAT layer, adding the input to the output after message passing. This design allows training deeper networks by providing gradient highways and preserving information from earlier layers. Between GAT layers, we apply batch normalization and dropout ($p=0.2$) to prevent overfitting on our relatively small dataset.
+
+After message passing, we aggregate node features into a graph-level representation using both global mean and max pooling. This dual pooling strategy captures both average binding pocket properties and extreme values that might dominate spectral tuning. The concatenated pooled features pass through a shared fully-connected layer (512 → 256 dimensions) with ReLU activation.
+
+Four task-specific output heads, one per retinal state, transform the shared representation into $\lambda_{\text{max}}$ predictions. Each head consists of two fully-connected layers (256 → 128 → 1) with ReLU activation and dropout ($p=0.3$) between layers. This branched architecture allows specialization for each retinal conformation while benefiting from shared feature learning in earlier layers.
+
+We train LAMBDA using mean squared error loss, computing gradients only for available experimental measurements. The multi-task setup naturally handles missing data—Type II opsins contribute only to 11-\textit{cis} loss, Type I opsins to all-\textit{trans} loss—while the shared architecture enables knowledge transfer across tasks. We employ the AdamW optimizer with an initial learning rate of $10^{-4}$, weight decay of $10^{-5}$, and cosine annealing schedule over 500 epochs.
+
+To prevent overfitting on our 1,619 training proteins, we implement several regularization strategies beyond dropout: early stopping based on validation loss with patience of 50 epochs, gradient clipping at norm 1.0 to prevent training instabilities, and data augmentation through node feature dropout that randomly masks 10% of Ankh embeddings during training. This last technique improves robustness to missing or uncertain sequence regions.
+
+The trained model processes new sequences through the same pipeline: sequence → GRN assignment → graph construction → predictions for all four retinal states. Inference takes approximately 0.5 seconds per protein on an NVIDIA V100 GPU, enabling large-scale screening of genomic databases. By learning from both opsin families simultaneously, LAMBDA captures universal principles of spectral tuning while respecting family-specific architectural constraints.
+
+
+
+==============
+
+
+2nd version:
+
+\subsection{Datasets and Data Preprocessing}
+
+To develop LAMBDA's unified predictive framework, we assembled comprehensive training data spanning both major opsin families—Type I and Type II—which together represent nature's diversity in retinal-based light sensing. Type I opsins contain all-trans retinal in their ground state and isomerize to 13-cis upon activation, while Type II opsins contain 11-cis retinal in darkness and isomerize to all-trans when illuminated. The $\lambda_{\text{max}}$ values in available databases typically report these dark-adapted states—all-trans for Type I and 11-cis for Type II—making direct spectral comparisons between opsin families impossible without accounting for retinal conformation. To address this challenge, LAMBDA predicts $\lambda_{\text{max}}$ for all four possible retinal states—11-cis, 13-cis, all-trans, and deprotonated—from a single protein sequence. This multi-output approach requires training data that captures how diverse protein environments modulate retinal absorption across all conformations, even hypothetical combinations not found in nature. We assembled datasets spanning 350-650 nm with sequences from over 200 species, totaling 1,799 retinal-binding proteins—sufficient diversity for deep neural networks to learn these complex tuning principles. Our primary data sources are the Visual Physiology Opsin Database (VPOD) for Type II opsins and the Inoue dataset for Type I microbial rhodopsins, which together provide complementary coverage of natural opsin diversity.
+
+The Visual Physiology Opsin Database (VPOD), compiled by Frazer et al., provides 864 unique opsin sequences from 166 species, representing the most comprehensive collection of Type II opsins with experimentally validated $\lambda_{\text{max}}$ values. This dataset comprises 721 vertebrate visual opsins and 143 invertebrate opsins, with all $\lambda_{\text{max}}$ measurements taken using 11-cis retinal. The spectral coverage spans 350-611 nm with characteristic clustering around four major visual pigment families: UV-sensitive opsins (350-380 nm), blue-sensitive opsins (420-470 nm), green-sensitive opsins (480-530 nm), and red-sensitive opsins (530-570 nm). Notably, VPOD includes 318 wild-type sequences and 546 experimental mutants—the latter being particularly valuable as they demonstrate how engineered mutations tune absorption wavelengths, directly relevant to optogenetic tool development where researchers modify natural opsins for specific applications.
+
+For Type I opsins, we incorporated the Inoue dataset comprising 884 microbial rhodopsin sequences from bacterial, archaeal and fungal sources, all with $\lambda_{\text{max}}$ measurements using all-trans retinal. These sequences, collected from NCBI non-redundant proteins, environmental metagenomes, and the Tara Oceans expedition, include diverse functional types—bacteriorhodopsins, halorhodopsins, sensory rhodopsins, and channelrhodopsins. In contrast to VPOD's clustered distribution, the Inoue dataset exhibits a continuous spectral distribution across 400-600 nm, reflecting the diverse ecological adaptations of microbial opsins unconstrained by specific visual functions.
+
+Together, these two datasets provide 1,748 opsin sequences spanning both major families, with Type II clustering revealing functional constraints while Type I's continuous distribution fills critical spectral gaps.
+
+To augment this opsin training data and test LAMBDA's ability to generalize beyond seven-transmembrane architectures, we included 51 engineered variants of human cellular retinol binding protein II (hCRBPII). hCRBPII belongs to the lipocalin family with a $\beta$-barrel structure completely distinct from the seven-transmembrane opsin fold, naturally functioning as a retinol (vitamin A) transport protein. Wang et al. engineered these proteins to bind all-trans retinal instead of retinol, creating artificial light-absorbing proteins with no biological function beyond spectroscopy. Remarkably, just nine mutation sites across these 51 variants achieve a 219 nm spectral range (425-644 nm), demonstrating that dramatic spectral tuning is possible even in non-native retinal-binding scaffolds. Including these engineered proteins serves three purposes: testing whether spatial tuning principles extend beyond seven-transmembrane architectures, providing training examples in the far-red region (>600 nm) where natural opsins are sparse, and demonstrating the potential for engineering light sensitivity into arbitrary protein scaffolds.
+
+The complete retinal-binding protein (RBP) dataset thus combines 1,799 sequences: 884 Type I opsins (49.1\%), 864 Type II opsins (48.0\%), and 51 hCRBPII variants (2.9\%), spanning 350-644 nm across three distinct protein folds. Each protein sequence in our dataset has $\lambda_{\text{max}}$ measurements for its native retinal conformation—11-cis for Type II opsins, all-trans for Type I opsins and hCRBPII—yet LAMBDA must predict absorption wavelengths for all four possible retinal states. During training, the model computes loss only for available measurements, learning to generalize from predominantly single-conformation data to predict unmeasured states based on shared tuning principles.
+
+We ensured data quality by removing sequences with ambiguous amino acids (X, B, Z) and excluding entries missing $\lambda_{\text{max}}$ values. We verified the presence of the conserved retinal-binding lysine in all sequences, as this residue forms the essential Schiff base linkage with retinal required for light absorption. To prevent phylogenetic bias while maintaining spectral diversity across training, validation, and test sets, we implemented a two-level stratified splitting strategy. First, we stratified by dataset to maintain the proportions of VPOD, Inoue, and hCRBPII sequences in each split, then stratified by species within each dataset to ensure evolutionary diversity. Species with ten or more sequences received proportional representation across splits, while species with fewer sequences were randomly assigned to ensure all taxonomic groups appeared in the dataset. We allocated 90\% of sequences (1,619) to training, 5\% (90) to validation, and 5\% (90) to test sets—a distribution chosen to provide sufficient training examples for our complex graph neural network architecture while maintaining adequate validation and test sizes. This stratified approach ensures that our model learns generalizable spectral tuning principles rather than overfitting to specific protein families or wavelength ranges, setting the foundation for accurate predictions across diverse retinal-binding proteins.
+With 1,799 sequences spanning three distinct protein folds and ranging from 100 to 800 amino acids in length, direct sequence comparison becomes impossible due to different architectures, variable sequence lengths, and varying numbers of transmembrane helices.
+
+\subsection{Generic Residue Numbering (GRN) Assignment}
+Generic Residue Numbering (GRN) systems assign standardized labels to amino acids based on their structural position within conserved protein architectures, allowing researchers to refer to functionally equivalent residues across different sequences using a universal coordinate system. In the GRN system, each residue receives a label in the format X.YY, where X denotes the transmembrane helix (1-7) and YY indicates the position within that helix, with position 50 assigned to a functionally important residue chosen as a reference point. 
+
+For example, in opsins the retinal-binding lysine that forms the Schiff base is designated 7.43 in Type II opsins, while the primary counterion stabilizing this positive charge is typically found at position 3.28, allowing researchers to discuss these critical residues consistently across hundreds of diverse sequences.
+
+For Type I opsins, we utilized a GRN system developed through comprehensive structural analysis of the microbial rhodopsin landscape, where reference positions were defined based on proximity to the retinal. This system identifies key functional positions across Type I opsins—the Schiff base lysine at 7.50, the primary counterion at 3.57, and conserved waters coordinating at positions like 7.46—creating a common language for discussing microbial rhodopsin structure-function relationships. For Type II opsins, we annotated sequences using the established Ballesteros-Weinstein numbering system, originally developed for class A GPCRs. 
+
+Unlike traditional multiple sequence alignments that align residues by sequence similarity, GRN systems function as structure-based alignments where positions are defined by their location in three-dimensional space and functional role, making them robust to insertions and deletions that would disrupt conventional alignments. To assign GRN coordinates to each sequence in our dataset, we used a ProtOS, which also handles GRN assignments in loop and tail regions. This alignment process successfully assigned GRN coordinates to over 98\% of sequences in our dataset. This structural encoding proves essential for our graph-based approach, as residues with the same GRN coordinates occupy equivalent spatial positions relative to retinal across all proteins of a specific type, regardless of their evolutionary origin or sequence identity.
+
+
+\subsection{Mapping generic residue numberings}
+While Type I and Type II opsins have distinct binding pocket architectures with different GRN systems, we can create a unified spatial representation by mapping positions based on their location relative to retinal, guided by the principle that spatial arrangement determines spectral properties. To establish this mapping, we structurally aligned representative Type I and Type II opsin structures by superimposing their retinal molecules, then identified pairs of GRN positions from each system that occupy similar three-dimensional locations within the aligned binding pockets. The spatial mapping process yielded correspondence between positions that occupy similar locations relative to retinal: while the Schiff base lysines at 7.43 (Type II) and 7.50 (Type I) represent an obvious functional match, the mapping also identifies less obvious spatial correspondences such as 3.28 (Type II) with 3.57 (Type I), representing different functional roles but similar spatial positions in the binding pocket.
+
+The complete mapping, shown in Table 1, identifies five key position pairs that form the core of the unified binding pocket representation, though notably many positions in each GRN system have no counterpart in the other due to the fundamentally different architectures.
+\newline
+
+\begin{table}[h]
+\centering
+\caption{Examples of spatial mapping between Type II and Type I opsin GRN positions based on structural alignment relative to retinal}
+\begin{tabular}{lll}
+\toprule
+{} & Type II (animal opsins) & Type I (microbial opsins)\\
+\midrule
+0 &   7x43 &             7x50 \\
+1 &   3x28 &             3x57 \\
+2 &   7x39 &             7x46 \\
+3 &  54x01 &             4x51 \\
+4 &   2x58 &             7x45 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+For hCRBPII variants, which lack an established GRN system but share an identical fold across all 51 sequences, we used sequential position numbers as proxy GRN coordinates, applying the same conceptual framework of structure-based position labeling.
+
+\subsection{Graph Construction}
+Spectral tuning arises not from individual amino acids but from networks of interactions within the binding pocket—electrostatic effects propagate through hydrogen bond networks, charged residues influence their neighbors, and the collective environment modulates retinal absorption. The fundamental challenge is capturing these interaction networks without requiring crystal structures, while maintaining the ability to generalize across different protein families.
+Traditional approaches face critical limitations. Sequence-based methods identify "color tuning sites" specific to each opsin family, but these cannot transfer between Type I and Type II opsins where different positions serve similar roles. Structure-based quantum mechanical calculations accurately model the physics but require high-resolution structures and extensive computation, making them impractical for the thousands of sequences in genomic databases.
+Graph representations provide an elegant solution. By encoding amino acids as nodes and their spatial relationships as edges, graphs naturally capture the interaction networks that determine spectral properties. Our key innovation is constructing these graphs using only sequence information: GRN coordinates provide spatial positions without crystallography, while edges represent all possible interactions observed across reference structures. This approach combines the accessibility of sequence-based methods with the spatial insights of structure-based approaches.
+We construct a unified graph topology spanning all retinal-binding proteins. This topology comprises 108 unique GRN positions: approximately 50 positions mapped between Type I and Type II opsins based on spatial correspondence, plus 58 family-specific positions that capture architectural differences between protein folds. Individual proteins populate only a subset—Type II opsins typically contain up to 98 positions, Type I opsins at most 56 positions, and hCRBPII variants only 38 positions—reflecting structural differences between seven-transmembrane bundles and β-barrel architectures.
+Nodes represent amino acid positions within 7 Ångströms of retinal in any reference structure, ensuring comprehensive coverage of both direct interactions and positions that influence spectral tuning through electrostatic or allosteric effects. Edges connect positions within 4 Ångströms in at least one reference structure—a threshold capturing hydrogen bonds (2.5-3.5Å), salt bridges (3-4Å), van der Waals contacts (3-4Å), and significant electrostatic interactions. This superset approach ensures our graphs capture the full range of conformational flexibility across protein families.
+Critically, our graphs contain only amino acid positions as nodes. Retinal, water molecules, and protonation states are treated implicitly, forcing the model to learn how protein environments create conditions for spectral tuning rather than memorizing specific molecular configurations that vary between structures and conformations.
+Each node requires features beyond simple amino acid identity. Lysine at position 7.50 (forming the Schiff base) differs fundamentally from surface lysines—it remains universally conserved, exists in a hydrophobic environment that modulates its pKa, and directly determines spectral properties. Identity-based encoding would represent both identically, discarding this crucial context.
+We employ Ankh, a protein language model trained on 45 million sequences, to generate 1280-dimensional embeddings that capture amino acid function within protein context. These embeddings encode conservation patterns, biochemical properties modulated by local environment, and functional roles emerging from protein architecture—all learned from evolutionary patterns without explicit programming. The embedding for lysine at position 7.50 differs both from surface lysines and between different proteins at the same position, providing features that implicitly contain the biochemical knowledge necessary for predicting spectral properties.
+
+Each graph thus contains three essential components: node features from Ankh embeddings, GRN labels identifying each node's structural position, and an adjacency matrix encoding the spatial relationships between positions. The Ankh embeddings provide rich biochemical and evolutionary information for each amino acid, while GRN labels preserve the structural identity of each position across different proteins. The adjacency matrix, derived from our superset approach, captures all possible interactions observed across reference structures. Together, these components create a complete representation of each protein's binding pocket—variable node features reflecting the specific sequence, fixed structural positions from GRN assignments, and comprehensive interaction patterns from the unified topology. This graph structure enables our model to process proteins of varying sizes (38-98 nodes) within a single framework, learning how different combinations of amino acids at specific positions create distinct spectral properties.
+
+From this single graph representation, our model generates four $\lambda_{\text{max}}$  predictions corresponding to different retinal states: 11-cis, 13-cis, all-trans, and deprotonated retinal. This multi-output design reflects the biological reality that the same protein scaffold can accommodate retinal in multiple conformations, each with distinct spectral properties. Rather than training separate models or requiring retinal conformation as input, we task a single model with learning how amino acid arrangements influence all possible retinal states. The model must discover which spatial arrangements favor specific conformations, how pocket geometry constrains retinal flexibility, where water molecules likely coordinate, and how local electrostatics affect both protonation and water-mediated interactions. Since waters are excluded from our graphs, the model must infer their presence and effects from the amino acid scaffold alone—learning which arrangements create hydration sites and how water networks modulate spectral properties. During training, each protein contributes gradients only for its experimentally measured conformation—Type II opsins typically provide 11-cis data, Type I opsins provide all-trans data—yet the shared spatial framework enables the model to generalize across conformations. This design anticipates future experimental data where proteins may be characterized in multiple states, while currently learning transferable principles from the available single-conformation measurements.
+
+Through this graph construction approach, we transform protein sequences into rich structural representations without requiring structure data. 
+
+Our unified framework handles any distinct protein fold (Type I and Type II seven-transmembrane bundles plus $\beta$-barrel lipocalins or any other protein where we have at least one known reference structure) within a single model, learning universal principles from shared positions and family-specific effects from unique positions.
+
+
+\subsection{Graph Construction}
+
+Spectral tuning arises from amino acid interactions within the retinal binding pocket, where electrostatic effects, hydrogen bonds, and steric constraints collectively modulate retinal absorption. Graph representations capture these interactions naturally by encoding amino acids as nodes and their spatial relationships as edges, bridging sequence-based methods with structural insights.
+
+We constructed a unified graph topology by identifying amino acid residues located within 7 Å of retinal in representative high-resolution structures from Type I opsins, Type II opsins, and engineered hCRBPII variants. This 7 Å radius encompasses direct retinal contacts (~3-4 Å) and second-shell residues (5-7 Å) crucial for spectral modulation via indirect interactions. This analysis yielded a master graph template consisting of 108 unique GRN positions: approximately 50 positions mapped across opsin types and 58 family-specific positions.
+
+Individual proteins populate subsets of this unified topology based on their structural architecture: Type II opsins typically include 90-98 nodes, Type I opsins contain 50-56 nodes, and hCRBPII variants have approximately 38 nodes reflecting their distinct β-barrel architecture. Variable occupancy enables a single graph framework to accommodate multiple protein folds while preserving spatial relationships relevant for spectral tuning.
+
+Edges connect nodes if residues were within 4 Å in any reference structure, capturing direct molecular interactions such as hydrogen bonds, salt bridges, and van der Waals contacts. By merging contacts across all reference structures, we create a comprehensive adjacency matrix that accounts for conformational variability. This approach ensures the graph includes all plausible residue interactions within retinal binding pockets.
+
+We deliberately excluded retinal and explicit water molecules from the graph nodes to prevent model overfitting to static ligand or solvent configurations. This exclusion forces the neural network to infer how amino acid arrangements modulate retinal through implicit electrostatic fields, pocket geometry, and hydrogen bond networks.
+
+Each node integrates structural and biochemical information through a dual encoding strategy. We employed Ankh (protein language model, v1.0), trained on 45 million sequences, to generate 1280-dimensional embeddings for each residue, capturing evolutionary conservation, biochemical properties, and structural context. To distinguish residues structurally, each node embedding was augmented with explicit GRN coordinates, ensuring the model recognizes equivalent spatial positions across diverse sequences.
+
+This unified graph representation enables LAMBDA to predict λ\textsubscript{max} simultaneously for four retinal conformations: 11-\textit{cis}, 13-\textit{cis}, all-\textit{trans}, and deprotonated. The multi-output framework encourages cross-conformational generalization, as data for one conformation informs predictions for hypothetical or unmeasured states across different proteins.
+
+\subsection{Model Architecture and Training}
+
+LAMBDA employs a graph neural network (GNN) architecture optimized to process heterogeneous protein graphs, capturing complex interactions governing spectral properties. The model comprises three main stages: input projection, iterative message passing through graph attention layers, and task-specific prediction heads for each retinal state.
+
+The input projection layer transforms node embeddings—comprising concatenated 1280-dimensional Ankh embeddings and GRN positional encodings—into a computationally efficient 512-dimensional hidden representation. Layer normalization and dropout ($p=0.1$) were applied to enhance training stability and reduce overfitting.
+
+We implemented eight Graph Attention Network (GAT) layers for iterative message passing, refining node representations by aggregating neighborhood information. Each GAT layer utilizes eight attention heads with 64-dimensional features, enabling the network to simultaneously capture diverse residue interactions. Attention coefficients, computed as:
+
+\begin{equation}
+\alpha_{ij} = \text{softmax}_j(\text{LeakyReLU}(\mathbf{a}^T[\mathbf{W}h_i || \mathbf{W}h_j])),
+\end{equation}
+
+weight neighbor contributions to updated node features:
+
+\begin{equation}
+h_i' = \sigma\left(\sum_{j \in \mathcal{N}(i)} \alpha_{ij} \mathbf{W} h_j\right).
+\end{equation}
+
+Residual connections were incorporated around each GAT layer to facilitate gradient propagation in deeper architectures. Batch normalization and dropout ($p=0.2$) between layers further mitigated overfitting risks.
+
+Post-message passing, global mean and max pooling aggregated node features into a unified graph-level embedding, capturing both average and extreme pocket properties relevant for spectral tuning. A fully connected layer compressed this pooled embedding from 512 to 256 dimensions with ReLU activation.
+
+Four independent prediction heads—one per retinal conformation—transformed the shared embedding into λ\textsubscript{max} predictions through two fully connected layers (256 → 128 → 1), each with ReLU activation and dropout ($p=0.3$). This branching facilitated specialized tuning for each retinal state while benefiting from shared learned features.
+
+LAMBDA was trained with mean squared error loss, computing gradients solely for experimentally available λ\textsubscript{max} values. The multi-task training regime enabled knowledge transfer between retinal states despite sparse data for some conformations.
+
+Training employed the AdamW optimizer (initial learning rate: $10^{-4}$, weight decay: $10^{-5}$) with cosine annealing over 500 epochs. Additional regularization strategies included early stopping (patience: 50 epochs), gradient clipping (norm ≤ 1.0), and node feature dropout (randomly masking 10\% of Ankh embeddings per epoch).
+
+Inference performance, benchmarked on an NVIDIA A100 GPU, averaged approximately 0.5 seconds per protein, facilitating large-scale screening of genomic datasets. This comprehensive architecture and training approach equip LAMBDA to accurately predict spectral tuning across diverse retinal-binding proteins, enabling systematic exploration and rational engineering of novel optogenetic tools.
+
+
+% what does th

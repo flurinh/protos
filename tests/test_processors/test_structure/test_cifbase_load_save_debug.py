@@ -14,7 +14,7 @@ from protos.processing.structure import StructureProcessor
 def test_simple_load_save_workflow():
     """Test the simplest possible load/save workflow."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+        paths = ProtosPaths(data_root=tmpdir)
         processor = StructureProcessor(paths=paths)
         
         # Create simple test data

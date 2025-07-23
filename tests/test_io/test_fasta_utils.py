@@ -8,6 +8,7 @@ Uses temporary directories for test isolation.
 import tempfile
 import pytest
 import pandas as pd
+from pathlib import Path
 
 from protos.io.fasta_utils import (
     read_fasta, 
@@ -36,7 +37,7 @@ GSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN"""
 @pytest.fixture
 def temp_fasta_file(sample_fasta_content, tmp_path):
     """Create a temporary FASTA file for testing."""
-    fasta_file = tmp_path / "test.fasta"
+    fasta_file = Path(tmp_path) / "test.fasta"
     fasta_file.write_text(sample_fasta_content)
     return str(fasta_file)
 
@@ -68,7 +69,7 @@ def test_write_fasta(temp_fasta_file, tmp_path):
     original_sequences = read_fasta(temp_fasta_file)
     
     # Create output path
-    output_path = tmp_path / "output.fasta"
+    output_path = Path(tmp_path) / "output.fasta"
     
     # Write the sequences to the new file
     write_fasta(original_sequences, str(output_path))
@@ -197,7 +198,7 @@ def test_integration_read_process_write(temp_fasta_file, tmp_path):
     }
     
     # Write the processed sequences to a new file
-    output_path = tmp_path / "processed.fasta"
+    output_path = Path(tmp_path) / "processed.fasta"
     write_fasta(processed_sequences, str(output_path))
     
     # Read back the processed sequences

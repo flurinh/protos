@@ -12,6 +12,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import time
+import os
 
 from protos.io.paths import ProtosPaths
 from protos.processing.structure import StructureProcessor
@@ -23,7 +24,7 @@ class TestCifBaseDatasetCaching:
     def test_individual_structure_caching(self):
         """Test that individual structures are cached as PKL files."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test structure
@@ -47,8 +48,8 @@ class TestCifBaseDatasetCaching:
             })
             
             # Check cache file exists
-            cache_file = processor.path_cache_dir / "test1.pkl"
-            assert cache_file.exists()
+            cache_file = Path(processor.paths.get_subdir_path('structure', 'cache_dir')) / 'test1.pkl'
+            assert os.path.exists(cache_file)
             
             # Load through load_entity - should use cache
             loaded = processor.load_entity("test1")
@@ -62,7 +63,7 @@ class TestCifBaseDatasetCaching:
     def test_dataset_pkl_saving(self):
         """Test saving entire datasets as PKL files in structure_dataset/."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test dataset with multiple structures
@@ -95,8 +96,8 @@ class TestCifBaseDatasetCaching:
             processor.save_data("test_dataset")
             
             # Check PKL file exists in structure_dataset/
-            dataset_pkl = processor.path_dataset_dir / "test_dataset.pkl"
-            assert dataset_pkl.exists()
+            dataset_pkl = Path(processor.paths.get_subdir_path('structure', 'dataset_dir')) / 'test_dataset.pkl'
+            assert os.path.exists(dataset_pkl)
             
             # Also create dataset metadata
             processor.create_dataset("test_dataset", pdb_ids)
@@ -108,7 +109,7 @@ class TestCifBaseDatasetCaching:
     def test_load_data_priority(self):
         """Test that load_data prioritizes PKL files over individual structures."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create individual structures
@@ -152,8 +153,8 @@ class TestCifBaseDatasetCaching:
             processor.save_data("priority_test")
             
             # Verify PKL was created
-            pkl_path = processor.path_dataset_dir / "priority_test.pkl"
-            assert pkl_path.exists()
+            pkl_path = Path(processor.paths.get_subdir_path('structure', 'dataset_dir')) / 'priority_test.pkl'
+            assert os.path.exists(pkl_path)
             
             # Clear processor state
             processor.data = None
@@ -171,7 +172,7 @@ class TestCifBaseDatasetCaching:
     def test_save_data_formats(self):
         """Test save_data supports both PKL and CSV formats."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test data
@@ -211,7 +212,7 @@ class TestCifBaseDatasetCaching:
     def test_fallback_when_pkl_missing(self):
         """Test fallback to individual structures when dataset PKL is missing."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create individual structures
@@ -235,8 +236,8 @@ class TestCifBaseDatasetCaching:
             processor.create_dataset("fallback_test", pdb_ids)
             
             # Ensure no PKL exists
-            pkl_path = processor.path_dataset_dir / "fallback_test.pkl"
-            assert not pkl_path.exists()
+            pkl_path = Path(processor.paths.get_subdir_path('structure', 'dataset_dir')) / 'fallback_test.pkl'
+            assert not os.path.exists(pkl_path)
             
             # Load dataset - should fall back to individual files
             loaded = processor.load_data("fallback_test")
@@ -247,12 +248,12 @@ class TestCifBaseDatasetCaching:
     def test_load_structure_caching_workflow(self):
         """Test the complete load_structure workflow with caching."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Ensure cache doesn't exist
-            cache_file = processor.path_cache_dir / "test_cif.pkl"
-            if cache_file.exists():
+            cache_file = Path(processor.paths.get_subdir_path('structure', 'cache_dir')) / 'test_cif.pkl'
+            if os.path.exists(cache_file):
                 cache_file.unlink()
             
             # Create a mock CIF file
@@ -283,7 +284,7 @@ ATOM   1  N  N   . ALA A 1 1 ? 1.000 2.000 3.000 1.00 10.00 ? 1 ALA A N   1
 ATOM   2  CA CA  . ALA A 1 1 ? 2.000 3.000 4.000 1.00 10.00 ? 1 ALA A CA  1
 ATOM   3  C  C   . ALA A 1 1 ? 3.000 4.000 5.000 1.00 10.00 ? 1 ALA A C   1
 """
-            cif_file = processor.path_structure_dir / "test_cif.cif"
+            cif_file = Path(processor.paths.get_subdir_path('structure', 'structure_dir')) / 'test_cif.cif'
             cif_file.write_text(cif_content)
             
             # First load - should parse CIF and save to cache
@@ -294,19 +295,19 @@ ATOM   3  C  C   . ALA A 1 1 ? 3.000 4.000 5.000 1.00 10.00 ? 1 ALA A C   1
             assert len(loaded1) > 0
             
             # Check cache was created
-            cache_file = processor.path_cache_dir / "test_cif.pkl"
-            print(f"Cache file path: {cache_file}")
-            print(f"Cache file exists: {cache_file.exists()}")
+            cache_file = Path(processor.paths.get_subdir_path('structure', 'cache_dir')) / 'test_cif.pkl'
+            print(f'Cache file path: {cache_file}')
+            print(f'Cache file exists: {os.path.exists(cache_file)}')
             
             # Also check if it was saved anywhere else
-            if not cache_file.exists():
+            if not os.path.exists(cache_file):
                 # List all files in cache dir
-                if processor.path_cache_dir.exists():
-                    print(f"Files in cache dir: {list(processor.path_cache_dir.iterdir())}")
+                if os.path.exists(processor.paths.get_subdir_path('structure', 'cache_dir')):
+                    print(f"Files in cache dir: {list(Path(processor.paths.get_subdir_path('structure', 'cache_dir')).iterdir())}")
                 else:
                     print("Cache dir doesn't exist")
             
-            assert cache_file.exists()
+            assert os.path.exists(cache_file)
             
             # Delete the CIF file
             cif_file.unlink()
@@ -319,7 +320,7 @@ ATOM   3  C  C   . ALA A 1 1 ? 3.000 4.000 5.000 1.00 10.00 ? 1 ALA A C   1
     def test_dataset_metadata_and_pkl_coordination(self):
         """Test that dataset metadata (JSON) and data (PKL) are coordinated."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test structures
@@ -348,10 +349,10 @@ ATOM   3  C  C   . ALA A 1 1 ? 3.000 4.000 5.000 1.00 10.00 ? 1 ALA A C   1
             processor.save_data("coord_test")
             
             # Verify both exist
-            json_path = processor.data_path / "datasets" / "coord_test.json"
-            pkl_path = processor.path_dataset_dir / "coord_test.pkl"
-            assert json_path.exists()
-            assert pkl_path.exists()
+            json_path = Path(processor.paths.get_processor_path('structure')) / 'datasets' / 'coord_test.json'
+            pkl_path = Path(processor.paths.get_subdir_path('structure', 'dataset_dir')) / 'coord_test.pkl'
+            assert os.path.exists(json_path)
+            assert os.path.exists(pkl_path)
             
             # Load dataset info
             info = processor.get_dataset_info("coord_test")
@@ -369,7 +370,7 @@ ATOM   3  C  C   . ALA A 1 1 ? 3.000 4.000 5.000 1.00 10.00 ? 1 ALA A C   1
     def test_no_data_error_handling(self):
         """Test proper error handling when no data is available to save."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Try to save without data
@@ -379,7 +380,7 @@ ATOM   3  C  C   . ALA A 1 1 ? 3.000 4.000 5.000 1.00 10.00 ? 1 ALA A C   1
     def test_unsupported_format_error(self):
         """Test error handling for unsupported file formats."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test data

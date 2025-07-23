@@ -21,6 +21,27 @@ from protos.io.paths.path_config import ProtosPaths
 
 logger = logging.getLogger(__name__)
 
+# protos/cli/init.py
+import typer
+from pathlib import Path
+
+init_app = typer.Typer(help="Initialization commands for protos.")
+
+@init_app.command()
+def folders(path: Path = typer.Option("./data", "--path", "-p", help="Path where data folders will be created")):
+    """Set up data folders."""
+    typer.echo(f"Setting up data folders at: {path}")
+    path.mkdir(parents=True, exist_ok=True)
+    # Add your folder creation logic here
+    typer.echo("Data folders initialized successfully!")
+
+# Example: Another subcommand under init, with its own params
+@init_app.command()
+def config(force: bool = typer.Option(False, "--force", "-f", help="Force overwrite existing config")):
+    """Initialize configuration."""
+    typer.echo(f"Setting up config (force: {force})...")
+    # Your logic here
+
 
 def create_directory_structure(data_root: Path) -> int:
     """
@@ -72,19 +93,11 @@ def create_directory_structure(data_root: Path) -> int:
         
         # Graph directories
         "graph",
-        "graph/networks",
-        "graph/analysis",
         
         # Other processor directories
-        "complex_processor_with_long_name",
-        "custom_dir",
         "literature",
         "seq",
         "seq/datasets",
-        "simple",
-        "simple/datasets",
-        "test",
-        "test/datasets",
     ]
     
     created = 0

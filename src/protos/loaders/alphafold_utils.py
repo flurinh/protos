@@ -18,7 +18,7 @@ def download_alphafold_structures(uid, max_models=5, output_dir=None, processor=
     elif _HAS_PROTOS_PATHS and output_dir is None:
         # Use ProtosPaths directly if no processor provided
         paths = ProtosPaths()
-        output_path = Path(paths.get_structure_subdir_path('structure_dir'))
+        output_path = Path(paths.get_subdir_path('structure', 'structure_dir'))
     else:
         # Legacy fallback for backward compatibility
         output_path = Path(output_dir or 'data/mmcif/alphafold_structures')

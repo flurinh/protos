@@ -1,18 +1,138 @@
-
-
-motif1 = get_grn_interval('1x49', '1x53', grnp.data)  # LNxxx
-motif2 = get_grn_interval('2x50', '2x50', grnp.data)  # D
-dry = get_grn_interval('3x49', '3x51', grnp.data)
-motif4 = get_grn_interval('4x50', '4x52', grnp.data)  # wxw
-pif = ['5x50', '3x40', '6x44']
-h_bond_active_state_stabilizer = ['5x58', '7x53']
-motif5 = get_grn_interval('5x50', '5x51', grnp.data)  # PF
-transmission_switch = ['3x40', '5x50', '5x51', '6x44', '6x48']
-cwxp = get_grn_interval('6x47', '6x5', grnp.data)
-npxxy = get_grn_interval('7x49', '7x53', grnp.data)
-icl1 = get_grn_interval('12x001', '21x001', grnp.data)
-ecl1 = get_grn_interval('23x001', '32x001', grnp.data)
-icl2 = get_grn_interval('34x001', '43x001', grnp.data)
-ecl2 = get_grn_interval('45x001', '54x001', grnp.data)
-icl3 = get_grn_interval('56x001', '65x001', grnp.data)
-ecl3 = get_grn_interval('67x001', '76x001', grnp.data)
+{
+  "gpcr_a": {
+    "standard": {
+      "tm1": [
+        "1.28",
+        "1.64"
+      ],
+      "tm2": [
+        "2.31",
+        "2.71"
+      ],
+      "tm3": [
+        "3.20",
+        "3.60"
+      ],
+      "tm4": [
+        "4.34",
+        "4.69"
+      ],
+      "tm5": [
+        "5.36",
+        "5.69"
+      ],
+      "tm6": [
+        "6.24",
+        "6.60"
+      ],
+      "tm7": [
+        "7.30",
+        "7.56"
+      ],
+      "h8": [
+        "8.37",
+        "8.72"
+      ]
+    },
+    "strict": {
+      "tm1": [
+        "1.49",
+        "1.59"
+      ],
+      "tm2": [
+        "2.37",
+        "2.50"
+      ],
+      "tm3": [
+        "3.42",
+        "3.51"
+      ],
+      "tm4": [
+        "4.47",
+        "4.60"
+      ],
+      "tm5": [
+        "5.47",
+        "5.50"
+      ],
+      "tm6": [
+        "6.43",
+        "6.50"
+      ],
+      "tm7": [
+        "7.45",
+        "7.53"
+      ],
+      "h8": [
+        "8.47",
+        "8.58"
+      ]
+    }
+  },
+  "mo": {
+    "standard": {
+      "tm1": [
+        "1.36",
+        "1.61"
+      ],
+      "tm2": [
+        "2.39",
+        "2.67"
+      ],
+      "tm3": [
+        "3.41",
+        "3.62"
+      ],
+      "tm4": [
+        "4.35",
+        "4.61"
+      ],
+      "tm5": [
+        "5.39",
+        "5.68"
+      ],
+      "tm6": [
+        "6.33",
+        "6.59"
+      ],
+      "tm7": [
+        "7.33",
+        "7.62"
+      ]
+    },
+    "strict": {
+      "tm1": [
+        "1.36",
+        "1.53"
+      ],
+      "tm2": [
+        "2.39",
+        "2.52"
+      ],
+      "tm3": [
+        "3.42",
+        "3.55"
+      ],
+      "tm4": [
+        "4.37",
+        "4.58"
+      ],
+      "tm5": [
+        "5.43",
+        "5.55"
+      ],
+      "tm6": [
+        "6.41",
+        "6.58"
+      ],
+      "tm7": [
+        "7.44",
+        "7.51"
+      ]
+    }
+  },
+  "iLBP": {
+    "strict": {},
+    "standard": {}
+  }
+}

@@ -10,103 +10,83 @@ import re
 def detect_mmseqs2() -> Tuple[Optional[str], bool]:
     """
     Detect MMseqs2 installation and determine if WSL is needed.
-    
+
     Returns:
         Tuple of (mmseqs_path, use_wsl)
         - mmseqs_path: Path to mmseqs binary or None if not found
         - use_wsl: True if WSL should be used, False otherwise
     """
-    # Check if already configured
-    mmseqs_path = os.getenv("MMSEQS_PATH")
-    use_wsl = os.getenv("USE_WSL_MMSEQS", "false").lower() == "true"
-    
-    if mmseqs_path:
-        return mmseqs_path, use_wsl
-    
     is_windows = platform.system() == 'Windows' or os.name == 'nt'
-    
+
     if is_windows:
-        # On Windows, prefer WSL
-        # First check if mmseqs works directly (unlikely)
-        try:
-            result = subprocess.run(['mmseqs', '--help'], 
-                                  capture_output=True, shell=True)
-            if result.returncode == 0:
-                return 'mmseqs', False
-        except:
-            pass
-        
-        # Check WSL
-        try:
-            # Try which first
-            result = subprocess.run(['wsl', 'which', 'mmseqs'], 
-                                  capture_output=True, text=True, shell=True)
-            if result.returncode == 0:
-                path = result.stdout.strip()
-                os.environ["MMSEQS_PATH"] = path
-                os.environ["USE_WSL_MMSEQS"] = "true"
-                return path, True
-        except:
-            pass
-        
+        # Case 1 & 2: Windows
         # Check common WSL paths
         wsl_paths = [
             '~/MMseqs2/build/bin/mmseqs',
             '~/mmseqs2/bin/mmseqs',
             '/usr/local/bin/mmseqs',
-            '/usr/bin/mmseqs',
-            '/home/*/MMseqs2/build/bin/mmseqs',  # Wildcard for any user
+            '/usr/bin/mmseqs'
         ]
-        
+
+        # First try 'which' command
+        try:
+            result = subprocess.run(['wsl', 'which', 'mmseqs'],
+                                    capture_output=True, text=True, shell=True)
+            if result.returncode == 0:
+                # Case 1: Windows, found it
+                path = result.stdout.strip()
+                return path, True
+        except:
+            pass
+
+        # Try known paths
         for path in wsl_paths:
             try:
-                # Test if file exists
-                result = subprocess.run(['wsl', 'test', '-f', path], 
-                                      capture_output=True, shell=True)
-                if result.returncode == 0:
-                    os.environ["MMSEQS_PATH"] = path
-                    os.environ["USE_WSL_MMSEQS"] = "true"
+                cmd = f'wsl bash -c "test -f {path} && echo exists"'
+                result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+                if result.stdout.strip() == 'exists':
+                    # Case 1: Windows, found it
                     return path, True
-                    
-                # Also try with bash expansion for paths with ~
-                if path.startswith('~'):
-                    expanded_path = path.replace('~', '$HOME')
-                    cmd = f'wsl bash -c "test -f {expanded_path} && echo exists"'
-                    result = subprocess.run(cmd, capture_output=True, 
-                                          text=True, shell=True)
-                    if result.stdout.strip() == 'exists':
-                        os.environ["MMSEQS_PATH"] = path
-                        os.environ["USE_WSL_MMSEQS"] = "true"
-                        return path, True
             except:
                 pass
-                
+
+        # Case 2: Windows, cannot find it
+        print("ERROR: MMseqs2 not found in WSL. Please install MMseqs2 in WSL:")
+        print("  wsl sudo apt install mmseqs2")
+        print("  or build from source in WSL")
+        return None, True
+
     else:
-        # Linux/Unix - check PATH
+        # Case 3 & 4: Linux/WSL
+        # Try which command first
         try:
-            result = subprocess.run(['which', 'mmseqs'], 
-                                  capture_output=True, text=True)
+            result = subprocess.run(['which', 'mmseqs'],
+                                    capture_output=True, text=True)
             if result.returncode == 0:
+                # Case 3: WSL/Linux, found it
                 path = result.stdout.strip()
-                os.environ["MMSEQS_PATH"] = path
                 return path, False
         except:
             pass
-        
-        # Check common Linux paths
+
+        # Check common paths
         linux_paths = [
             '/usr/local/bin/mmseqs',
             '/usr/bin/mmseqs',
-            os.path.expanduser('~/mmseqs2/bin/mmseqs'),
-            os.path.expanduser('~/MMseqs2/build/bin/mmseqs')
+            os.path.expanduser('~/MMseqs2/build/bin/mmseqs'),
+            os.path.expanduser('~/mmseqs2/bin/mmseqs')
         ]
-        
+
         for path in linux_paths:
             if os.path.exists(path):
-                os.environ["MMSEQS_PATH"] = path
+                # Case 3: WSL/Linux, found it
                 return path, False
-    
-    return None, use_wsl
+
+        # Case 4: WSL/Linux, cannot find it
+        print("ERROR: MMseqs2 not found. Please install MMseqs2:")
+        print("  sudo apt install mmseqs2")
+        print("  or build from source")
+        return None, False
 
 
 def get_mmseqs_command(mmseqs_path: str, use_wsl: bool) -> list:

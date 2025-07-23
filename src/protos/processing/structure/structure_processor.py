@@ -746,7 +746,7 @@ class StructureProcessor(BaseProcessor):
                 
                 # Store the sequence
                 chain_dict[f"{pdb_id}_{chain_id}"] = ''.join(seq).replace(' ', 'X')
-                
+        self.update_pdb_chain_ids()
         self.chain_dict = chain_dict
         return chain_dict
     
@@ -872,22 +872,81 @@ class StructureProcessor(BaseProcessor):
         self.data = self.data[self.data['group'] == 'ATOM'].copy()
         self.reset_index()
     
-    def filter_data_flexibly(self, filter_dict):
+    def filter_data_flexibly(self, filter_dict, inplace=True):
         """
         Filter data based on flexible criteria.
         
         Args:
             filter_dict: Dictionary of column: value pairs to filter on
+            inplace: If True, modify self.data. If False, return filtered copy
+            
+        Returns:
+            None if inplace=True, filtered DataFrame if inplace=False
         """
         if self.data is None or self.data.empty:
-            return
+            if inplace:
+                return
+            else:
+                return pd.DataFrame()
+        
+        # Start with a copy of data if not inplace
+        if inplace:
+            result = self.data
+        else:
+            result = self.data.copy()
             
-        for column, value in filter_dict.items():
-            if column in self.data.columns:
+        for key, value in filter_dict.items():
+            # Handle operator suffixes like __eq, __ne, __in, etc.
+            if '__' in key:
+                column, operator = key.rsplit('__', 1)
+            else:
+                column = key
+                operator = 'eq'
+                
+            if column not in result.columns:
+                raise ValueError(f"Filter column '{column}' not found in data")
+                
+            # Apply filter based on operator
+            if operator == 'eq':
                 if isinstance(value, list):
-                    self.data = self.data[self.data[column].isin(value)]
+                    result = result[result[column].isin(value)]
                 else:
-                    self.data = self.data[self.data[column] == value]
+                    result = result[result[column] == value]
+            elif operator == 'ne':
+                result = result[result[column] != value]
+            elif operator in ['in', 'is_in']:
+                result = result[result[column].isin(value)]
+            elif operator == 'nin':
+                result = result[~result[column].isin(value)]
+            elif operator == 'gt':
+                result = result[result[column] > value]
+            elif operator == 'gte':
+                result = result[result[column] >= value]
+            elif operator == 'lt':
+                result = result[result[column] < value]
+            elif operator == 'lte' or operator == 'le':
+                result = result[result[column] <= value]
+            elif operator == 'contains':
+                result = result[result[column].str.contains(value, na=False)]
+            elif operator == 'startswith':
+                result = result[result[column].str.startswith(value, na=False)]
+            elif operator == 'endswith':
+                result = result[result[column].str.endswith(value, na=False)]
+            elif operator == 'isna':
+                result = result[result[column].isna()]
+            elif operator == 'notna':
+                result = result[result[column].notna()]
+            else:
+                raise ValueError(f"Invalid filter operator: __{operator}")
+                
+        if inplace:
+            self.data = result
+            # Update pdb_ids based on filtered data
+            if 'pdb_id' in self.data.columns:
+                self.pdb_ids = list(self.data['pdb_id'].unique())
+            return None
+        else:
+            return result
     
     def get_chain(self, pdb_chain_id):
         """
@@ -1358,10 +1417,12 @@ class StructureProcessor(BaseProcessor):
         # Get dataset info
         dataset = self.get_dataset(dataset_id)
         if dataset:
-            pdb_ids = dataset.get('pdb_ids', dataset.get('content', []))
+            # Handle both 'entities' (new format) and 'pdb_ids' (legacy format)
+            pdb_ids = dataset.get('entities', dataset.get('pdb_ids', dataset.get('content', [])))
             if pdb_ids:
                 self.load_structures(pdb_ids, apply_dtypes=apply_dtypes, debug=debug)
-                return pdb_ids
+                self.update_pdb_ids()
+                return self.pdb_ids
         
         self.logger.error(f"Could not load dataset '{dataset_id}'")
         return []
@@ -1398,9 +1459,10 @@ class StructureProcessor(BaseProcessor):
             description = metadata.get('description', f'Structure dataset with {len(pdb_ids)} structures')
             
             # Call parent class method to avoid recursion
+            # BaseProcessor expects (dataset_name, entity_names, metadata)
             return super().create_dataset(
-                dataset_id,
-                pdb_ids,
+                dataset_id,  # dataset_name
+                pdb_ids,     # entity_names
                 metadata
             )
         else:
@@ -1439,7 +1501,12 @@ class StructureProcessor(BaseProcessor):
         """
         # Use the standardized dataset API if available
         if self.dataset_manager is not None:
-            return self.dataset_manager.delete_dataset(dataset_id)
+            try:
+                self.dataset_manager.delete_dataset(dataset_id)
+                return True
+            except Exception as e:
+                self.logger.error(f"Failed to delete dataset '{dataset_id}': {e}")
+                return False
             
         # Legacy approach
         datasets_json_path = self.path_dataset_dir / 'datasets.json'
@@ -1568,41 +1635,7 @@ class StructureProcessor(BaseProcessor):
         return None
     
     # Entity management methods
-    def _register_structure_entity(self, pdb_id: str, structure_df: pd.DataFrame) -> str:
-        """Register a structure as an entity."""
-        # Use human-readable name directly
-        metadata = {
-            "atom_count": len(structure_df),
-            "chains": structure_df["auth_chain_id"].unique().tolist() if "auth_chain_id" in structure_df.columns else [],
-            "residue_count": structure_df["auth_seq_id"].nunique() if "auth_seq_id" in structure_df.columns else 0
-        }
-        
-        # Register with entity registry
-        self.entity_registry.register_entity(
-            name=pdb_id,
-            format_type=self.processor_type,
-            file_path=str(self.path_structure_dir / f"{pdb_id}.cif"),
-            metadata=metadata
-        )
-        
-        return pdb_id
     
-    def save_structure_as_entity(self, structure_df: pd.DataFrame, pdb_id: str,
-                                datasets: Optional[List[str]] = None,
-                                metadata: Optional[Dict[str, Any]] = None) -> str:
-        """Save a structure DataFrame as an entity (legacy method)."""
-        # Use the new save_structure method
-        self.save_structure(pdb_id, structure_df, metadata=metadata)
-        
-        # Add to datasets if specified
-        if datasets:
-            for dataset_id in datasets:
-                try:
-                    self.add_to_dataset(dataset_id, [pdb_id])
-                except:
-                    pass
-        
-        return pdb_id
     
     def load_structure_by_entity(self, entity_id: str, apply_dtypes: bool = True, debug: bool = False):
         """Load a structure by its entity ID (legacy compatibility)."""
@@ -1611,5 +1644,162 @@ class StructureProcessor(BaseProcessor):
     
     def get_entity_id_for_pdb(self, pdb_id: str) -> Optional[str]:
         """Get the entity ID for a PDB ID (legacy compatibility)."""
-        # In the new system, PDB ID is the entity ID
-        return pdb_id
+        # Generate hash-based entity ID for compatibility with tests
+        return generate_entity_id(pdb_id)
+    
+    def add_ligand(self, target_pdb_id: str, ligand_df: pd.DataFrame, 
+                   ligand_chain_id: str = 'Z', ligand_res_seq_id: int = 9001) -> None:
+        """
+        Add a ligand to an existing structure.
+        
+        Args:
+            target_pdb_id: PDB ID of the structure to add ligand to
+            ligand_df: DataFrame containing ligand atoms with columns:
+                      [atom_name, res_name, x, y, z, element (optional)]
+            ligand_chain_id: Chain ID to assign to the ligand (default: 'Z')
+            ligand_res_seq_id: Residue sequence ID for the ligand (default: 9001)
+            
+        Raises:
+            ValueError: If target PDB not loaded, ligand_df is invalid, or missing columns
+        """
+        # Validate target PDB is loaded
+        if self.data is None or self.data.empty:
+            raise ValueError("No structures loaded. Load structures first.")
+            
+        if target_pdb_id not in self.data['pdb_id'].unique():
+            raise ValueError(f"Target PDB ID '{target_pdb_id}' not found in loaded structures")
+            
+        # Validate ligand DataFrame
+        if ligand_df is None or ligand_df.empty:
+            raise ValueError("Ligand DataFrame cannot be empty")
+            
+        # Check required columns
+        required_cols = ['atom_name', 'res_name', 'x', 'y', 'z']
+        missing_cols = [col for col in required_cols if col not in ligand_df.columns]
+        if missing_cols:
+            raise ValueError(f"Ligand DataFrame is missing required columns: {missing_cols}")
+            
+        # Get the target structure data
+        target_data = self.data[self.data['pdb_id'] == target_pdb_id]
+        max_atom_id = target_data['atom_id'].max()
+        
+        # Prepare ligand data
+        ligand_data = ligand_df.copy()
+        
+        # Add missing columns with appropriate values
+        ligand_data['pdb_id'] = target_pdb_id
+        ligand_data['auth_chain_id'] = ligand_chain_id
+        ligand_data['auth_seq_id'] = ligand_res_seq_id
+        ligand_data['group'] = 'HETATM'
+        ligand_data['model_num'] = 0
+        
+        # Assign new atom IDs
+        num_ligand_atoms = len(ligand_data)
+        ligand_data['atom_id'] = range(max_atom_id + 1, max_atom_id + num_ligand_atoms + 1)
+        
+        # Add element column if not present
+        if 'element' not in ligand_data.columns:
+            # Infer element from atom name (first letter usually)
+            ligand_data['element'] = ligand_data['atom_name'].str[0]
+            
+        # Add other columns that might be expected
+        if 'b_factor' not in ligand_data.columns:
+            ligand_data['b_factor'] = 50.0  # Default B-factor
+            
+        # Ensure all expected columns are present (copy from first row of target)
+        first_row = target_data.iloc[0]
+        for col in target_data.columns:
+            if col not in ligand_data.columns:
+                # Use appropriate default values
+                if col in ['label_atom_id', 'label_comp_id']:
+                    ligand_data[col] = ligand_data.get('atom_name', '')
+                elif col == 'res_name3l':
+                    ligand_data[col] = ligand_data.get('res_name', 'LIG')
+                elif col in ['entity_id', 'label_entity_id']:
+                    ligand_data[col] = 999  # Ligand entity
+                elif col == 'occupancy':
+                    ligand_data[col] = 1.0
+                elif col in ['alt_id', 'label_alt_id']:
+                    ligand_data[col] = '.'
+                else:
+                    # For other columns, use NaN or empty string
+                    if first_row[col] is not None and isinstance(first_row[col], str):
+                        ligand_data[col] = ''
+                    else:
+                        ligand_data[col] = np.nan
+        
+        # Append ligand data to main data
+        self.data = pd.concat([self.data, ligand_data], ignore_index=True)
+        
+        # Sort by PDB ID and atom ID for consistency
+        self.data = self.data.sort_values(['pdb_id', 'atom_id']).reset_index(drop=True)
+    
+    def save_structure_as_entity(self, structure_df: pd.DataFrame, pdb_id: str, 
+                                datasets: Optional[List[str]] = None,
+                                metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Save a structure DataFrame as an entity.
+        
+        Args:
+            structure_df: DataFrame containing structure data
+            pdb_id: PDB ID for the structure
+            datasets: List of dataset IDs to associate with this entity
+            metadata: Additional metadata for the entity
+            
+        Returns:
+            Entity ID of the saved structure
+        """
+        # Use ProtosPaths to construct the proper path
+        # Following the principle: filepath = f(ProtosPaths, human readable name)
+        cif_path = self.path_structure_dir / f"{pdb_id}.cif"
+        
+        # Save the CIF file using cif_utils
+        from protos.io import cif_utils
+        cif_utils.write_cif_file(str(cif_path), structure_df, force_overwrite=True)
+        
+        # Generate entity ID
+        entity_id = generate_entity_id(pdb_id)
+        
+        # Register the entity
+        self._register_structure_entity(pdb_id, structure_df, datasets=datasets, metadata=metadata)
+        
+        return entity_id
+    
+    def _register_structure_entity(self, pdb_id: str, structure_df: pd.DataFrame,
+                                  datasets: Optional[List[str]] = None,
+                                  metadata: Optional[Dict[str, Any]] = None) -> str:
+        """Register a structure as an entity in the registry."""
+        entity_id = generate_entity_id(pdb_id)
+        
+        # Prepare metadata
+        if metadata is None:
+            metadata = {}
+            
+        # Add structure-specific metadata
+        chains = structure_df['auth_chain_id'].unique().tolist() if 'auth_chain_id' in structure_df.columns else []
+        metadata.update({
+            'atom_count': len(structure_df),
+            'chains': chains,
+            'pdb_id': pdb_id
+        })
+        
+        # Register with entity registry
+        # Following the principle: filepath = f(ProtosPaths, human readable name)
+        if hasattr(self, 'entity_registry') and self.entity_registry is not None:
+            # Construct the path using ProtosPaths
+            cif_path = self.path_structure_dir / f"{pdb_id}.cif"
+            # Convert to relative path for registry storage
+            relative_path = cif_path.relative_to(self.paths.data_root) if hasattr(self.paths, 'data_root') else cif_path
+            
+            # Add datasets to metadata
+            if datasets:
+                metadata['datasets'] = datasets
+                
+            self.entity_registry.register_entity(
+                pdb_id,  # Use human-readable name, not hash
+                "structure",
+                str(relative_path),
+                metadata
+            )
+        
+        return pdb_id  # Return human-readable name, not hash

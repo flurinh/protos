@@ -118,7 +118,7 @@ class TestResolveIdentifierCifBaseProcessor:
                 entity_id=entity_id,
                 entity_type="structure",
                 original_id=pdb_id,
-                file_path=str(test_data_root / "structure" / "mmcif" / f"{pdb_id}.cif")
+                file_path=str(Path(test_data_root) / "structure" / "mmcif" / f"{pdb_id}.cif")
             )
         
         # List structures
@@ -433,14 +433,14 @@ class TestCrossProcessorResolveIdentifier:
             entity_id=entity_id,
             entity_type="sequence",
             original_id=uniprot_id,
-            file_path=str(test_data_root / "sequence" / "fasta" / f"{entity_id}.fasta")
+            file_path=str(Path(test_data_root) / "sequence" / "fasta" / f"{entity_id}.fasta")
         )
         
         global_registry.entity_registry.register_entity(
             entity_id=entity_id,
             entity_type="structure",
             original_id=uniprot_id,
-            file_path=str(test_data_root / "structure" / "mmcif" / f"{entity_id}.cif")
+            file_path=str(Path(test_data_root) / "structure" / "mmcif" / f"{entity_id}.cif")
         )
         
         global_registry.entity_registry.register_entity(
@@ -454,7 +454,7 @@ class TestCrossProcessorResolveIdentifier:
             entity_id=entity_id,
             entity_type="embedding",
             original_id=uniprot_id,
-            file_path=str(test_data_root / "embedding" / f"{entity_id}.pkl")
+            file_path=str(Path(test_data_root) / "embedding" / f"{entity_id}.pkl")
         )
         
         # Verify entity is registered in all formats

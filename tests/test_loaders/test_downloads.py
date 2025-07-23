@@ -33,10 +33,7 @@ class MockResponse:
 def test_processor():
     """Create a test processor for download tests."""
     # ProtosPaths already configured in conftest.py to use tests/test-data
-    processor = BaseProcessor(
-        name="test_downloader",
-        processor_data_dir="structure"
-    )
+    processor = BaseProcessor(name="test")
     
     return processor
 
@@ -49,7 +46,7 @@ class TestDownloadStructures:
         pdb_ids = ["1ABC", "2DEF"]
         
         # Use processor's structure directory (managed by ProtosPaths)
-        target_dir = test_processor.path_structure_dir
+        target_dir = test_processor.paths.get_subdir_path("structure", "structure_dir")
         
         # Mock PDBList to avoid actual downloads
         def mock_retrieve_side_effect(pdb_id, **kwargs):
@@ -81,7 +78,7 @@ class TestDownloadStructures:
         pdb_ids = ["1ABC", "INVALID", "2DEF"]
         
         # Use processor's structure directory (managed by ProtosPaths)
-        target_dir = test_processor.path_structure_dir
+        target_dir = test_processor.paths.get_subdir_path("structure", "structure_dir")
         
         def mock_retrieve_side_effect(pdb_id, **kwargs):
             if pdb_id.upper() == "INVALID":

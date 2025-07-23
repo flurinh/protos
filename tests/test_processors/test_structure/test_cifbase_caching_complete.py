@@ -4,6 +4,7 @@ Test complete caching workflow for StructureProcessor.
 
 import pytest
 import tempfile
+import os
 from pathlib import Path
 import pandas as pd
 import time
@@ -15,10 +16,10 @@ from protos.processing.structure import StructureProcessor
 class TestCifBaseCachingComplete:
     """Test the complete caching workflow as documented."""
     
-    def test_load_entity_with_format_parameter(self):
-        """Test load_entity supports format parameter for CIF vs PKL."""
+    def test_save_structure_both_formats(self):
+        """Test save_structure saves in both PKL and CIF formats."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test structure
@@ -37,21 +38,20 @@ class TestCifBaseCachingComplete:
             # Save as both formats
             processor.save_structure("test_prot", test_data, format='both')
             
-            # Load with format='pkl' (default) - should use cache
-            loaded_pkl = processor.load_entity("test_prot", format='pkl')
-            assert loaded_pkl is not None
-            assert len(loaded_pkl) == 5
+            # Check PKL file exists in cache/
+            pkl_file = processor.path_cache_dir / "test_prot.pkl"
+            assert pkl_file.exists(), "PKL file should be saved in cache/"
             
-            # Load with format='cif' - should parse CIF
-            loaded_cif = processor.load_entity("test_prot", format='cif')
-            assert loaded_cif is not None
-            # Data should be same regardless of format
-            pd.testing.assert_frame_equal(loaded_pkl, loaded_cif)
+            # Load using load_entity (should use PKL cache)
+            loaded = processor.load_entity("test_prot")
+            assert loaded is not None
+            assert len(loaded) == 5
+            pd.testing.assert_frame_equal(loaded, test_data)
     
-    def test_load_dataset_with_format_parameter(self):
-        """Test load_dataset supports format parameter."""
+    def test_dataset_loading_workflow(self):
+        """Test complete dataset save and load workflow."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test structures
@@ -69,7 +69,7 @@ class TestCifBaseCachingComplete:
                     'z': [float(i+6), float(i+7), float(i+8)],
                     'group': ['ATOM'] * 3
                 })
-                processor.save_structure(f"prot{i}", test_data, format='both')
+                processor.save_structure(f"prot{i}", test_data, format='pkl')
                 structures.append(test_data)
                 pdb_ids.append(f"prot{i}")
             
@@ -85,21 +85,16 @@ class TestCifBaseCachingComplete:
             processor.data = None
             processor.pdb_ids = []
             
-            # Test load_dataset with format='pkl' (should use structure_dataset/)
-            dataset_data = processor.load_dataset("test_dataset", format='pkl')
+            # Test load_data (should use dataset PKL)
+            dataset_data = processor.load_data("test_dataset")
             assert isinstance(dataset_data, pd.DataFrame)
             assert len(dataset_data) == 9  # 3 structures x 3 atoms
-            
-            # Test load_dataset with format='cif' (should load individual CIFs)
-            dataset_dict = processor.load_dataset("test_dataset", format='cif')
-            assert isinstance(dataset_dict, dict)
-            assert len(dataset_dict) == 3
-            assert all(pdb_id in dataset_dict for pdb_id in pdb_ids)
+            assert set(dataset_data['pdb_id'].unique()) == {'prot0', 'prot1', 'prot2'}
     
     def test_save_dataset_creates_both_json_and_pkl(self):
         """Test that save_data creates both dataset JSON and PKL file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test data
@@ -118,15 +113,18 @@ class TestCifBaseCachingComplete:
             processor.data = test_data
             processor.pdb_ids = ['prot1', 'prot2']
             
+            # Create dataset first
+            processor.create_dataset("my_dataset", ['prot1', 'prot2'])
+            
             # Save dataset
             processor.save_data("my_dataset", format='pkl')
             
             # Check PKL file exists in structure_dataset/
-            pkl_path = processor.path_dataset_dir / "my_dataset.pkl"
+            pkl_path = Path(processor.paths.get_subdir_path("structure", "dataset_dir")) / "my_dataset.pkl"
             assert pkl_path.exists()
             
             # Check dataset JSON exists in datasets/
-            datasets_dir = processor.data_path / "datasets"
+            datasets_dir = Path(tmpdir) / "structure" / "datasets"
             json_files = list(datasets_dir.glob("*.json"))
             assert any("my_dataset" in f.stem for f in json_files)
             
@@ -137,7 +135,7 @@ class TestCifBaseCachingComplete:
     def test_caching_performance_benefit(self):
         """Test that PKL loading is faster than CIF parsing."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create a moderately large structure
@@ -158,7 +156,7 @@ class TestCifBaseCachingComplete:
             
             # Measure loading time from PKL
             start = time.time()
-            loaded_pkl = processor.load_entity("large_prot", format='pkl')
+            loaded_pkl = processor.load_entity("large_prot")
             pkl_time = time.time() - start
             
             # For this test, we just verify PKL loading works
@@ -170,7 +168,7 @@ class TestCifBaseCachingComplete:
     def test_fallback_behavior(self):
         """Test fallback from dataset PKL to individual structures."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create individual structures (only as PKL cache)

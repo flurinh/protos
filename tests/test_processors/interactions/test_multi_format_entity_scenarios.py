@@ -26,7 +26,7 @@ def setup_test_environment(request):
     # Use relative path from current file location
     current_file = Path(__file__)
     test_data_dir = current_file.parent.parent.parent / "test-data"
-    ProtosPaths.set_data_root(str(test_data_dir))
+    os.environ["PROTOS_DATA_ROOT"] = str(test_data_dir)
     
     # Clear global registry to ensure clean state
     global_registry = GlobalRegistry()
@@ -34,7 +34,9 @@ def setup_test_environment(request):
     global_registry.entity_registry._datasets = {}
     
     def teardown():
-        ProtosPaths.set_data_root(None)
+        # Clear environment
+        if "PROTOS_DATA_ROOT" in os.environ:
+            del os.environ["PROTOS_DATA_ROOT"]
     
     request.addfinalizer(teardown)
     return test_data_dir
@@ -57,7 +59,7 @@ class TestMultiFormatEntityScenarios:
             entity_id=entity_id,
             entity_type="sequence",
             original_id=protein_id,
-            file_path=str(setup_test_environment / "sequence" / "fasta" / f"{protein_id}.fasta"),
+            file_path=str(Path(setup_test_environment) / "sequence" / "fasta" / f"{protein_id}.fasta"),
             metadata={
                 "length": 350,
                 "organism": "Homo sapiens",
@@ -71,7 +73,7 @@ class TestMultiFormatEntityScenarios:
             entity_id=entity_id,
             entity_type="structure",
             original_id=protein_id,
-            file_path=str(setup_test_environment / "structure" / "mmcif" / f"AF-{protein_id}-F1.cif"),
+            file_path=str(Path(setup_test_environment) / "structure" / "mmcif" / f"AF-{protein_id}-F1.cif"),
             metadata={
                 "source": "alphafold",
                 "confidence": 0.95,

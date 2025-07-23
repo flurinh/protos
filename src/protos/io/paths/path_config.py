@@ -1,21 +1,14 @@
 """
 Simplified path configuration for the Protos framework.
-
-This module provides a simplified path management system using a single
-data directory for all Protos data, eliminating the complexity of
-separate reference and user data paths.
 """
 
 import os
 import json
-import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Tuple
-from enum import Enum
+from typing import Dict, Optional, Union
 
 from .path_constants import (
     ENV_DATA_ROOT,
-    ENV_REF_DATA_ROOT,
     DEFAULT_PROCESSOR_DIRS,
     DEFAULT_STRUCTURE_SUBDIRS,
     DEFAULT_GRN_SUBDIRS,
@@ -23,790 +16,213 @@ from .path_constants import (
     DEFAULT_TEST_SUBDIRS,
     DEFAULT_REGISTRY_FILENAME,
     DEFAULT_GLOBAL_REGISTRY_FILENAME,
-    join_path
+    join_path,
+    DEFAULT_PROPERTY_SUBDIRS,
+    DEFAULT_EMBEDDING_SUBDIRS,
+    DEFAULT_LIGAND_SUBDIRS,
+    DEFAULT_GRAPH_SUBDIRS
 )
-
-# Configure logger
-logger = logging.getLogger(__name__)
-
-
-class DataSource(Enum):
-    """Legacy enum for backward compatibility."""
-    REFERENCE = "reference"
-    USER = "user"
-    AUTO = "auto"
 
 
 def get_default_data_root() -> str:
-    """
-    Get the default data root directory.
-    
-    Order of precedence:
-    1. PROTOS_DATA_ROOT environment variable
-    2. ~/protos_data/ (home directory)
-    
-    Returns:
-        Default data root directory path
-    """
-    # Check environment variable first
     env_root = os.environ.get(ENV_DATA_ROOT)
     if env_root:
         return os.path.expanduser(env_root)
-    
-    # Default to home directory
     return os.path.expanduser("~/protos_data")
 
 
 class ProtosPaths:
     """
-    Simplified path management for Protos using a single data directory.
-    
-    This class provides a standardized way to manage paths for different
-    data types and processors in the Protos framework using a unified
-    data directory approach.
+    Path management for Protos using a single data directory.
     """
-    
-    # Class-level configuration
-    _global_data_root: Optional[str] = None
-    
-    @classmethod
-    def set_data_root(cls, data_root: Optional[str]) -> None:
-        """
-        Set the global data root for all ProtosPaths instances.
-        
-        This allows configuring the data directory once for the entire session,
-        particularly useful for testing where all paths should point to test-data.
-        
-        Args:
-            data_root: Path to set as global data root, or None to clear
-        """
-        cls._global_data_root = data_root
-        if data_root:
-            logger.info(f"Global data root set to: {data_root}")
-        else:
-            logger.info("Global data root cleared")
-        
-        # Reset the default resolver so it picks up the new global setting
-        global _DEFAULT_PATH_RESOLVER
-        _DEFAULT_PATH_RESOLVER = None
-    
-    @classmethod
-    def get_global_data_root(cls) -> Optional[str]:
-        """
-        Get the globally configured data root.
-        
-        Returns:
-            The global data root if set, None otherwise
-        """
-        return cls._global_data_root
-    
-    def __init__(self, 
-                 data_root: Optional[str] = None,
-                 user_data_root: Optional[str] = None,  # For backward compatibility
-                 ref_data_root: Optional[str] = None,   # For backward compatibility
-                 create_dirs: bool = True,
-                 validate: bool = True):
-        """
-        Initialize the path manager with a single data directory.
-        
-        Args:
-            data_root: Root directory for all data (default: ~/protos_data/)
-            user_data_root: Deprecated - if provided, used as data_root
-            ref_data_root: Deprecated - ignored with warning
-            create_dirs: Whether to create directories that don't exist
-            validate: Whether to validate path structure
-        """
-        # Handle backward compatibility
-        if user_data_root or ref_data_root:
-            logger.warning(
-                "user_data_root and ref_data_root are deprecated. "
-                "Using a single data_root instead."
-            )
-            # Use user_data_root if provided, otherwise data_root
-            data_root = data_root or user_data_root
-        
-        # Set data root with priority: parameter > global setting > env var > default
-        if data_root:
-            self.data_root = data_root
-        elif self._global_data_root:
-            self.data_root = self._global_data_root
-        else:
-            self.data_root = get_default_data_root()
-        
-        self.data_root = os.path.expanduser(self.data_root)
-        
-        # Make path absolute if it's not already
-        if not os.path.isabs(self.data_root):
-            self.data_root = os.path.abspath(self.data_root)
-        
-        # For backward compatibility, set both old attributes to the same value
-        self.user_data_root = self.data_root
-        self.ref_data_root = self.data_root
-        
-        # Create data root directory if requested
-        if create_dirs:
-            os.makedirs(self.data_root, exist_ok=True)
-            logger.info(f"Initialized Protos data directory at: {self.data_root}")
-        
-        # Initialize directory maps
+
+    def __init__(self, data_root: Optional[str] = None):
+        self.data_root = data_root or get_default_data_root()
+        self.data_root = os.path.abspath(os.path.expanduser(self.data_root))
+
         self.processor_dirs = DEFAULT_PROCESSOR_DIRS.copy()
-        self.structure_dirs = DEFAULT_STRUCTURE_SUBDIRS.copy()
-        self.grn_dirs = DEFAULT_GRN_SUBDIRS.copy()
-        self.sequence_dirs = DEFAULT_SEQUENCE_SUBDIRS.copy()
-        self.test_dirs = DEFAULT_TEST_SUBDIRS.copy()
-        
-        # Import additional subdirectory maps if available
-        try:
-            from .path_constants import (
-                DEFAULT_PROPERTY_SUBDIRS,
-                DEFAULT_EMBEDDING_SUBDIRS,
-                DEFAULT_LIGAND_SUBDIRS,
-                DEFAULT_GRAPH_SUBDIRS
-            )
-            self.property_dirs = DEFAULT_PROPERTY_SUBDIRS.copy()
-            self.embedding_dirs = DEFAULT_EMBEDDING_SUBDIRS.copy()
-            self.ligand_dirs = DEFAULT_LIGAND_SUBDIRS.copy()
-            self.graph_dirs = DEFAULT_GRAPH_SUBDIRS.copy()
-        except ImportError:
-            # Fallback for backward compatibility
-            self.property_dirs = {"tables_dir": "tables", "datasets_dir": "datasets"}
-            self.embedding_dirs = {"embeddings_dir": "embeddings", "datasets_dir": "datasets"}
-            self.ligand_dirs = {"sdf_dir": "sdf", "cache_dir": "cache", "datasets_dir": "datasets"}
-            self.graph_dirs = {"networks_dir": "networks", "analysis_dir": "analysis", "datasets_dir": "datasets"}
-        
-        # Create standard directories if requested
-        if create_dirs:
-            self._create_standard_dirs(self.data_root)
-            
-        # Validate directory structure if requested
-        if validate:
-            self._validate_directory_structure()
-    
-    def _create_standard_dirs(self, root: str):
+
+        self.subdirs = {
+            'structure': DEFAULT_STRUCTURE_SUBDIRS.copy(),
+            'grn': {**DEFAULT_GRN_SUBDIRS.copy(), 'ref': 'ref', 'ref_dir': 'ref'},
+            'sequence': DEFAULT_SEQUENCE_SUBDIRS.copy(),
+            'property': DEFAULT_PROPERTY_SUBDIRS.copy(),
+            'embedding': DEFAULT_EMBEDDING_SUBDIRS.copy(),
+            'ligand': DEFAULT_LIGAND_SUBDIRS.copy(),
+            'graph': DEFAULT_GRAPH_SUBDIRS.copy(),
+            'test': DEFAULT_TEST_SUBDIRS.copy(),
+            'test_processor': DEFAULT_TEST_SUBDIRS.copy(),
+            'simple': DEFAULT_TEST_SUBDIRS.copy()
+        }
+
+    def get_processor_path(self, processor_type: str) -> str:
         """
-        Create the standard directory structure in the specified root.
-        
-        Args:
-            root: Root directory where to create the structure
+        Get processor directory path.
         """
-        # Create global entity registry file if it doesn't exist
-        global_registry_path = join_path(root, DEFAULT_GLOBAL_REGISTRY_FILENAME)
-        if not os.path.exists(global_registry_path):
-            with open(global_registry_path, 'w') as f:
+        dir_name = self.processor_dirs.get(processor_type, processor_type)
+        path = join_path(self.data_root, dir_name)
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def get_subdir_path(self, processor_type: str, subdir_type: str) -> str:
+        """
+        Get subdirectory path for a processor.
+
+        Raises:
+            ValueError: If processor or subdir type unknown.
+        """
+        if processor_type not in self.subdirs:
+            raise ValueError(f"Unknown processor type: {processor_type}")
+
+        subdirs = self.subdirs[processor_type]
+        if subdir_type not in subdirs:
+            raise ValueError(f"Unknown subdir type for {processor_type}: {subdir_type}")
+
+        processor_path = self.get_processor_path(processor_type)
+        path = join_path(processor_path, subdirs[subdir_type])
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _ensure_registry(self, path: str):
+        if not os.path.exists(path):
+            with open(path, 'w') as f:
                 json.dump({"entities": {}}, f)
-        
-        # Create processor directories
-        for processor_type, dir_name in self.processor_dirs.items():
-            processor_path = join_path(root, dir_name)
-            os.makedirs(processor_path, exist_ok=True)
-            
-            # Create registry.json for each processor
-            if processor_type not in ['test', 'test_processor', '_test', '__test', 'simple', 
-                                     'complex_processor_with_long_name', 'custom_dir']:
-                # Create registry.json if it doesn't exist
-                registry_path = join_path(processor_path, DEFAULT_REGISTRY_FILENAME)
-                if not os.path.exists(registry_path):
-                    with open(registry_path, 'w') as f:
-                        json.dump({"entities": {}}, f)
-            
-            # Create subdirectories for each processor type
-            if processor_type == 'structure':
-                for subdir in self.structure_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-            elif processor_type == 'grn':
-                for subdir in self.grn_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-                # Create ref subdirectory for reference tables
-                os.makedirs(join_path(processor_path, "ref"), exist_ok=True)
-            elif processor_type == 'sequence':
-                for subdir in self.sequence_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-            elif processor_type == 'property':
-                for subdir in self.property_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-            elif processor_type == 'embedding':
-                for subdir in self.embedding_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-            elif processor_type == 'ligand':
-                for subdir in self.ligand_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-            elif processor_type == 'graph':
-                for subdir in self.graph_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-            elif processor_type in ['test', 'test_processor', 'simple']:
-                for subdir in self.test_dirs.values():
-                    os.makedirs(join_path(processor_path, subdir), exist_ok=True)
-            else:
-                # For processors without specific subdirectories
-                # Create at least a datasets directory
-                os.makedirs(join_path(processor_path, "datasets"), exist_ok=True)
-    
-    def _validate_directory_structure(self):
+
+    def get_registry_path(self, processor_type: str) -> str:
         """
-        Validate that the directory structure is as expected.
-        
-        Logs warnings if directories are missing but doesn't raise exceptions.
+        Get registry file path for a processor.
         """
-        # Check data root
-        if not os.path.exists(self.data_root):
-            logger.warning(f"Data root directory does not exist: {self.data_root}")
-            return
-        
-        # Check processor directories
-        for processor_type, dir_name in self.processor_dirs.items():
-            processor_path = join_path(self.data_root, dir_name)
-            if not os.path.exists(processor_path):
-                logger.debug(f"Processor directory does not exist: {processor_path}")
-    
-    def get_processor_path(self, 
-                           processor_type: str, 
-                           source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for a specific processor type.
-        
-        Args:
-            processor_type: Type of processor ('structure', 'grn', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the processor directory
-        """
-        if source != DataSource.AUTO:
-            logger.debug(f"DataSource parameter '{source}' is deprecated and ignored")
-            
-        # If processor type is not in the mapping, use it directly as directory name
-        if processor_type not in self.processor_dirs:
-            logger.debug(f"Unknown processor type '{processor_type}', using as directory name")
-            return join_path(self.data_root, processor_type)
-            
-        return join_path(self.data_root, self.processor_dirs[processor_type])
-    
-    def _resolve_data_root(self, source: DataSource) -> str:
-        """
-        Resolve data root - always returns the single data root.
-        
-        Args:
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Path to the data root
-        """
-        if source != DataSource.AUTO:
-            logger.debug(f"DataSource parameter '{source}' is deprecated")
-        return self.data_root
-            
-    def get_structure_subdir_path(self, 
-                                  subdir_type: str, 
-                                  source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for a structure subdirectory.
-        
-        Args:
-            subdir_type: Type of subdirectory ('structure_dir', 'dataset_dir', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the structure subdirectory
-            
-        Raises:
-            ValueError: If subdirectory type is not recognized
-        """
-        if subdir_type not in self.structure_dirs:
-            raise ValueError(f"Unknown structure subdirectory type: {subdir_type}")
-            
-        structure_path = self.get_processor_path('structure', source)
-        return join_path(structure_path, self.structure_dirs[subdir_type])
-    
-    def get_grn_subdir_path(self, 
-                           subdir_type: str, 
-                           source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for a GRN subdirectory.
-        
-        Args:
-            subdir_type: Type of subdirectory ('table_dir', 'configs_dir', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the GRN subdirectory
-            
-        Raises:
-            ValueError: If subdirectory type is not recognized
-        """
-        # Handle special case for reference tables
-        if subdir_type == "ref" or subdir_type == "ref_dir":
-            grn_path = self.get_processor_path('grn', source)
-            return join_path(grn_path, "ref")
-            
-        if subdir_type not in self.grn_dirs:
-            raise ValueError(f"Unknown GRN subdirectory type: {subdir_type}")
-            
-        grn_path = self.get_processor_path('grn', source)
-        return join_path(grn_path, self.grn_dirs[subdir_type])
-    
-    def get_sequence_subdir_path(self, 
-                                subdir_type: str, 
-                                source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for a sequence subdirectory.
-        
-        Args:
-            subdir_type: Type of subdirectory ('fasta_dir', 'alignment_dir', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the sequence subdirectory
-            
-        Raises:
-            ValueError: If subdirectory type is not recognized
-        """
-        if subdir_type not in self.sequence_dirs:
-            raise ValueError(f"Unknown sequence subdirectory type: {subdir_type}")
-            
-        sequence_path = self.get_processor_path('sequence', source)
-        return join_path(sequence_path, self.sequence_dirs[subdir_type])
-    
-    def get_property_subdir_path(self,
-                                subdir_type: str,
-                                source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for a property subdirectory.
-        
-        Args:
-            subdir_type: Type of subdirectory ('tables_dir', 'cache_dir', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the property subdirectory
-            
-        Raises:
-            ValueError: If subdirectory type is not recognized
-        """
-        if subdir_type not in self.property_dirs:
-            raise ValueError(f"Unknown property subdirectory type: {subdir_type}")
-            
-        property_path = self.get_processor_path('property', source)
-        return join_path(property_path, self.property_dirs[subdir_type])
-    
-    def get_embedding_subdir_path(self,
-                                 subdir_type: str,
-                                 source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for an embedding subdirectory.
-        
-        Args:
-            subdir_type: Type of subdirectory ('models_dir', 'cache_dir', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the embedding subdirectory
-            
-        Raises:
-            ValueError: If subdirectory type is not recognized
-        """
-        if subdir_type not in self.embedding_dirs:
-            raise ValueError(f"Unknown embedding subdirectory type: {subdir_type}")
-            
-        embedding_path = self.get_processor_path('embedding', source)
-        return join_path(embedding_path, self.embedding_dirs[subdir_type])
-    
-    def get_ligand_subdir_path(self,
-                              subdir_type: str,
-                              source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for a ligand subdirectory.
-        
-        Args:
-            subdir_type: Type of subdirectory ('sdf_dir', 'cache_dir', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the ligand subdirectory
-            
-        Raises:
-            ValueError: If subdirectory type is not recognized
-        """
-        if subdir_type not in self.ligand_dirs:
-            raise ValueError(f"Unknown ligand subdirectory type: {subdir_type}")
-            
-        ligand_path = self.get_processor_path('ligand', source)
-        return join_path(ligand_path, self.ligand_dirs[subdir_type])
-    
-    def get_graph_subdir_path(self,
-                             subdir_type: str,
-                             source: DataSource = DataSource.AUTO) -> str:
-        """
-        Get the path for a graph subdirectory.
-        
-        Args:
-            subdir_type: Type of subdirectory ('networks_dir', 'analysis_dir', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the graph subdirectory
-            
-        Raises:
-            ValueError: If subdirectory type is not recognized
-        """
-        if subdir_type not in self.graph_dirs:
-            raise ValueError(f"Unknown graph subdirectory type: {subdir_type}")
-            
-        graph_path = self.get_processor_path('graph', source)
-        return join_path(graph_path, self.graph_dirs[subdir_type])
-    
-    def get_registry_path(self, 
-                         processor_type: str, 
-                         source: DataSource = DataSource.USER) -> str:
-        """
-        Get the path for a registry file.
-        
-        Args:
-            processor_type: Type of processor ('structure', 'grn', etc.)
-            source: Ignored - kept for backward compatibility
-            
-        Returns:
-            Full path to the registry file
-        """
-        processor_path = self.get_processor_path(processor_type, source)
-        return join_path(processor_path, DEFAULT_REGISTRY_FILENAME)
-    
+        processor_path = self.get_processor_path(processor_type)
+        path = join_path(processor_path, DEFAULT_REGISTRY_FILENAME)
+
+        skip_types = ['test', 'test_processor', '_test', '__test', 'simple',
+                      'complex_processor_with_long_name', 'custom_dir']
+        if processor_type not in skip_types:
+            self._ensure_registry(path)
+
+        return path
+
     def get_global_registry_path(self) -> str:
         """
-        Get the path for the global registry file.
-        
-        Returns:
-            Full path to the global registry file
+        Get global registry file path.
         """
-        return join_path(self.data_root, DEFAULT_GLOBAL_REGISTRY_FILENAME)
-    
-    def get_dataset_path(self, 
-                        processor_type: str, 
-                        dataset_name: str,
-                        source: DataSource = DataSource.AUTO,
-                        file_extension: Optional[str] = None) -> str:
+        path = join_path(self.data_root, DEFAULT_GLOBAL_REGISTRY_FILENAME)
+        self._ensure_registry(path)
+        return path
+
+    def get_dataset_path(self,
+                         processor_type: str,
+                         dataset_name: str,
+                         file_extension: str = '.json') -> str:
         """
-        Get the path for a dataset definition file (JSON).
-        
-        This returns the path to dataset JSON definitions, NOT the actual data.
-        For structure processor, this is datasets/, not structure_dataset/.
-        
-        Args:
-            processor_type: Type of processor ('structure', 'grn', etc.)
-            dataset_name: Name of the dataset
-            source: Ignored - kept for backward compatibility
-            file_extension: Optional file extension (with dot, defaults to .json)
-            
-        Returns:
-            Full path to the dataset definition file
+        Get dataset definition file path.
         """
-        processor_path = self.get_processor_path(processor_type, source)
-        
-        # All processors use datasets/ for JSON definitions
-        dataset_dir = 'datasets'
-        
-        # Default to .json extension for dataset definitions
-        if file_extension is None:
-            file_extension = '.json'
-            
-        # Add extension if provided
-        filename = f"{dataset_name}{file_extension}"
-        
-        return join_path(processor_path, dataset_dir, filename)
-    
-    def resolve_path(self, 
-                    path: Optional[str], 
-                    source: DataSource = DataSource.AUTO,
-                    relative_to: Optional[str] = None) -> str:
+        processor_path = self.get_processor_path(processor_type)
+        dataset_dir = join_path(processor_path, 'datasets')
+        os.makedirs(dataset_dir, exist_ok=True)
+        return join_path(dataset_dir, f"{dataset_name}{file_extension}")
+
+    def resolve_path(self,
+                     path: Optional[str],
+                     relative_to: Optional[str] = None) -> str:
         """
-        Resolve a path, handling relative paths intelligently.
-        
-        Args:
-            path: Path to resolve (absolute or relative)
-            source: Ignored - kept for backward compatibility
-            relative_to: Base directory for relative paths
-            
-        Returns:
-            Resolved absolute path
+        Resolve path to absolute.
         """
         if path is None:
             return self.data_root if relative_to is None else relative_to
-        
+
         path = os.path.expanduser(path)
-        
+
         if os.path.isabs(path):
             return path
-        
-        if relative_to is not None:
-            return join_path(relative_to, path)
-        
-        # Use data root for relative paths
-        return join_path(self.data_root, path)
-    
-    def exists(self, 
-              path: str, 
-              check_both_sources: bool = True) -> Tuple[bool, Optional[DataSource]]:
+
+        base = relative_to or self.data_root
+        return join_path(base, path)
+
+    def exists(self, path: str) -> bool:
         """
-        Check if a path exists.
-        
-        Args:
-            path: Path to check
-            check_both_sources: Ignored - kept for backward compatibility
-            
-        Returns:
-            Tuple of (exists, source) where source is always USER if exists
+        Check if path exists.
         """
-        # First check if the path is absolute and exists
-        if os.path.isabs(path) and os.path.exists(path):
-            return True, DataSource.USER
-        
-        # Check in data directory
         full_path = self.resolve_path(path)
-        if os.path.exists(full_path):
-            return True, DataSource.USER
-        
-        return False, None
-    
-    def update_paths(self, 
-                    user_data_root: Optional[str] = None, 
-                    ref_data_root: Optional[str] = None,
-                    data_root: Optional[str] = None,
-                    processor_dirs: Optional[Dict[str, str]] = None,
-                    structure_dirs: Optional[Dict[str, str]] = None,
-                    grn_dirs: Optional[Dict[str, str]] = None,
-                    sequence_dirs: Optional[Dict[str, str]] = None):
+        return os.path.exists(full_path)
+
+    def update(self,
+               data_root: Optional[str] = None,
+               processor_dirs: Optional[Dict[str, str]] = None,
+               subdirs: Optional[Dict[str, Dict[str, str]]] = None):
         """
-        Update path configurations.
-        
-        Args:
-            user_data_root: Deprecated - use data_root
-            ref_data_root: Deprecated - ignored
-            data_root: New data root directory
-            processor_dirs: New processor directory mapping
-            structure_dirs: New structure subdirectory mapping
-            grn_dirs: New GRN subdirectory mapping
-            sequence_dirs: New sequence subdirectory mapping
+        Update configurations.
         """
-        if user_data_root or ref_data_root:
-            logger.warning(
-                "user_data_root and ref_data_root are deprecated. "
-                "Use data_root parameter instead."
-            )
-            data_root = data_root or user_data_root
-            
         if data_root is not None:
-            self.data_root = os.path.expanduser(data_root)
-            if not os.path.isabs(self.data_root):
-                self.data_root = os.path.abspath(self.data_root)
-            # Update backward compatibility attributes
-            self.user_data_root = self.data_root
-            self.ref_data_root = self.data_root
-        
+            self.data_root = os.path.abspath(os.path.expanduser(data_root))
+
         if processor_dirs is not None:
             self.processor_dirs.update(processor_dirs)
-            
-        if structure_dirs is not None:
-            self.structure_dirs.update(structure_dirs)
-            
-        if grn_dirs is not None:
-            self.grn_dirs.update(grn_dirs)
-            
-        if sequence_dirs is not None:
-            self.sequence_dirs.update(sequence_dirs)
+
+        if subdirs is not None:
+            for pt, sd in subdirs.items():
+                if pt in self.subdirs:
+                    self.subdirs[pt].update(sd)
+                else:
+                    self.subdirs[pt] = sd.copy()
 
 
-# Global helper functions that delegate to the default instance
+def resolve_path(paths: ProtosPaths, path: Optional[str], relative_to: Optional[str] = None) -> str:
+    return paths.resolve_path(path, relative_to)
 
-_DEFAULT_PATH_RESOLVER = None
 
-def get_default_resolver():
-    """Get or create the default path resolver."""
-    global _DEFAULT_PATH_RESOLVER
-    if _DEFAULT_PATH_RESOLVER is None:
-        _DEFAULT_PATH_RESOLVER = ProtosPaths(create_dirs=True, validate=True)
-    return _DEFAULT_PATH_RESOLVER
-
-def resolve_path(path: Optional[str], 
-                relative_to: Optional[str] = None,
-                source: DataSource = DataSource.AUTO) -> str:
-    """
-    Resolve a path, handling relative paths intelligently.
-    
-    Args:
-        path: Path to resolve (absolute or relative)
-        relative_to: Base directory for relative paths
-        source: Ignored - kept for backward compatibility
-        
-    Returns:
-        Resolved absolute path
-    """
-    return get_default_resolver().resolve_path(path, source, relative_to)
-
-def get_structure_path(pdb_id: str, 
-                      structure_dir: Optional[str] = None,
-                      source: DataSource = DataSource.AUTO,
-                      create_if_missing: bool = False) -> str:
-    """
-    Get the path for a structure file.
-    
-    Args:
-        pdb_id: PDB identifier
-        structure_dir: Optional custom directory for structure files
-        source: Ignored - kept for backward compatibility
-        create_if_missing: Whether to create parent directories if they don't exist
-        
-    Returns:
-        Path to the structure file
-    """
-    # Preserve original PDB ID to avoid scientific notation issues
+def get_structure_path(paths: ProtosPaths, pdb_id: str,
+                       structure_dir: Optional[str] = None,
+                       create_if_missing: bool = False) -> str:
     original_pdb_id = str(pdb_id)
-    
+
     if structure_dir is not None:
         path = join_path(structure_dir, f"{original_pdb_id}.cif")
     else:
-        structure_dir = get_default_resolver().get_structure_subdir_path('structure_dir', source)
+        structure_dir = paths.get_subdir_path('structure', 'structure_dir')
         path = join_path(structure_dir, f"{original_pdb_id}.cif")
-    
-    # Create parent directory if requested
+
     if create_if_missing:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
+
     return path
 
-def get_grn_path(table_name: str, 
-                table_dir: Optional[str] = None,
-                source: DataSource = DataSource.AUTO) -> str:
-    """
-    Get the path for a GRN table file.
-    
-    Args:
-        table_name: Name of the GRN table
-        table_dir: Optional custom directory for GRN tables
-        source: Ignored - kept for backward compatibility
-        
-    Returns:
-        Path to the GRN table file
-    """
+
+def get_grn_path(paths: ProtosPaths, table_name: str,
+                 table_dir: Optional[str] = None) -> str:
     if table_dir is not None:
         return join_path(table_dir, f"{table_name}.csv")
-    
-    table_dir = get_default_resolver().get_grn_subdir_path('table_dir', source)
+
+    table_dir = paths.get_subdir_path('grn', 'table_dir')
     return join_path(table_dir, f"{table_name}.csv")
 
-def get_sequence_path(sequence_id: str, 
-                     fasta_dir: Optional[str] = None,
-                     source: DataSource = DataSource.AUTO) -> str:
-    """
-    Get the path for a sequence file.
-    
-    Args:
-        sequence_id: Sequence identifier
-        fasta_dir: Optional custom directory for FASTA files
-        source: Ignored - kept for backward compatibility
-        
-    Returns:
-        Path to the sequence file
-    """
+
+def get_sequence_path(paths: ProtosPaths, sequence_id: str,
+                      fasta_dir: Optional[str] = None) -> str:
     if fasta_dir is not None:
         return join_path(fasta_dir, f"{sequence_id}.fasta")
-    
-    fasta_dir = get_default_resolver().get_sequence_subdir_path('fasta_dir', source)
+
+    fasta_dir = paths.get_subdir_path('sequence', 'fasta_dir')
     return join_path(fasta_dir, f"{sequence_id}.fasta")
 
-def get_dataset_path(dataset_name: str, 
-                    processor_type: str = 'structure',
-                    file_extension: str = '.json',
-                    source: DataSource = DataSource.AUTO,
-                    create_if_missing: bool = False) -> str:
-    """
-    Get the path for a dataset file.
-    
-    Args:
-        dataset_name: Name of the dataset
-        processor_type: Type of processor ('structure', 'grn', etc.)
-        file_extension: File extension with dot
-        source: Ignored - kept for backward compatibility
-        create_if_missing: Whether to create parent directories if they don't exist
-        
-    Returns:
-        Path to the dataset file
-    """
-    path = get_default_resolver().get_dataset_path(
-        processor_type, dataset_name, source, file_extension)
-    
-    # Create parent directory if requested
+
+def get_dataset_path(paths: ProtosPaths, dataset_name: str,
+                     processor_type: str = 'structure',
+                     file_extension: str = '.json',
+                     create_if_missing: bool = False) -> str:
+    path = paths.get_dataset_path(processor_type, dataset_name, file_extension)
+
     if create_if_missing:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
+
     return path
 
 
-def get_data_root(source: DataSource = DataSource.USER) -> str:
-    """
-    Get the data root directory.
-    
-    Args:
-        source: Ignored - kept for backward compatibility
-        
-    Returns:
-        Path to the data root
-    """
-    return get_default_resolver().data_root
-
-
-# Functions for backward compatibility
-def get_user_data_root() -> str:
-    """
-    Get the user data root directory.
-    Deprecated - use get_data_root() instead.
-    
-    Returns:
-        Data root directory path
-    """
-    logger.warning("get_user_data_root() is deprecated. Use get_data_root() instead.")
-    return get_data_root()
-
-
-def get_reference_data_root() -> str:
-    """
-    Get the reference data root directory.
-    Deprecated - use get_data_root() instead.
-    
-    Returns:
-        Data root directory path
-    """
-    logger.warning("get_reference_data_root() is deprecated. Use get_data_root() instead.")
-    return get_data_root()
+def get_data_root(paths: ProtosPaths) -> str:
+    return paths.data_root
 
 
 def ensure_directory(directory: Union[str, Path]) -> str:
-    """
-    Ensure a directory exists, creating it if necessary.
-    
-    Args:
-        directory: Directory path to ensure
-        
-    Returns:
-        Normalized absolute path to the directory
-    """
-    # Convert to Path object for reliable handling
     dir_path = Path(directory).expanduser().resolve()
-    
-    # Create if it doesn't exist
     os.makedirs(dir_path, exist_ok=True)
-    
-    # Return normalized string path
     return str(dir_path)
-
-
-def is_package_resource(path: str) -> bool:
-    """
-    Check if a path is within the package resource directory.
-    Deprecated - always returns False in simplified version.
-    
-    Args:
-        path: Path to check
-        
-    Returns:
-        False (no separate reference data in simplified version)
-    """
-    return False

@@ -22,7 +22,7 @@ def sample_cif_df():
         'res_name3l': ['ALA', 'ARG', 'GLY', 'PHE', 'SER'],
         'res_name1l': ['A', 'R', 'G', 'F', 'S'],
         'atom_name': ['CA', 'CA', 'CA', 'CA', 'CA'],  # Required column
-        'res_atom_name': ['CA', 'CA', 'CA', 'CA', 'CA'],
+        'atom_name': ['CA', 'CA', 'CA', 'CA', 'CA'],
         'atom_id': [1, 2, 3, 4, 5],
         'x': [10.0, 13.5, 17.0, 20.5, 24.0],
         'y': [5.0, 8.5, 12.0, 15.5, 19.0],

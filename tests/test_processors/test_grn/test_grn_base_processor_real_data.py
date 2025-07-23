@@ -18,10 +18,10 @@ class TestGRNBaseProcessorRealData:
     """Test GRN base processor with real reference data."""
     
     @pytest.fixture(autouse=True)
-    def setup(self, tmp_path):
+    def setup(self, tmp_path, monkeypatch):
         """Set up test environment with real data paths."""
-        # Set global data root to temporary directory for isolation
-        ProtosPaths.set_data_root(str(tmp_path))
+        # Set environment variable for data root
+        monkeypatch.setenv("PROTOS_DATA_ROOT", str(tmp_path))
         
         # Initialize processor
         self.processor = GRNProcessor(
@@ -32,9 +32,6 @@ class TestGRNBaseProcessorRealData:
         self._create_test_reference_data()
         
         yield
-        
-        # Cleanup global setting
-        ProtosPaths.set_data_root(None)
     
     def _create_test_reference_data(self):
         """Create test reference GRN data."""

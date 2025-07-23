@@ -24,7 +24,7 @@ class TestDatasetManager:
     def test_init_with_protospaths(self):
         """Test DatasetManager accepts ProtosPaths in __init__."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             registry = EntityRegistry(paths=paths)
             
             manager = DatasetManager("structure", paths=paths, entity_registry=registry)

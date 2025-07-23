@@ -44,7 +44,8 @@ def calculate_missing_ntail_grns(aligned_grns, missing_gene_numbers, grns_float)
     missing_grns_tm1 = min(first_gene_number_int, missing_grns_tm1_)
     missing_tm1 = min(missing_grns_tm1, missing_grns_tm1_)
     missing_ntail = max(0, first_gene_number_int - missing_tm1)
-    
+
+
     n_tail_float = grns_float[:grns_float.index(first_grn_float)]
     n_tail_float += [-(i + 1) for i in range(missing_ntail)]
     n_tail_float = sorted(n_tail_float)
@@ -82,14 +83,22 @@ def valid_jump(prev_ref_grn, curr_ref_grn, prev_query_key, curr_query_key, max_a
     if prev_ref_grn is None:
         return True
     
-    # Handle both 'x' and '.' notation
-    if 'x' in prev_ref_grn:
-        prev_grn_tm = int(prev_ref_grn.split('x')[0])
+    # Handle dot notation
+    if '.' in prev_ref_grn:
+        prev_parts = prev_ref_grn.split('.')
+        if len(prev_parts[0]) == 1:  # TM region like "1.50"
+            prev_grn_tm = int(prev_parts[0])
+        else:  # Loop region like "12.003"
+            prev_grn_tm = int(prev_parts[0][0])  # First digit is TM number
     else:
         prev_grn_tm = int(float(prev_ref_grn))
     
-    if 'x' in curr_ref_grn:
-        curr_grn_tm = int(curr_ref_grn.split('x')[0])
+    if '.' in curr_ref_grn:
+        curr_parts = curr_ref_grn.split('.')
+        if len(curr_parts[0]) == 1:  # TM region
+            curr_grn_tm = int(curr_parts[0])
+        else:  # Loop region
+            curr_grn_tm = int(curr_parts[0][0])
     else:
         curr_grn_tm = int(float(curr_ref_grn))
     
@@ -248,7 +257,17 @@ def _get_closest_present_grn(missing_grn: str, present_seq_nr_grn_list: list):
     region = missing_grn[0]
     missing_grn_float = parse_grn_str2float(missing_grn)
     present_grns_float = [parse_grn_str2float(g[1]) for g in present_seq_nr_grn_list if g[1][0] == region]
+    
+    # If no GRNs in the same region, look at all GRNs
+    if not present_grns_float:
+        present_grns_float = [parse_grn_str2float(g[1]) for g in present_seq_nr_grn_list]
+    
     grn_dists = sorted([(round(abs(missing_grn_float - grn), 3), grn) for grn in present_grns_float])
+    
+    if not grn_dists:
+        # No present GRNs at all
+        return None
+        
     closest_float = grn_dists[0][1]
     return parse_grn_float2str(closest_float)
 
@@ -317,8 +336,8 @@ def _annotate_missing_rns(interval, present_seq_nr_grn_list, query_seq, grn_conf
             closest, min_dist = _get_closest_present_seqnr(seqnr, present_seq_nr_grn_list, loop_side='n')
             region = closest[1][0]
             loop = region + str(int(region) + 1)
-            min_dist = round(int(min_dist) * .01, 3)
-            grn = loop + 'x' + str(min_dist).replace('.', '')
+            min_dist_formatted = f"{int(min_dist):03d}"
+            grn = f"{loop}.{min_dist_formatted}"
             if grn not in known_grns:
                 seq_id = query_seq[seqnr - 1] + str(seqnr)
                 nloop.append((seq_id, grn))
@@ -329,7 +348,7 @@ def _annotate_missing_rns(interval, present_seq_nr_grn_list, query_seq, grn_conf
             region = closest[1][0]
             loop = region + str(int(region) - 1)
             if loop != '10':
-                grn = loop + 'x' + str(round(min_dist * .01, 3)).replace('.', '')
+                grn = loop + '.' + str(round(min_dist * .01, 3)).replace('.', '')
                 if grn not in known_grns:
                     seq_id = query_seq[seqnr - 1] + str(seqnr)
                     cloop.append((seq_id, grn))
@@ -359,7 +378,7 @@ def assign_missing_std_grns(missing_std_grns, present_seq_nr_grn_list, query_seq
     """Assign missing standard GRNs using pivot-based approach."""
     grns = []
     for missing_std_grn in missing_std_grns:
-        if 'x' in missing_std_grn:
+        if '.' in missing_std_grn:
             c_pivot, n_pivot, new_seqnr_grn = _is_valid_gap(missing_std_grn, present_seq_nr_grn_list, grns_str)
             if c_pivot & n_pivot:
                 if len(new_seqnr_grn) > 0:
@@ -369,7 +388,15 @@ def assign_missing_std_grns(missing_std_grns, present_seq_nr_grn_list, query_seq
             
             elif c_pivot:
                 closest_grn = _get_closest_present_grn(missing_std_grn, present_seq_nr_grn_list)
-                dist_seq_nr = int((float(closest_grn.split('x')[1]) - float(missing_std_grn.split('x')[1])))
+                if closest_grn is None:
+                    continue  # Skip if no closest GRN found
+                # Extract position from dot notation
+                if '.' in closest_grn and '.' in missing_std_grn:
+                    closest_pos = int(closest_grn.split('.')[1])
+                    missing_pos = int(missing_std_grn.split('.')[1])
+                    dist_seq_nr = int(closest_pos - missing_pos)
+                else:
+                    dist_seq_nr = 0
                 closest_seqnr = [int(x[0][1:]) for x in present_seq_nr_grn_list if x[1] == closest_grn][0]
                 if (closest_seqnr - dist_seq_nr) in missing:
                     seq_nr = closest_seqnr - dist_seq_nr
@@ -378,7 +405,13 @@ def assign_missing_std_grns(missing_std_grns, present_seq_nr_grn_list, query_seq
             
             elif n_pivot:
                 closest_grn = _get_closest_present_grn(missing_std_grn, present_seq_nr_grn_list)
-                dist_seq_nr = int((float(missing_std_grn.split('x')[1]) - float(closest_grn.split('x')[1])))
+                # Extract position from dot notation
+                if '.' in closest_grn and '.' in missing_std_grn:
+                    closest_pos = int(closest_grn.split('.')[1])
+                    missing_pos = int(missing_std_grn.split('.')[1])
+                    dist_seq_nr = int(missing_pos - closest_pos)
+                else:
+                    dist_seq_nr = 0
                 closest_seqnr = [int(x[0][1:]) for x in present_seq_nr_grn_list if x[1] == closest_grn][0]
                 if (closest_seqnr + dist_seq_nr) in missing:
                     seq_nr = closest_seqnr + dist_seq_nr

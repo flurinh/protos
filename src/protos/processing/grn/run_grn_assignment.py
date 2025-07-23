@@ -94,14 +94,17 @@ if __name__ == '__main__':
     dataset = args.dataset
     num_cores = args.num_cores
 
-    config = GRNConfigManager(protein_family=protein_family)
-    grn_config_strict = config.get_config(strict=True)
+    config = GRNConfigManager()
+    grn_config_strict = config.get_config(protein_family, strict=True)
     grns_str_strict = init_grn_intervals(grn_config_strict)
 
+    # Initialize GRN processor and load appropriate reference table
+    grnp = GRNProcessor(name='grn_assignment')
+    
     if protein_family == 'gpcr_a':
-        grnp = GRNProcessor('ref', 'data/grn/ref/')
+        grnp.load_grn_table('ref')
     else:
-        grnp = GRNProcessor('mo_ref', 'data/grn/ref/')
+        grnp.load_grn_table('mo_ref')
 
     ref_dict = {k: v.replace('-', '') for k, v in grnp.get_seq_dict().items()}
     query_dict = read_fasta(f"data/fasta/processed/{dataset}.fasta")

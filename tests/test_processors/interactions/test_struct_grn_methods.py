@@ -14,7 +14,7 @@ class TestCifBaseProcessorGRNMethods:
     def struct_processor(self, tmp_path):
         """Create a StructureProcessor instance for testing."""
         # Set global data root to temp directory
-        ProtosPaths.set_data_root(str(tmp_path))
+        os.environ["PROTOS_DATA_ROOT"] = str(tmp_path)
         
         processor = StructureProcessor(
             name="test_processor"
@@ -23,7 +23,7 @@ class TestCifBaseProcessorGRNMethods:
         yield processor
         
         # Cleanup
-        ProtosPaths.set_data_root(None)
+        # Clear environment
     
     def test_get_seq_dict_basic(self, struct_processor):
         """Test basic sequence extraction."""

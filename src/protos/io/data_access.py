@@ -21,7 +21,6 @@ from .paths import (
     ProtosPaths, 
     ensure_directory
 )
-from .paths.path_config import DataSource
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -688,22 +687,7 @@ class GlobalRegistry:
             return True
         
         return False
-    
-    def get_datasets_by_source(self, source: DataSource) -> List[str]:
-        """
-        Get datasets from a specific source.
-        
-        Args:
-            source: Data source to filter by
-            
-        Returns:
-            List of matching dataset identifiers
-        """
-        return [
-            dataset_id for dataset_id, info in self.registry.items()
-            if info.get('metadata', {}).get('source') == source.value
-        ]
-    
+
     def import_reference_data(self) -> int:
         """
         Import reference data into the registry.
@@ -715,9 +699,9 @@ class GlobalRegistry:
             Number of reference datasets imported
         """
         count = 0
-        
+
         # Scan reference data directory for processor types
-        ref_root = self.paths.ref_data_root
+        ref_root = self.paths.data_root
         for processor_type in os.listdir(ref_root):
             processor_path = os.path.join(ref_root, processor_type)
             if not os.path.isdir(processor_path):

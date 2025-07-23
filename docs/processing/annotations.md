@@ -15,76 +15,73 @@ Annotation types supported:
 
 ### Understanding GRN
 
-Generic Residue Numbering provides a universal coordinate system for protein families:
+Generic Residue Numbering (GRN) provides a universal coordinate system for protein families. See the comprehensive [GRN Documentation](../grn.md) for detailed format specifications.
 
 ```python
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
-gp = GRNBaseProcessor()
+from protos.processing.grn import GRNProcessor
+grnp = GRNProcessor(name="my_grn_processor")
 
-# GRN format: helix.position
-# Example: "3.50" = position 50 in helix/segment 3
-# This position might be:
-# - R135 in bovine rhodopsin
-# - R134 in human β2-adrenergic receptor  
-# - L129 in bacteriorhodopsin
+# GRN formats:
+# - TM positions: "3.50" (helix 3, position 50)
+# - N-terminal: "n.10" (10 residues before TM1)
+# - C-terminal: "c.5" (5 residues after last helix)
+# - Loops: "34.001" (1st residue from helix 3 in loop 3-4)
 ```
 
 ### Creating GRN Annotations
 
 ```python
-# From aligned sequences
-sequences = {
-    "RHO_HUMAN": "MNGTEGPNFYVPFSNKTGVVRSPFEYPQYYLAEPWQFSMLAAYMFLLIVLGFPINFLTLYVTVQHKKLRT",
-    "OPSD_HUMAN": "MNGTEGPNFYVPFSNKTGVVRSPFEYPQYYLAEPWQFSMLAAYMFLLIVLGFPINFLTLYVTVQHKKLRT",
-    "BACR_HALSA": "MLELLPTAVEGVSQAQITGRPEWIWLALGTALMGLGTLYFLVKGMGVSDPDAKKFYAITTLVPAIAFTMY"
-}
+# Load reference GRN table
+grnp.load_grn_table("gpcrdb_ref")  # or "mo_ref" for microbial opsins
 
-# Define key positions based on reference
-key_positions = {
-    "1.50": 55,   # N in TM1
-    "2.50": 83,   # D in TM2
-    "3.50": 135,  # R in TM3 (DRY motif)
-    "4.50": 161,  # W in TM4
-    "5.50": 215,  # P in TM5
-    "6.50": 261,  # F in TM6
-    "7.50": 302   # N in TM7 (NPxxY motif)
-}
-
-# Create GRN table
-grn_table = gp.create_grn_annotation(
-    sequences=sequences,
-    reference="RHO_HUMAN",
-    key_positions=key_positions
+# Annotate a new sequence
+result = grnp.annotate_sequence(
+    name="my_receptor",
+    sequence="MNGTEGPNFYVPF...",
+    protein_family="gpcr_a"
 )
+
+# The result includes:
+# - Complete GRN assignments (TM regions, loops, N/C-terminals)
+# - Missing positions that couldn't be annotated
+# - Alignment details
 ```
 
-### Annotating New Sequences
+### Detailed Annotation Process
 
 ```python
-# Annotate a new sequence with GRN
-new_sequence = "MNGTEGPNFYVPFSNKTGVVRSPFEYPQYYLAEPWQFSMLAAYMFLLIVLGFPINFLTLYVTVQHKKLRT"
+from protos.processing.grn.grn_table_utils import annotate_grnp
 
-# Method 1: Using profile alignment
-grn_annotation = gp.annotate_sequence(
-    sequence=new_sequence,
-    sequence_id="NEW_GPCR",
-    reference="RHO_HUMAN",
-    method="profile"
+# Full annotation with verbosity
+grn_row = annotate_grnp(
+    grnp=grnp,
+    query_name="NEW_RECEPTOR",
+    query_seq="MNGTEGPNFYVPFSNKTGVVRSPFEYPQYYLAEPWQFSMLAAYMFLLIVLGFPINFLTLYVTVQHKKLRT",
+    protein_family="gpcr_a",
+    verbose=2  # Show detailed progress
 )
 
-# Method 2: Using multiple references
-grn_annotation = gp.annotate_with_multiple_refs(
-    sequence=new_sequence,
-    references=["RHO_HUMAN", "ADRB2_HUMAN", "OPSD_HUMAN"],
-    consensus_threshold=0.7
-)
+# Key positions in GPCRs:
+# - x.50 positions: Most conserved in each helix
+# - 3.50: R in DRY motif
+# - 7.50: N in NPxxY motif
+# - 6.48: W in CWxP motif
+```
 
-# Method 3: Using HMM
-grn_annotation = gp.annotate_with_hmm(
-    sequence=new_sequence,
-    family="gpcr_class_a",
-    e_value=0.001
-)
+### Working with GRN Tables
+
+```python
+# Access GRN data
+grn_table = grnp.data  # pandas DataFrame
+
+# Get sequence from GRN table
+sequence = grnp.get_sequence("5HT2B_HUMAN")
+
+# Get specific positions
+dry_motif = grnp.get_grn_positions("5HT2B_HUMAN", ["3.49", "3.50", "3.51"])
+
+# Filter by GRN range
+tm3_residues = grnp.filter_by_grn_range("3.20", "3.60")
 ```
 
 ### GRN-Based Analysis

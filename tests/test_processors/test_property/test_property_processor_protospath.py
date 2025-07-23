@@ -32,7 +32,7 @@ class TestPropertyProcessorProtosPaths:
         # This should no longer work
         with pytest.raises(TypeError):
             processor = PropertyProcessor(
-                processor_data_dir="/some/path"  # This parameter should not exist
+                name="pp"
             )
     
     def test_path_properties_use_protospath(self):

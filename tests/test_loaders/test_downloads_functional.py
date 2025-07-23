@@ -19,10 +19,7 @@ from Bio.PDB import PDBList
 @pytest.fixture
 def functional_processor():
     """Create a processor for functional testing."""
-    processor = BaseProcessor(
-        name="test_functional",
-        processor_data_dir="downloads"
-    )
+    processor = BaseProcessor(name="test")
     
     yield processor
 

@@ -6,6 +6,7 @@ import pytest
 import tempfile
 from pathlib import Path
 import pandas as pd
+import os
 
 from protos.io.paths import ProtosPaths
 from protos.processing.structure import StructureProcessor
@@ -23,13 +24,13 @@ class TestCifBaseProcessorUpdated:
         assert processor.paths is not None
         assert processor.entity_registry is not None
         assert processor.dataset_manager is not None
-        assert processor.data_path.exists()
+        assert os.path.exists(processor.data_path)
         
         # Should have proper subdirectories
-        assert processor.path_structure_dir.exists()
-        assert processor.path_dataset_dir.exists()
-        assert processor.path_alignment_dir.exists()
-        assert processor.path_cache_dir.exists()
+        assert os.path.exists(processor.paths.get_subdir_path("structure", "structure_dir"))
+        assert os.path.exists(processor.paths.get_subdir_path("structure", "dataset_dir"))
+        assert os.path.exists(processor.paths.get_subdir_path("structure", "alignments_dir"))
+        assert os.path.exists(processor.paths.get_subdir_path("structure", "cache_dir"))
     
     def test_no_custom_paths(self):
         """Test that processor has no custom path handling."""
@@ -53,7 +54,7 @@ class TestCifBaseProcessorUpdated:
     def test_accepts_protospaths(self):
         """Test processor accepts ProtosPaths instance."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Should use provided paths
@@ -63,19 +64,19 @@ class TestCifBaseProcessorUpdated:
     def test_path_properties_use_protospaths(self):
         """Test all path properties use ProtosPaths methods."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # All paths should go through ProtosPaths
-            assert str(processor.path_structure_dir) == str(processor.get_subdirectory_path('structure_dir'))
-            assert str(processor.path_dataset_dir) == str(processor.get_subdirectory_path('dataset_dir'))
+            assert str(processor.paths.get_subdir_path("structure", "structure_dir")) == str(processor.get_subdirectory_path('structure_dir'))
+            assert str(processor.paths.get_subdir_path("structure", "dataset_dir")) == str(processor.get_subdirectory_path('dataset_dir'))
             assert str(processor.path_alignment_dir) == str(processor.get_subdirectory_path('alignments_dir'))
-            assert str(processor.path_cache_dir) == str(processor.get_subdirectory_path('cache_dir'))
+            assert str(processor.paths.get_subdir_path("structure", "cache_dir")) == str(processor.get_subdirectory_path('cache_dir'))
     
     def test_save_and_load_structure(self):
         """Test saving and loading structures with human names."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create a simple test structure
@@ -85,7 +86,6 @@ class TestCifBaseProcessorUpdated:
                 'auth_seq_id': [1, 2, 3],
                 'res_name3l': ['ALA', 'GLY', 'VAL'],
                 'res_name1l': ['A', 'G', 'V'],
-                'res_atom_name': ['CA', 'CA', 'CA'],
                 'atom_name': ['CA', 'CA', 'CA'],
                 'x': [1.0, 2.0, 3.0],
                 'y': [4.0, 5.0, 6.0],
@@ -108,7 +108,7 @@ class TestCifBaseProcessorUpdated:
     def test_drag_and_drop_workflow(self):
         """Test drag-and-drop file discovery."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Manually create a CIF file (simulating drag-and-drop)
@@ -116,7 +116,7 @@ class TestCifBaseProcessorUpdated:
             mmcif_dir.mkdir(parents=True, exist_ok=True)
             
             # Create a simple test file
-            test_file = mmcif_dir / "dropped_structure.cif"
+            test_file = Path(mmcif_dir) / "dropped_structure.cif"
             test_file.write_text("# Dummy CIF content")
             
             # Initialize PDB IDs
@@ -128,7 +128,7 @@ class TestCifBaseProcessorUpdated:
     def test_dataset_operations(self):
         """Test dataset management with human names."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create some test structures
@@ -138,7 +138,7 @@ class TestCifBaseProcessorUpdated:
                     'auth_chain_id': ['A'] * 2,
                     'auth_seq_id': [1, 2],
                     'res_name1l': ['A', 'G'],
-                    'res_atom_name': ['CA', 'CA'],
+                    'atom_name': ['CA', 'CA'],
                     'x': [1.0, 2.0],
                     'y': [3.0, 4.0],
                     'z': [5.0, 6.0],
@@ -201,7 +201,7 @@ class TestCifBaseProcessorUpdated:
     def test_format_data_types(self):
         """Test data type formatting."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test data with mixed types
@@ -213,7 +213,7 @@ class TestCifBaseProcessorUpdated:
                 'y': [4.0, 5.0, 6.0],
                 'z': [7.0, 8.0, 9.0],
                 'res_name1l': ['A', 'G', 'V'],
-                'res_atom_name': ['CA', 'CA', 'CA'],
+                'atom_name': ['CA', 'CA', 'CA'],
                 'group': ['ATOM'] * 3
             })
             
@@ -230,7 +230,7 @@ class TestCifBaseProcessorUpdated:
     def test_filter_operations(self):
         """Test filtering methods."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             processor = StructureProcessor(paths=paths)
             
             # Create test data with multiple proteins and chains
@@ -239,7 +239,7 @@ class TestCifBaseProcessorUpdated:
                 'auth_chain_id': ['A', 'B', 'A', 'B'],
                 'auth_seq_id': [1, 1, 1, 1],
                 'res_name1l': ['A', 'G', 'V', 'L'],
-                'res_atom_name': ['CA', 'CA', 'CA', 'CA'],
+                'atom_name': ['CA', 'CA', 'CA', 'CA'],
                 'x': [1.0, 2.0, 3.0, 4.0],
                 'y': [5.0, 6.0, 7.0, 8.0],
                 'z': [9.0, 10.0, 11.0, 12.0],

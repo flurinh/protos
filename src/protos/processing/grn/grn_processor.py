@@ -72,10 +72,10 @@ class GRNProcessor(BaseProcessor):
         self.maps = {}
         self.map = pd.DataFrame()
         
-        # Track notation format and mappings
-        self.using_dot_notation = False
-        self.dot_to_x = {}  # Maps dot notation (3.50) to x notation (3x50)
-        self.x_to_dot = {}  # Maps x notation (3x50) to dot notation (3.50)
+        # Always use dot notation (x notation is deprecated)
+        self.using_dot_notation = True
+        self.dot_to_x = {}  # Maps dot notation (3.50) to x notation (3x50) - DEPRECATED
+        self.x_to_dot = {}  # Maps x notation (3x50) to dot notation (3.50) - DEPRECATED
         
         # Track entity IDs for GRN tables
         self._grn_entity_map = {}  # Maps table names to entity IDs
@@ -101,19 +101,19 @@ class GRNProcessor(BaseProcessor):
     def path_grn_dir(self):
         """Get path to GRN tables directory."""
         # Use ProtosPaths to get the tables directory
-        return Path(self.paths.get_grn_subdir_path('table_dir'))
+        return Path(self.paths.get_subdir_path('grn', 'table_dir'))
     
     @property
     def path_ref_dir(self):
         """Get path to reference GRN tables directory."""
         # Use ProtosPaths to get the ref directory
-        return Path(self.paths.get_grn_subdir_path('ref_dir'))
+        return Path(self.paths.get_subdir_path('grn', 'ref_dir'))
     
     @property
     def path_config_dir(self):
         """Get path to GRN configs directory."""
         # Use ProtosPaths to get the configs directory
-        return Path(self.paths.get_grn_subdir_path('configs_dir'))
+        return Path(self.paths.get_subdir_path('grn', 'configs_dir'))
     
     def load_reference_table(self, ref_name: str) -> pd.DataFrame:
         """
@@ -133,7 +133,10 @@ class GRNProcessor(BaseProcessor):
             raise FileNotFoundError(f"Reference table not found: {ref_path}")
         
         self.logger.info(f"Loading reference table from {ref_path}")
-        return pd.read_csv(ref_path, index_col=0)
+        df = pd.read_csv(ref_path, index_col=0)
+        # Convert column names to strings to preserve formats like "1.50" instead of 1.5
+        df.columns = df.columns.astype(str)
+        return df
     
     def load_grn_config(self, config_name: str) -> dict:
         """
@@ -232,7 +235,7 @@ class GRNProcessor(BaseProcessor):
         # Register the entity
         table_name = self.dataset or "current"
         # Get the actual table path from ProtosPaths
-        table_path = Path(self.paths.get_grn_subdir_path('table_dir')) / f"{table_name}.csv"
+        table_path = Path(self.paths.get_subdir_path('grn', 'table_dir')) / f"{table_name}.csv"
         # Store relative path in registry
         relative_path = table_path.relative_to(Path(self.paths.data_root))
         
@@ -261,7 +264,7 @@ class GRNProcessor(BaseProcessor):
         if data is None:
             data = self.data
             
-        file_path = Path(self.paths.get_grn_subdir_path('table_dir')) / f"{name}.{file_format}"
+        file_path = Path(self.paths.get_subdir_path('grn', 'table_dir')) / f"{name}.{file_format}"
         # ProtosPaths already ensures directories exist
         
         if file_format == 'csv' and isinstance(data, pd.DataFrame):
@@ -309,7 +312,19 @@ class GRNProcessor(BaseProcessor):
             
         # Create a copy of the data to avoid modifying the original
         if self.data is not None:
-            data_to_save = self.data.copy()
+            # Only include GRN columns (from self.grns) for saving
+            grn_columns = []
+            metadata_columns = ['entity_id', 'family', 'species', 'name', 'grn_system', 'id']
+            
+            for col in self.data.columns:
+                if col not in metadata_columns and self._is_grn_position(col):
+                    grn_columns.append(col)
+                    
+            # If self.grns is populated, use it as the source of truth
+            if self.grns:
+                grn_columns = [col for col in self.grns if col in self.data.columns]
+                
+            data_to_save = self.data[grn_columns].copy()
             
             # Normalize GRN formats if requested
             if normalize_formats:
@@ -361,10 +376,12 @@ class GRNProcessor(BaseProcessor):
             data_to_save = pd.DataFrame()
             
         # Save to tables/ subdirectory using ProtosPaths
-        table_path = Path(self.paths.get_grn_subdir_path('table_dir')) / f"{self.dataset}.csv"
+        table_path = Path(self.paths.get_subdir_path('grn', 'table_dir')) / f"{self.dataset}.csv"
         # Ensure index is preserved for protein IDs
         save_index = kwargs.pop('index', True)
-        data_to_save.to_csv(table_path, index=save_index, **kwargs)
+        # Use '-' for missing values to maintain consistency with GRN conventions
+        na_rep = kwargs.pop('na_rep', '-')
+        data_to_save.to_csv(table_path, index=save_index, na_rep=na_rep, **kwargs)
         
         # Create dataset metadata in datasets/
         # Use relative path from datasets to tables directory
@@ -379,7 +396,7 @@ class GRNProcessor(BaseProcessor):
             }
         }
         
-        dataset_path = Path(self.paths.get_grn_subdir_path('datasets_dir')) / f"{self.dataset}.json"
+        dataset_path = Path(self.paths.get_subdir_path('grn', 'datasets_dir')) / f"{self.dataset}.json"
         with open(dataset_path, 'w') as f:
             json.dump(dataset_info, f, indent=2)
         
@@ -387,7 +404,8 @@ class GRNProcessor(BaseProcessor):
         self.logger.info(f"Saved dataset metadata to {dataset_path}")
         return str(table_path)
         
-    def load_grn_table(self, dataset_id=None, low_memory=False, remove_duplicates=True, normalize_formats=True, register_entities=True, return_only=False, **kwargs):
+    def load_grn_table(self, dataset_id=None, low_memory=False, remove_duplicates=True,
+                       normalize_formats=True, register_entities=True, return_only=False, **kwargs):
         """
         Load a GRN table from a dataset with entity support.
         
@@ -418,14 +436,20 @@ class GRNProcessor(BaseProcessor):
             raise ValueError("No dataset specified.")
             
         # Try to load from tables/ directory first using ProtosPaths
-        table_path = Path(self.paths.get_grn_subdir_path('table_dir')) / f"{dataset_to_load}.csv"
+        table_path = Path(self.paths.get_subdir_path('grn', 'table_dir')) / f"{dataset_to_load}.csv"
         
         if table_path.exists():
             self.logger.info(f"Loading GRN table from {table_path}")
+            # Load treating '-' as NaN for consistency
+            if 'na_values' not in kwargs:
+                kwargs['na_values'] = ['-']
+            # Read CSV and ensure column names are preserved as strings
             df = pd.read_csv(table_path, index_col=0, low_memory=low_memory, **kwargs)
+            # Convert column names to strings to preserve formats like "1.50" instead of 1.5
+            df.columns = df.columns.astype(str)
         else:
             # Try loading from dataset JSON
-            dataset_path = Path(self.paths.get_grn_subdir_path('datasets_dir')) / f"{dataset_to_load}.json"
+            dataset_path = Path(self.paths.get_subdir_path('grn', 'datasets_dir')) / f"{dataset_to_load}.json"
             if dataset_path.exists():
                 with open(dataset_path, 'r') as f:
                     dataset_info = json.load(f)
@@ -436,6 +460,8 @@ class GRNProcessor(BaseProcessor):
                     if table_file.exists():
                         self.logger.info(f"Loading GRN table from dataset reference: {table_file}")
                         df = pd.read_csv(table_file, index_col=0, low_memory=low_memory, **kwargs)
+                        # Convert column names to strings to preserve formats like "1.50" instead of 1.5
+                        df.columns = df.columns.astype(str)
                     else:
                         raise FileNotFoundError(f"Table file not found: {table_file}")
                 else:
@@ -605,34 +631,24 @@ class GRNProcessor(BaseProcessor):
                 except Exception as e:
                     self.logger.error(f"Error processing dot notation {col}: {e}")
         
-        # Detect which notation is used in the data
-        dot_cols = [col for col in original_columns if '.' in col and not ('n.' in col or 'c.' in col)]
-        x_cols = [col for col in original_columns if 'x' in col and not ('n.' in col or 'c.' in col)]
-        self.using_dot_notation = len(dot_cols) > len(x_cols)
+        # Always use dot notation (x notation is deprecated)
+        # No need to detect notation anymore
         
-        # Create normalized grns list - preserve the original notation for internal use
-        # but keep track of alternate forms
+        # Create normalized grns list - convert any x notation to dot notation
         normalized_grns = []
         for grn in self.grns:
-            if 'n.' in grn or 'c.' in grn:
-                normalized_grns.append(grn)
-            # Handle loop GRNs (AB.CCC format)
-            elif '.' in grn and len(grn.split('.')[0]) == 2 and len(grn.split('.')[1]) == 3:
-                normalized_grns.append(grn)
-            elif self.using_dot_notation and 'x' in grn:
-                # Convert x notation to dot notation if data uses dot
+            if 'x' in grn and grn[0].isdigit():
+                # Convert x notation to dot notation
                 dot_form = self.x_to_dot.get(grn)
                 if dot_form and dot_form in original_columns:
                     normalized_grns.append(dot_form)
                 else:
-                    normalized_grns.append(grn)
-            elif not self.using_dot_notation and '.' in grn:
-                # Convert dot notation to x notation if data uses x
-                x_form = self.dot_to_x.get(grn)
-                if x_form and x_form in original_columns:
-                    normalized_grns.append(x_form)
-                else:
-                    normalized_grns.append(grn)
+                    # Manual conversion if not in mapping
+                    try:
+                        tm, pos = grn.split('x')
+                        normalized_grns.append(f"{tm}.{pos}")
+                    except:
+                        normalized_grns.append(grn)
             else:
                 normalized_grns.append(grn)
         
@@ -648,7 +664,16 @@ class GRNProcessor(BaseProcessor):
             else:
                 # Try flexible matching for dot notation (1.50 matches 1.5, 1.05 matches 1.5)
                 matched = False
-                if '.' in grn and grn not in ['n.', 'c.'] and not (len(grn.split('.')[0]) == 2 and len(grn.split('.')[1]) == 3):
+                # Check if it's a loop region (2 digits before dot, 3 digits after)
+                if '.' in grn and len(grn.split('.')) == 2:
+                    parts = grn.split('.')
+                    if len(parts[0]) == 2 and len(parts[1]) == 3:
+                        # Loop region like 67.001 - use as is
+                        if grn in original_columns:
+                            columns_to_select.append(grn)
+                            matched = True
+                
+                if not matched and '.' in grn and grn not in ['n.', 'c.']:
                     # Standard dot notation - try different formats
                     parts = grn.split('.')
                     if len(parts) == 2:
@@ -686,7 +711,7 @@ class GRNProcessor(BaseProcessor):
             raise KeyError(f"Cannot match GRN columns. Data columns: {original_columns}, Requested: {self.grns}")
             
         # Log notation format
-        self.logger.info(f"Using {'dot' if self.using_dot_notation else 'x'} notation for GRN positions")
+        self.logger.info("Using dot notation for GRN positions (x notation is deprecated)")
             
         if return_only:
             work_df = work_df.fillna('-')
@@ -747,8 +772,7 @@ class GRNProcessor(BaseProcessor):
         if not tables:
             return pd.DataFrame()
             
-        # Determine which notation to use for the merged table
-        self.using_dot_notation = dot_count >= x_count
+        # Always use dot notation (x notation is deprecated)
         
         # Build a comprehensive bidirectional mapping 
         # for all GRN positions across all tables
@@ -771,15 +795,21 @@ class GRNProcessor(BaseProcessor):
         # Merge the tables
         merged_table = pd.concat(tables, axis=0)
         
-        # Standardize column names to the preferred notation
+        # Standardize column names to dot notation
         std_columns = []
         for col in merged_table.columns:
-            if 'n.' in col or 'c.' in col:
-                std_columns.append(col)
-            elif self.using_dot_notation and 'x' in col:
-                std_columns.append(self.x_to_dot.get(col, col))
-            elif not self.using_dot_notation and '.' in col:
-                std_columns.append(self.dot_to_x.get(col, col))
+            if 'x' in col and col[0].isdigit():
+                # Convert x notation to dot notation
+                dot_form = self.x_to_dot.get(col)
+                if dot_form:
+                    std_columns.append(dot_form)
+                else:
+                    # Manual conversion
+                    try:
+                        tm, pos = col.split('x')
+                        std_columns.append(f"{tm}.{pos}")
+                    except:
+                        std_columns.append(col)
             else:
                 std_columns.append(col)
         
@@ -789,22 +819,8 @@ class GRNProcessor(BaseProcessor):
         # Sort columns by GRN position
         self.grns = sort_grns_str(merged_table.columns.tolist())
         
-        # Handle notation conversion for sorted columns
-        sorted_cols_in_data_notation = []
-        for grn in self.grns:
-            # Keep special notations as is
-            if 'n.' in grn or 'c.' in grn:
-                sorted_cols_in_data_notation.append(grn)
-            # Convert to the data's preferred notation
-            elif self.using_dot_notation and 'x' in grn:
-                sorted_cols_in_data_notation.append(self.x_to_dot.get(grn, grn))
-            elif not self.using_dot_notation and '.' in grn:
-                sorted_cols_in_data_notation.append(self.dot_to_x.get(grn, grn))
-            else:
-                sorted_cols_in_data_notation.append(grn)
-        
-        # Reorder columns using the data's notation
-        valid_cols = [col for col in sorted_cols_in_data_notation if col in merged_table.columns]
+        # Reorder columns using the sorted GRNs
+        valid_cols = [col for col in self.grns if col in merged_table.columns]
         self.data = merged_table[valid_cols]
         self.data = self.data.fillna('-')
         self.ids = self.data.index.tolist()
@@ -901,32 +917,30 @@ class GRNProcessor(BaseProcessor):
             grn_interval: List of GRN positions to keep
             apply_to_maps: Whether to apply the interval to maps
         """
-        # Convert the interval to the notation used in the data
+        # Convert the interval to dot notation if needed
         mapped_interval = []
         for grn in grn_interval:
-            # No conversion needed for n. and c. notations
-            if 'n.' in grn or 'c.' in grn:
-                if grn in self.data.columns:
-                    mapped_interval.append(grn)
-                continue
-                
-            # Handle TM region notation conversion
-            if self.using_dot_notation and 'x' in grn:
-                # Need to convert x notation to dot notation
+            # Check if x notation needs conversion
+            if 'x' in grn and grn[0].isdigit():
+                # Convert x notation to dot notation
                 dot_form = self.x_to_dot.get(grn)
-                if dot_form in self.data.columns:
+                if dot_form and dot_form in self.data.columns:
                     mapped_interval.append(dot_form)
-                elif grn in self.data.columns:
-                    mapped_interval.append(grn)
-            elif not self.using_dot_notation and '.' in grn:
-                # Need to convert dot notation to x notation
-                x_form = self.dot_to_x.get(grn)
-                if x_form in self.data.columns:
-                    mapped_interval.append(x_form)
-                elif grn in self.data.columns:
-                    mapped_interval.append(grn)
+                else:
+                    # Try manual conversion
+                    try:
+                        tm, pos = grn.split('x')
+                        dot_grn = f"{tm}.{pos}"
+                        if dot_grn in self.data.columns:
+                            mapped_interval.append(dot_grn)
+                        elif grn in self.data.columns:
+                            # Fall back to original if conversion doesn't exist
+                            mapped_interval.append(grn)
+                    except:
+                        if grn in self.data.columns:
+                            mapped_interval.append(grn)
             elif grn in self.data.columns:
-                # Already in the right notation
+                # Already in the right notation or special notation (n., c.)
                 mapped_interval.append(grn)
         
         if not mapped_interval:
@@ -1122,15 +1136,8 @@ class GRNProcessor(BaseProcessor):
                     cols_sorted.append(parse_grn_float2str(float_val))
                 else:
                     # Standard GRN - use the correct notation based on processor preference
-                    if self.using_dot_notation:
-                        # Create dot notation for TM regions
-                        x_notation = parse_grn_float2str(float_val)
-                        tm, pos = x_notation.split('x')
-                        dot_notation = f"{tm}.{pos}"
-                        cols_sorted.append(dot_notation)
-                    else:
-                        # Use standard x notation
-                        cols_sorted.append(parse_grn_float2str(float_val))
+                    # Always use dot notation for TM regions
+                    cols_sorted.append(parse_grn_float2str(float_val, notation_type='dot'))
             
             # Add metadata columns at the beginning
             for idx, col in sorted(metadata_cols, key=lambda x: x[0]):
@@ -1191,48 +1198,32 @@ class GRNProcessor(BaseProcessor):
         """
         maps = self.get_maps()
         
-        # Build both dot and x notation versions of the interval
+        # Convert interval to dot notation
         dot_interval = []
-        x_interval = []
         
         for grn in grn_interval:
-            # Handle special notations
-            if 'n.' in grn or 'c.' in grn:
-                dot_interval.append(grn)
-                x_interval.append(grn)
-            # Handle TM regions
-            elif 'x' in grn:
-                x_interval.append(grn)
+            # Handle x notation conversion
+            if 'x' in grn and grn[0].isdigit():
                 dot_form = self.x_to_dot.get(grn)
                 if dot_form:
                     dot_interval.append(dot_form)
                 else:
                     # Create dot notation if not in mapping
-                    tm, pos = grn.split('x')
-                    dot_interval.append(f"{tm}.{pos}")
-            elif '.' in grn:
+                    try:
+                        tm, pos = grn.split('x')
+                        dot_interval.append(f"{tm}.{pos}")
+                    except:
+                        dot_interval.append(grn)
+            else:
+                # Keep as is (includes n., c., and already dot notation)
                 dot_interval.append(grn)
-                x_form = self.dot_to_x.get(grn)
-                if x_form:
-                    x_interval.append(x_form)
-                else:
-                    # Create x notation if not in mapping
-                    tm, pos = grn.split('.')
-                    x_interval.append(f"{tm}x{pos}")
         
-        # Apply to each map using the appropriate notation
+        # Apply to each map
         for map_key in maps:
             map_cols = self.maps[map_key].columns.tolist()
             
-            # Determine which notation this map uses
-            map_using_dot = len([col for col in map_cols 
-                               if '.' in col and not ('n.' in col or 'c.' in col)]) > 0
-            
-            # Select the appropriate interval
-            map_interval = dot_interval if map_using_dot else x_interval
-            
             # Filter to columns that exist in this map
-            valid_interval = [col for col in map_interval if col in map_cols]
+            valid_interval = [col for col in dot_interval if col in map_cols]
             
             # Apply if we have valid columns
             if valid_interval:
@@ -1362,12 +1353,17 @@ class GRNProcessor(BaseProcessor):
         # Also allow x notation like "3x50", "7x53"
         # Extended to support 0.XX and 9.XX formats, and loop regions
         import re
-        # Match standard GRN formats including extended numbering
-        grn_pattern = re.compile(r'^(n\.|c\.|[0-9]+)[x.]([0-9]+)$')
-        # Also match loop formats like 12.470 or 23.50
-        loop_pattern = re.compile(r'^[0-9][0-9]\.[0-9]+$')
         
-        return bool(grn_pattern.match(col) or loop_pattern.match(col))
+        # Match N-terminal (n.1, n.10)
+        n_term_pattern = re.compile(r'^n\.[0-9]+$')
+        # Match C-terminal (c.1, c.10)
+        c_term_pattern = re.compile(r'^c\.[0-9]+$')
+        # Match standard GRN formats with x or dot notation (1.50, 3x50)
+        standard_pattern = re.compile(r'^[0-9]+[x.][0-9]+$')
+        
+        return bool(n_term_pattern.match(col) or 
+                   c_term_pattern.match(col) or 
+                   standard_pattern.match(col))
     
     def list_datasets(self) -> List[Dict[str, Any]]:
         """
@@ -1381,7 +1377,7 @@ class GRNProcessor(BaseProcessor):
         datasets = []
         
         # List GRN tables in the tables directory
-        tables_dir = Path(self.paths.get_grn_subdir_path('table_dir'))
+        tables_dir = Path(self.paths.get_subdir_path('grn', 'table_dir'))
         if tables_dir.exists():
             for table_file in tables_dir.glob("*.csv"):
                 try:
@@ -1405,7 +1401,7 @@ class GRNProcessor(BaseProcessor):
                     pass
         
         # List GRN tables in ref directory
-        ref_dir = Path(self.paths.get_grn_subdir_path('ref_dir'))
+        ref_dir = Path(self.paths.get_subdir_path('grn', 'ref_dir'))
         if ref_dir.exists():
             for table_file in ref_dir.glob("*.csv"):
                 try:

@@ -63,17 +63,18 @@ class TestGRNSorting:
     
     def test_sort_grns_str(self):
         """Test sorting GRN strings."""
-        grn_list = ['7.53', '3.50', 'n.2', '1.50', 'c.1', '45.50', '2.50', 'n.1']
+        # Use valid GRN formats: 45.050 is a loop position between helix 4 and 5
+        grn_list = ['7.53', '3.50', 'n.2', '1.50', 'c.1', '45.050', '2.50', 'n.1']
         sorted_grns = sort_grns_str(grn_list)
         
-        # Note: sort_grns_str converts loop positions like 45.50 to 45.500
-        expected_order = ['n.2', 'n.1', '1.50', '2.50', '3.50', '45.500', '7.53', 'c.1']
+        # Loop positions should maintain their 3-digit format
+        expected_order = ['n.2', 'n.1', '1.50', '2.50', '3.50', '45.050', '7.53', 'c.1']
         assert sorted_grns == expected_order
     
     def test_sort_grns_with_x_notation(self):
         """Test sorting with x notation."""
         grn_list = ['7x53', '3x50', '1x50', '2x50']
-        sorted_grns = sort_grns_str(grn_list, output_notation_type='x')
+        sorted_grns = sort_grns_str(grn_list, notation_type='x')
         
         expected_order = ['1x50', '2x50', '3x50', '7x53']
         assert sorted_grns == expected_order
@@ -86,6 +87,8 @@ class TestGRNSorting:
         )
         
         processor.data = comprehensive_grn_table
+        processor.ids = list(comprehensive_grn_table.index)
+        processor.grns = list(comprehensive_grn_table.columns)
         processor.save_grn_table("test_sort")
         processor.load_grn_table("test_sort")
         
@@ -95,9 +98,8 @@ class TestGRNSorting:
         # Check that columns are in the expected order
         cols = list(processor.data.columns)
         
-        # N-terminus should come first
-        assert cols[0] == 'n.2'
-        assert cols[1] == 'n.1'
+        # N-terminus should come first (n.2 = -2.0, n.1 = -1.0, so n.2 comes first)
+        assert cols.index('n.2') < cols.index('n.1')
         
         # Then TM regions in order
         assert '1.50' in cols[:5]
@@ -223,14 +225,14 @@ class TestGRNIntervals:
         
         # Get interval between two GRN positions
         # Note: get_grn_interval expects x notation for standard TM regions
-        interval = get_grn_interval(left='2x50', right='3x50', table=processor.data)
+        interval = get_grn_interval('2x50', '3x50', processor.data.columns.tolist())
         
         # Should include positions between 2.50 and 3.50 (returns in dot notation)
         assert '2.50' in interval
         assert '3.50' in interval
         
-        # Test N-terminus interval
-        n_interval = get_grn_interval(left='n.2', right='n.1', grns_str=['n.2', 'n.1', '1.50'])
+        # Test N-terminus interval (n.2 is -2.0, n.1 is -1.0, so n.2 < n.1)
+        n_interval = get_grn_interval('n.2', 'n.1', ['n.2', 'n.1', '1.50'])
         assert 'n.2' in n_interval
         assert 'n.1' in n_interval
     
@@ -277,10 +279,10 @@ class TestGRNParsing:
         assert parse_grn_str2float('c.1') == 101.0
         assert parse_grn_str2float('c.2') == 102.0
         
-        # Loop positions
-        assert parse_grn_str2float('45.50') == 45.50
-        assert parse_grn_str2float('45.51') == 45.51
-        assert parse_grn_str2float('45.500') == 45.50  # Handles three decimal places
+        # Loop positions (should use 3-digit format)
+        assert parse_grn_str2float('45.050') == 45.050
+        assert parse_grn_str2float('45.051') == 45.051
+        assert parse_grn_str2float('45.500') == 45.500
     
     def test_parse_grn_float2str(self):
         """Test parsing floats back to GRN strings."""
@@ -307,8 +309,8 @@ class TestGRNParsing:
         assert validate_grn_string('3x50')[0] == True
         assert validate_grn_string('n.1')[0] == True
         assert validate_grn_string('c.1')[0] == True
-        assert validate_grn_string('45.50')[0] == True
-        assert validate_grn_string('45.500')[0] == True  # Three decimal places also valid
+        assert validate_grn_string('45.050')[0] == True  # Loop positions use 3 digits
+        assert validate_grn_string('45.500')[0] == True
         
         # Now valid GRNs (extended numbering)
         assert validate_grn_string('0.50')[0] == True  # 0 is now allowed for extended numbering
@@ -325,7 +327,7 @@ class TestGRNUtilities:
     
     def test_get_tm_residues(self):
         """Test getting transmembrane residues."""
-        grn_list = ['1.50', '2.50', '3.50', '45.50', '7.53', 'n.1', 'c.1']
+        grn_list = ['1.50', '2.50', '3.50', '45.050', '7.53', 'n.1', 'c.1']
         tm_residues = get_tm_residues(grn_list)
         
         # Should only include TM positions (1-7)
@@ -335,7 +337,7 @@ class TestGRNUtilities:
         assert '7.53' in tm_residues
         
         # Should exclude loops, N/C terminus
-        assert '45.50' not in tm_residues
+        assert '45.050' not in tm_residues
         assert '45.500' not in tm_residues
         assert 'n.1' not in tm_residues
         assert 'c.1' not in tm_residues
@@ -356,7 +358,7 @@ class TestGRNUtilities:
         assert map_grn_to_color('7.53') == tm_color  # Same color for all TM regions
         
         # Loop regions (>10) get different color
-        loop_color = map_grn_to_color('45.50')
+        loop_color = map_grn_to_color('45.050')
         assert loop_color == 'rgb(44, 160, 44)'
 
 

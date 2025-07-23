@@ -201,7 +201,7 @@ class TestBatchDownloadIntegration:
         base_proc, struct_proc = integration_processor
         
         # Use processor's structure directory (managed by ProtosPaths)
-        target_dir = struct_proc.path_structure_dir
+        target_dir = struct_proc.self.path_resolver.get_subdir_path("structure", "structure_dir")
         
         # Large batch of PDB IDs
         pdb_ids = [f"{i}ABC" for i in range(1, 11)]  # 10 structures

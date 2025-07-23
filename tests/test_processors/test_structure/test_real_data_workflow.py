@@ -46,7 +46,7 @@ class TestRealDataWorkflow:
         """Test downloading real structures and creating a dataset."""
         # Step 1: Download real structures
         # Use the full path to the structure directory which already includes mmcif
-        target_dir = workflow_processor.path_structure_dir
+        target_dir = workflow_processor.paths.get_subdir_path("structure", "structure_dir")
         successful, failed = download_protein_structures(
             real_pdb_ids,
             target_folder=str(target_dir)
@@ -81,7 +81,7 @@ class TestRealDataWorkflow:
             assert len(pdb_data) > 0, f"No atoms found for {pdb_id}"
             
             # Check we have expected columns
-            expected_cols = ['pdb_id', 'res_atom_name', 'res_name3l', 'auth_chain_id', 
+            expected_cols = ['pdb_id', 'atom_name', 'res_name3l', 'auth_chain_id', 
                            'auth_seq_id', 'x', 'y', 'z']
             for col in expected_cols:
                 assert col in pdb_data.columns, f"Missing column {col} for {pdb_id}"
@@ -92,7 +92,7 @@ class TestRealDataWorkflow:
             assert pdb_data['z'].dtype in [np.float64, np.float32], "Z coordinates should be numeric"
             
             # Check we have different atom types
-            atom_types = pdb_data['res_atom_name'].unique()
+            atom_types = pdb_data['atom_name'].unique()
             assert 'CA' in atom_types, f"Should have CA atoms in {pdb_id}"
             assert len(atom_types) > 5, f"Should have multiple atom types in {pdb_id}"
             

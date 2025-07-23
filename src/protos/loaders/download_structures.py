@@ -38,7 +38,7 @@ def download_protein_structures(pdb_ids, target_folder=None, overwrite=False, pr
     elif _HAS_PROTOS_PATHS and target_folder is None:
         # Use ProtosPaths directly if no processor provided
         paths = ProtosPaths()
-        target_path = Path(paths.get_structure_subdir_path('structure_dir'))
+        target_path = Path(paths.get_subdir_path('structure', 'structure_dir'))
     else:
         # Legacy fallback for backward compatibility
         target_path = Path(target_folder or 'data/mmcif/')

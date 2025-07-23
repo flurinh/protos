@@ -1,0 +1,68 @@
+# Summary of Verbosity Level Updates
+
+I've successfully updated the expand_annotation and annotate_grnp functions in grn_table_utils.py to use a 2-level verbosity system as requested:
+
+## Verbosity Levels:
+- **verbose=0**: Silent mode - no output
+- **verbose=1**: Major steps only - shows progress through main stages
+- **verbose=2**: Detailed mode - includes debugging information, intermediate results, and data samples
+
+## Functions Updated:
+
+### 1. expand_annotation()
+Updated all print statements to use the new verbosity levels:
+- Level 1: Shows major steps (N-terminal, C-terminal, standard GRNs, loops/gaps, completion)
+- Level 2: Shows detailed information including:
+  - Input data details
+  - GRN configuration information
+  - Intermediate calculations
+  - Missing position details
+  - Loop/gap annotation details
+
+### 2. annotate_grnp()
+Updated to follow the same pattern:
+- Level 1: Shows major workflow steps
+- Level 2: Shows alignment details, reference matches, and detailed results
+
+## Example Output:
+
+### With verbose=1:
+```
+=== Expand Annotation Started ===
+Query length: 348, Initial GRNs: 42
+
+1. Processing N-terminal region...
+   N-tail: 5 positions assigned
+
+2. Processing C-terminal region...
+   C-tail: 8 positions assigned
+
+3. Processing missing standard GRNs...
+   Assigned 12 standard GRNs
+
+4. Processing loops and gaps...
+   Annotated 15 positions:
+     - N-side loops: 8
+     - Gaps: 3
+     - C-side loops: 4
+
+5. Finalizing annotation...
+   Total positions annotated: 348
+   SUCCESS: All 348 positions annotated
+
+=== Expand Annotation Completed ===
+```
+
+### With verbose=2:
+Includes all of the above plus detailed debugging information like:
+- Specific GRN assignments
+- Alignment details
+- Configuration parameters
+- Intermediate calculation results
+- Data samples and previews
+
+## Benefits:
+1. **Clean output** for normal use (verbose=1)
+2. **Full debugging** capability when needed (verbose=2)
+3. **Silent operation** for batch processing (verbose=0)
+4. **Consistent format** across all GRN processing functions

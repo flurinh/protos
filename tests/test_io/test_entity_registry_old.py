@@ -67,7 +67,7 @@ class TestEntityRegistry:
     @pytest.fixture
     def registry(self, tmp_path):
         """Create a temporary entity registry."""
-        registry_file = tmp_path / "entity_registry.json"
+        registry_file = Path(tmp_path) / "entity_registry.json"
         return EntityRegistry(str(registry_file))
     
     def test_register_entity(self, registry):
@@ -235,7 +235,7 @@ class TestEntityRegistry:
     
     def test_registry_persistence(self, tmp_path):
         """Test that registry persists to disk."""
-        registry_file = tmp_path / "entity_registry.json"
+        registry_file = Path(tmp_path) / "entity_registry.json"
         
         # Create and populate registry
         registry1 = EntityRegistry(str(registry_file))
@@ -278,13 +278,10 @@ class TestBaseProcessorEntityMethods:
     @pytest.fixture
     def processor(self, tmp_path):
         """Create a test processor."""
-        ProtosPaths.set_data_root(str(tmp_path))
-        processor = EntityTestProcessor(
-            name="test_processor",
-            processor_data_dir="test"
-        )
+        os.environ["PROTOS_DATA_ROOT"] = str(tmp_path)
+        processor = EntityTestProcessor(name="test")
         yield processor
-        ProtosPaths.set_data_root(None)
+        # Clear environment
     
     def test_save_and_load_entity(self, processor):
         """Test saving and loading entities through BaseProcessor."""
@@ -405,7 +402,7 @@ class TestMultiFormatEntities:
     @pytest.fixture
     def registry(self, tmp_path):
         """Create a temporary entity registry."""
-        registry_file = tmp_path / "entity_registry.json"
+        registry_file = Path(tmp_path) / "entity_registry.json"
         return EntityRegistry(str(registry_file))
     
     def test_multi_format_entity(self, registry):

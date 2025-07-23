@@ -1,0 +1,15 @@
+{
+  "name": "test_ligands",
+  "processor_type": "ligand",
+  "entities": [
+    "CC(=O)OC1=CC=CC=C1C(=O)O",
+    "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+    "COC1=CC=CC=C1OCCN"
+  ],
+  "metadata": {
+    "description": "Test dataset for ligand download",
+    "source": "Synthetic"
+  },
+  "created": "2025-07-23T21:53:31.645190",
+  "modified": "2025-07-23T21:53:31.645203"
+}

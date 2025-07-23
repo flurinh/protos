@@ -6,6 +6,7 @@ import tempfile
 import shutil
 from pathlib import Path
 import pandas as pd
+import os
 
 from protos.io.paths import ProtosPaths
 from protos.processing.structure import StructureProcessor
@@ -19,7 +20,7 @@ def test_save_debug():
     
     try:
         # Set up ProtosPaths
-        paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+        paths = ProtosPaths(data_root=tmpdir)
         
         # Create processor
         processor = StructureProcessor(paths=paths)
@@ -35,38 +36,38 @@ def test_save_debug():
             'z': [1.0, 2.0, 3.0, 4.0, 5.0]
         })
         
-        print(f"\nCache directory: {processor.path_cache_dir}")
-        print(f"Cache directory exists: {processor.path_cache_dir.exists()}")
+        print(f"\nCache directory: {processor.paths.get_subdir_path('structure', 'cache_dir')}")
+        print(f"Cache directory exists: {os.path.exists(processor.paths.get_subdir_path('structure', 'cache_dir'))}")
         
         # Save using save_entity
         print("\nSaving entity 'test1'...")
         processor.save_entity("test1", test_data, metadata={"test": True})
         
         # Check if file was created
-        cache_file = processor.path_cache_dir / "test1.pkl"
-        print(f"\nCache file path: {cache_file}")
-        print(f"Cache file exists: {cache_file.exists()}")
+        cache_file = Path(processor.paths.get_subdir_path('structure', 'cache_dir')) / 'test1.pkl'
+        print(f'\nCache file path: {cache_file}')
+        print(f'Cache file exists: {os.path.exists(cache_file)}')
         
-        if cache_file.exists():
-            print(f"Cache file size: {cache_file.stat().st_size} bytes")
+        if os.path.exists(cache_file):
+            print(f'Cache file size: {cache_file.stat().st_size} bytes')
         
         # List contents of cache directory
-        print(f"\nContents of cache directory:")
-        for item in processor.path_cache_dir.iterdir():
+        print(f'\nContents of cache directory:')
+        for item in Path(processor.paths.get_subdir_path('structure', 'cache_dir')).iterdir():
             print(f"  - {item.name}")
         
         # Test dataset save
         processor.data = test_data
-        print(f"\nDataset directory: {processor.path_dataset_dir}")
-        print(f"Dataset directory exists: {processor.path_dataset_dir.exists()}")
+        print(f"\nDataset directory: {processor.paths.get_subdir_path('structure', 'dataset_dir')}")
+        print(f"Dataset directory exists: {os.path.exists(processor.paths.get_subdir_path('structure', 'dataset_dir'))}")
         
         pkl_path = processor.save_data("test_dataset")
-        print(f"\nSaved dataset to: {pkl_path}")
-        print(f"Dataset file exists: {Path(pkl_path).exists()}")
+        print(f'\nSaved dataset to: {pkl_path}')
+        print(f'Dataset file exists: {Path(pkl_path).exists()}')
         
         # List contents of dataset directory
         print(f"\nContents of dataset directory:")
-        for item in processor.path_dataset_dir.iterdir():
+        for item in Path(processor.paths.get_subdir_path('structure', 'dataset_dir')).iterdir():
             print(f"  - {item.name}")
             
     finally:

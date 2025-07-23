@@ -79,7 +79,7 @@ def main():
     print(f"✅ Sequence Processor initialized")
     
     # Initialize GRN configuration for microbial opsins
-    config_manager = GRNConfigManager(config_dir=data_dir / "grn" / "configs")
+    config_manager = GRNConfigManager(paths=paths)
     
     # 2. Load real opsin sequences
     print("\n2. Loading Real Opsin Sequences")

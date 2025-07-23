@@ -1,5 +1,4 @@
-from data_download.utils import *
-from data_download.gpcrdb.gpcrdb_loader_utils import *
+from protos.loaders.gpcrdb_loader_utils import *
 
 from tqdm import tqdm
 import pandas as pd

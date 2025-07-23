@@ -61,15 +61,15 @@ class UniprotDL:
                 data_root = os.path.dirname(os.path.dirname(path))
         
         # Initialize ProtosPaths for standard path management
-        self.paths = ProtosPaths(user_data_root=data_root, create_dirs=True)
+        self.paths = ProtosPaths(user_data_root=data_root)
         
         # Set dataset information
         self.dataset = dataset
         
         # Get standard directories from ProtosPaths
         self.sequence_dir = self.paths.get_processor_path('sequence')
-        self.fasta_dir = self.paths.get_sequence_subdir_path('fasta_dir')
-        self.metadata_dir = self.paths.get_sequence_subdir_path('metadata_dir')
+        self.fasta_dir = self.paths.get_subdir_path('sequence', 'fasta_dir')
+        self.metadata_dir = self.paths.get_subdir_path('sequence', 'metadata_dir')
         
         # Set specific paths for files
         self.dataset_file = join_path(self.metadata_dir, f"{dataset}.txt")

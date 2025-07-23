@@ -1,489 +1,302 @@
-# GRNBaseProcessor
+# GRN Processor
 
-The GRNBaseProcessor manages Generic Residue Numbering (GRN) data, providing standardized residue numbering schemes for protein families. This enables consistent position referencing across homologous proteins despite sequence variations.
+The GRN Processor manages Generic Residue Numbering (GRN) data, providing standardized residue numbering schemes for protein families. This enables consistent position referencing across homologous proteins despite sequence variations.
 
 ## Overview
 
-GRN (Generic Residue Numbering) provides:
-- Standardized position numbering for protein families
-- Cross-species residue mapping
-- Conservation analysis across homologs
+The GRN system provides:
+- Standardized position numbering for protein families (GPCRs, microbial opsins, etc.)
+- Complete residue annotation including TM regions, loops, N/C-terminals
+- Cross-species residue mapping and conservation analysis
 - Integration with structural and sequence data
-- Support for GPCR and other numbering schemes
+- Support for multiple numbering schemes
 
-## GRN Concept
-
-GRN uses a hierarchical numbering system:
-- **Helix/Region** (1-7 for GPCRs, customizable for other families)
-- **Position** (typically 50 as reference point per helix)
-- **Format**: `helix.position` (e.g., "3.50", "7.50")
-
-Example:
-```
-Position 3.50 = Position 50 in helix/region 3
-- Highly conserved DRY motif region in GPCRs
-- K296 in rhodopsin
-- K231 in β2-adrenergic receptor
-```
+For detailed GRN format specifications, see the [GRN Documentation](../grn.md).
 
 ## Basic Usage
 
 ### Initialization
 
 ```python
-from protos.processing.grn.grn_base_processor import GRNBaseProcessor
+from protos.processing.grn import GRNProcessor
 
 # Create processor
-gp = GRNBaseProcessor(name="grn_analysis")
+grnp = GRNProcessor(name="grn_analysis")
 
-# With options
-gp = GRNBaseProcessor(
-    name="gpcr_grn",
-    preload=True,          # Load reference tables on init
-    verbose=True           # Detailed logging
-)
+# Load reference GRN table
+grnp.load_grn_table("gpcrdb_ref")  # For GPCRs
+# or
+grnp.load_grn_table("mo_ref")      # For microbial opsins
 ```
 
-### Loading GRN Tables
+### GRN Table Format
 
+GRN tables are pandas DataFrames with:
+- **Index**: Protein/sequence identifiers
+- **Columns**: GRN positions (e.g., "1.50", "3.50", "n.10", "c.5", "34.001")
+- **Values**: Amino acid + position (e.g., "K296", "D83", "-" for gaps)
+
+Example structure:
 ```python
-# Load existing GRN table
-gp.load_grn_table("rhodopsin_family")
-
-# Load with validation
-gp.load_grn_table("microbial_opsins", validate=True)
-
-# Check available tables
-tables = gp.list_grn_tables()
-```
-
-## GRN Table Format
-
-GRN tables are structured with:
-- **Rows**: Sequence/protein identifiers
-- **Columns**: GRN positions (helix.position format)
-- **Values**: Residue and position (e.g., "K296", "D83")
-
-```python
-# Example GRN table structure
-grn_df = pd.DataFrame({
-    '1.50': ['N55', 'N55', 'T62'],      # Position 50 in TM1
-    '2.50': ['D83', 'D83', 'V90'],      # Position 50 in TM2  
-    '3.50': ['R135', 'R135', 'L129'],   # DRY motif region
-    '4.50': ['W161', 'W161', 'W171'],   # Conserved tryptophan
-    '5.50': ['P215', 'Y215', 'T205'],   # Position 50 in TM5
-    '6.50': ['F261', 'F261', 'P238'],   # Position 50 in TM6
-    '7.50': ['N302', 'K296', 'K257']    # NPxxY motif/Schiff base
-}, index=['RHO_HUMAN', 'OPSD_HUMAN', 'BACR_HALSA'])
+        1.50   2.50   3.50   ...  7.50   n.1    c.1
+RHO     N55    D83    R135   ...  N302   M1     A348
+OPSD    N55    D83    R135   ...  N302   M1     V348
+ADRB2   N51    D79    R131   ...  Y316   M1     L412
 ```
 
 ## Core Operations
 
-### Creating GRN Tables
+### Annotating New Sequences
 
 ```python
-# Create from alignment
-alignment = {
-    'PROT1': 'MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTK',
-    'PROT2': 'MVLSPADKTNVKGAWGKVGGHAGEYGAEALERMFLSFPTTK',
-    'PROT3': 'MVLSPADKTNVKAGWGKVGAHAGEYGAEALERMFLSFPTTK'
-}
-
-# Define key positions
-key_positions = {
-    '1.50': 10,  # V in all sequences
-    '2.50': 20,  # W/A in sequences
-    '3.50': 28,  # Y in all sequences
-}
-
-# Create GRN table
-grn_table = gp.create_grn_from_alignment(alignment, key_positions)
-```
-
-### Saving GRN Tables
-
-```python
-# Save GRN table
-gp.save_grn_table("my_family_grn", grn_data)
-
-# Save with metadata
-gp.save_grn_table(
-    "gpcr_class_a",
-    grn_data,
-    metadata={
-        "family": "Class A GPCRs",
-        "reference": "RHO_HUMAN",
-        "created": "2024-01-15",
-        "positions": 285  # Number of annotated positions
-    }
+# Simple annotation
+result = grnp.annotate_sequence(
+    name="my_receptor",
+    sequence="MNGTEGPNFYVPFSNKTGVVRSPFEYPQYYLAEPWQFSMLAAYMFLLIMLGFPINFLTLYVTVQHKKLRT...",
+    protein_family="gpcr_a"
 )
 ```
 
-### Sequence Operations
+### Detailed Annotation with Verbosity
 
 ```python
-# Extract sequences from GRN
-sequences = gp.get_seq_dict()
-# {'RHO_HUMAN': 'NDRRMFLSFP...', 'OPSD_HUMAN': 'NDRYMFLSFP...'}
+from protos.processing.grn.grn_table_utils import annotate_grnp
 
-# Get specific position across all sequences
-position_3_50 = gp.get_position_column('3.50')
-# ['R135', 'R135', 'L129']
+# Annotate with detailed progress
+grn_row = annotate_grnp(
+    grnp=grnp,
+    query_name="NEW_RECEPTOR",
+    query_seq=sequence,
+    protein_family="gpcr_a",
+    verbose=2  # 0=silent, 1=major steps, 2=detailed
+)
 
-# Get conserved positions
-conserved = gp.find_conserved_positions(threshold=0.9)
-# ['1.50', '4.50', '6.50']  # Positions conserved in >90% sequences
+# The annotation process:
+# 1. Finds best reference match using MMseqs2
+# 2. Transfers strict GRN positions via alignment
+# 3. Assigns N-terminal positions (n.1, n.2, ...)
+# 4. Assigns C-terminal positions (c.1, c.2, ...)
+# 5. Fills in missing standard GRN positions
+# 6. Annotates loops between helices (e.g., 34.001)
 ```
 
-### Analysis Functions
+### Working with GRN Data
 
 ```python
-# Conservation analysis
-conservation = gp.calculate_conservation()
-# DataFrame with conservation scores per position
+# Get sequence from GRN table
+sequence = grnp.get_sequence("5HT2B_HUMAN")
 
-# Position frequency
-freq_3_50 = gp.get_position_frequency('3.50')
-# {'R': 0.67, 'L': 0.33}
+# Get specific positions
+dry_motif = grnp.get_grn_positions("5HT2B_HUMAN", ["3.49", "3.50", "3.51"])
 
-# Find variable positions
-variable = gp.find_variable_positions(min_variants=3)
+# Filter by GRN range
+tm3_residues = grnp.filter_by_grn_range("3.20", "3.60")
 
-# Clustering by GRN patterns
-clusters = gp.cluster_by_grn_patterns()
+# Get all sequences as dictionary
+seq_dict = grnp.get_seq_dict()
+
+# Save results
+grnp.save_grn_table("my_annotated_table")
 ```
 
 ## Advanced Features
 
-### GRN Annotation
+### GRN Configuration Management
 
 ```python
-# Annotate new sequence with GRN
-new_sequence = "MNGTEGPNFYVPFSNKTGVVRSPFEAPQYYLAEPWQFSMLAAYMFLLIMLGFPINFLTLYVTVQHKKLRT"
+from protos.processing.grn.grn_utils import GRNConfigManager
 
-# Align to reference and transfer GRN
-grn_annotation = gp.annotate_sequence(
-    sequence=new_sequence,
-    sequence_id="NEW_OPSIN",
-    reference="BACR_HALSA"
-)
+# Load configuration for specific protein family
+config = GRNConfigManager()
+grn_config = config.get_config(protein_family="gpcr_a", strict=False)
 
-# Add to existing table
-gp.add_sequence_to_grn(
-    sequence_id="NEW_OPSIN",
-    grn_annotation=grn_annotation
-)
+# Get GRN interval for a region
+from protos.processing.grn.grn_utils import get_grn_interval
+
+# Generate all positions in TM3
+tm3_grns = get_grn_interval("3.20", "3.60")  # Auto-generates with 0.01 step
+
+# Or filter from a reference list
+ref_grns = ["3.20", "3.32", "3.50", "3.551", "3.60"]
+tm3_filtered = get_grn_interval("3.20", "3.60", grns_str=ref_grns)
 ```
 
-### Motif Analysis
+### Conservation Analysis
 
 ```python
-# Define functional motifs
+# Find conserved positions
+conserved = grnp.find_conserved_positions(threshold=0.9)
+
+# Analyze specific motifs
 motifs = {
     "DRY": ["3.49", "3.50", "3.51"],
     "NPxxY": ["7.49", "7.50", "7.51", "7.52", "7.53"],
     "CWxP": ["6.47", "6.48", "6.50"]
 }
 
-# Analyze motif conservation
-motif_analysis = gp.analyze_motifs(motifs)
-
-# Find sequences with specific motif patterns
-dry_intact = gp.find_sequences_with_motif(
-    positions=motifs["DRY"],
-    pattern=["D", "R", "Y"]
-)
+for motif_name, positions in motifs.items():
+    residues = grnp.get_grn_positions("RHO_HUMAN", positions)
+    print(f"{motif_name}: {residues}")
 ```
 
-### Integration with Structures
+### Structure Integration
 
 ```python
-# Map GRN to structure
-from protos.processing.structure.struct_base_processor import CifBaseProcessor
-cp = CifBaseProcessor()
+from protos.processing.structure import StructureProcessor
 
-# Load structure
-structure = cp.load_structure("5uig")  # Rhodopsin structure
+# Load structure with GRN assignments
+sp = StructureProcessor(name="structure_grn")
+sp.load_dataset("gpcr_structures")
+
+# Get GRN assignments for structure
+grn_dict = sp.get_grn_dict("5dsg_A")
 
 # Map GRN positions to structure residues
-grn_mapping = gp.map_grn_to_structure(
-    grn_sequence_id="RHO_HUMAN",
-    structure_pdb="5uig",
-    chain="A"
-)
-
-# Extract GRN positions from structure
-position_coords = gp.extract_grn_positions_from_structure(
-    structure,
-    grn_positions=["3.50", "6.50", "7.50"]
-)
+position_3_50 = grn_dict.get("3.50")  # Returns residue number in structure
 ```
 
-### Family-Specific Schemes
+## Protein Family Configurations
+
+### GPCR Class A
+- **Standard range**: TM1 (1.28-1.64), TM2 (2.31-2.71), ..., H8 (8.37-8.72)
+- **Strict positions**: Highly conserved positions only
+- **Key motifs**: DRY (3.49-3.51), NPxxY (7.49-7.53), CWxP (6.47-6.50)
+
+### Microbial Opsins
+- **Standard range**: TM1 (1.36-1.61), TM2 (2.39-2.67), ..., TM7 (7.33-7.62)
+- **No H8 helix**
+- **Key positions**: Schiff base (7.43), Proton acceptor (3.28), Proton donor (3.32)
+
+## Common Workflows
+
+### Workflow 1: Annotate Multiple Sequences
 
 ```python
-# Load predefined numbering schemes
-gp.load_numbering_scheme("ballesteros-weinstein")  # GPCRs
-gp.load_numbering_scheme("kabat")                  # Antibodies
-gp.load_numbering_scheme("imgt")                   # Immunoglobulins
-
-# Create custom scheme
-custom_scheme = {
-    "helices": 7,
-    "reference_positions": {
-        1: 50, 2: 50, 3: 50, 4: 50, 
-        5: 50, 6: 50, 7: 50
-    },
-    "conserved_positions": {
-        "1.50": "N",
-        "2.50": "D", 
-        "3.50": "R",
-        "7.50": "Y"
-    }
-}
-gp.define_custom_scheme("my_family", custom_scheme)
-```
-
-## Working with Microbial Opsins
-
-### Opsin-Specific Analysis
-
-```python
-# Load microbial opsin GRN
-gp.load_grn_table("microbial_opsins")
-
-# Analyze key functional positions
-key_positions = {
-    "proton_acceptor": "3.28",      # D85 in BR
-    "proton_donor": "3.32",         # D96 in BR  
-    "schiff_base": "7.43",          # K216 in BR
-    "proton_release": "3.16"        # E194/E204 in BR
+# Load sequences
+sequences = {
+    "receptor1": "MNGTEGPNF...",
+    "receptor2": "MEGNPNYFT...",
+    "receptor3": "MPPGWNNTA..."
 }
 
-# Check conservation of functional residues
-for name, pos in key_positions.items():
-    conservation = gp.get_position_frequency(pos)
-    print(f"{name} ({pos}): {conservation}")
+# Annotate all sequences
+annotated_table = pd.DataFrame()
+
+for name, seq in sequences.items():
+    row = grnp.annotate_sequence(
+        name=name,
+        sequence=seq,
+        protein_family="gpcr_a"
+    )
+    annotated_table = pd.concat([annotated_table, row.to_frame().T])
+
+# Save complete table
+grnp.data = annotated_table
+grnp.save_grn_table("my_family_grn")
 ```
 
-### Opsin Classification
+### Workflow 2: Opsin Classification
 
 ```python
-# Classify opsins by GRN patterns
-def classify_opsin(sequence_id):
-    """Classify opsin type based on GRN patterns."""
-    grn_row = gp.get_grn_for_sequence(sequence_id)
+# Classify opsins based on key GRN positions
+def classify_opsin(protein_name):
+    row = grnp.data.loc[protein_name]
     
-    # Check key positions
-    if grn_row["3.28"] == "D" and grn_row["7.43"] == "K":
-        if grn_row["3.32"] == "D":
+    # Check key functional positions
+    if row["3.28"] == "D" and row["7.43"] == "K":
+        if row["3.32"] == "D":
             return "proton_pump"
-        elif grn_row["3.32"] == "T":
+        elif row["3.32"] == "T":
             return "chloride_pump"
-    elif grn_row["3.28"] == "E":
+    elif row["3.28"] == "E":
         return "channel"
-    else:
-        return "unknown"
+    
+    return "unknown"
 
-# Apply classification
-opsin_types = {}
-for seq_id in gp.data.index:
-    opsin_types[seq_id] = classify_opsin(seq_id)
+# Apply to all opsins
+opsin_types = {name: classify_opsin(name) for name in grnp.data.index}
+```
+
+### Workflow 3: Export for Analysis
+
+```python
+# Export specific regions
+tm_regions = []
+for i in range(1, 8):
+    start = f"{i}.{grn_config[f'tm{i}'][0].split('.')[1]}"
+    end = f"{i}.{grn_config[f'tm{i}'][1].split('.')[1]}"
+    tm_cols = grnp.filter_columns_by_range(start, end)
+    tm_regions.append(grnp.data[tm_cols])
+
+# Export conserved positions only
+conserved_pos = grnp.find_conserved_positions(0.95)
+conserved_table = grnp.data[conserved_pos]
+conserved_table.to_csv("conserved_positions.csv")
 ```
 
 ## Best Practices
 
-### 1. Validate GRN Tables
+1. **Always specify protein family**: Different families have different GRN configurations
+   ```python
+   # Good
+   result = grnp.annotate_sequence(name="seq1", sequence=seq, protein_family="gpcr_a")
+   
+   # Bad - will use default or fail
+   result = grnp.annotate_sequence(name="seq1", sequence=seq)
+   ```
 
-```python
-# Always validate after creation/loading
-issues = gp.validate_grn_table()
-if issues:
-    for issue in issues:
-        print(f"Warning: {issue}")
+2. **Handle missing positions**: Not all positions can be assigned
+   ```python
+   grn_list, rn_list, missing = expand_annotation(...)
+   if missing:
+       print(f"Warning: {len(missing)} positions could not be annotated")
+   ```
 
-# Check format consistency
-gp.standardize_grn_format()  # Convert all to residue+number format
-```
+3. **Use verbosity for debugging**: Set verbose=2 to understand annotation decisions
+   ```python
+   result = annotate_grnp(grnp, "test", seq, verbose=2)
+   ```
 
-### 2. Handle Missing Positions
-
-```python
-# Check for gaps in annotation
-missing = gp.find_missing_positions()
-
-# Fill gaps with placeholder
-gp.fill_missing_positions(placeholder="-")
-
-# Or interpolate from neighbors
-gp.interpolate_missing_positions(method="nearest")
-```
-
-### 3. Reference Selection
-
-```python
-# Choose appropriate reference sequence
-# Usually the best-characterized member
-reference_options = {
-    "rhodopsins": "RHO_HUMAN",      # Bovine/human rhodopsin
-    "bacteriorhodopsins": "BACR_HALSA",  # Well-studied
-    "channelrhodopsins": "CHR2_CHLRE"    # ChR2
-}
-
-# Set reference for alignment
-gp.set_reference_sequence(reference_options["rhodopsins"])
-```
-
-### 4. Conservation-Based Filtering
-
-```python
-# Focus on conserved positions for analysis
-conserved_positions = gp.find_conserved_positions(threshold=0.8)
-
-# Create reduced GRN table
-reduced_grn = gp.data[conserved_positions]
-
-# Use for clustering or classification
-clusters = gp.cluster_sequences(
-    positions=conserved_positions,
-    method="hierarchical"
-)
-```
-
-## Common Workflows
-
-### Workflow 1: Family Analysis
-
-```python
-def analyze_protein_family(sequences, reference_id):
-    """Complete GRN analysis for protein family."""
-    
-    # Create GRN from sequences
-    grn_table = gp.create_grn_from_sequences(
-        sequences,
-        reference=reference_id
-    )
-    
-    # Save GRN table
-    gp.data = grn_table
-    gp.save_grn_table("family_analysis")
-    
-    # Analyze conservation
-    conservation = gp.calculate_conservation()
-    
-    # Find motifs
-    motifs = gp.find_conserved_motifs(min_length=3)
-    
-    # Cluster subfamilies
-    clusters = gp.cluster_by_grn_patterns()
-    
-    return {
-        "grn_table": grn_table,
-        "conservation": conservation,
-        "motifs": motifs,
-        "clusters": clusters
-    }
-```
-
-### Workflow 2: Structure-Function Mapping
-
-```python
-def map_function_to_structure(grn_table, functional_data, structure_pdb):
-    """Map functional data to structural positions via GRN."""
-    
-    # Load GRN
-    gp.data = grn_table
-    
-    # Map functional positions
-    functional_positions = {}
-    for seq_id, function in functional_data.items():
-        if seq_id in gp.data.index:
-            # Get GRN positions for functional residues
-            positions = gp.get_functional_positions(seq_id, function)
-            functional_positions[seq_id] = positions
-    
-    # Map to structure
-    cp = CifBaseProcessor()
-    structure = cp.load_structure(structure_pdb)
-    
-    # Highlight functional positions
-    for grn_pos in functional_positions.values():
-        struct_residues = gp.grn_to_structure_residues(grn_pos, structure_pdb)
-        # Annotate structure...
-    
-    return functional_positions
-```
-
-### Workflow 3: Novel Sequence Annotation
-
-```python
-def annotate_novel_sequences(novel_sequences, reference_grn_table):
-    """Annotate new sequences with established GRN."""
-    
-    # Load reference GRN
-    gp.load_grn_table(reference_grn_table)
-    
-    annotated = {}
-    for seq_id, sequence in novel_sequences.items():
-        # Find best reference
-        best_ref = gp.find_closest_reference(sequence)
-        
-        # Transfer annotation
-        annotation = gp.transfer_grn_annotation(
-            sequence,
-            reference=best_ref,
-            method="profile_alignment"
-        )
-        
-        annotated[seq_id] = annotation
-        
-        # Add to GRN table
-        gp.add_sequence_to_grn(seq_id, annotation)
-    
-    # Save updated table
-    gp.save_grn_table(f"{reference_grn_table}_extended")
-    
-    return annotated
-```
+4. **Validate GRN formats**: Use proper dot notation
+   ```python
+   from protos.processing.grn.grn_utils import validate_grn_string
+   
+   is_valid, message = validate_grn_string("3.50")  # Valid
+   is_valid, message = validate_grn_string("3x50")  # Invalid (old format)
+   ```
 
 ## Troubleshooting
 
-### Common Issues
-
-1. **Invalid GRN format**
+### Issue: No standard GRNs found
+**Solution**: Check that the protein family configuration is loaded correctly
 ```python
-# Check and fix format
-invalid = gp.find_invalid_positions()
-if invalid:
-    gp.fix_grn_format(invalid)
+config = GRNConfigManager()
+available_families = config.configs.keys()
+print(f"Available families: {available_families}")
 ```
 
-2. **Alignment issues**
+### Issue: Poor annotation coverage
+**Solution**: Try different reference sequences or protein families
 ```python
-# Use more sensitive alignment
-gp.annotate_sequence(
-    sequence,
-    method="hmmer",  # More sensitive than pairwise
-    e_value=0.001
-)
+# Try microbial opsin family if GPCR annotation fails
+result_mo = grnp.annotate_sequence(name="seq1", sequence=seq, protein_family="mo")
 ```
 
-3. **Missing reference positions**
+### Issue: Invalid GRN formats in output
+**Solution**: Update to latest version that uses dot notation exclusively
 ```python
-# Handle sequences missing key positions
-if pd.isna(grn_row["7.50"]):  # Missing critical position
-    # Try alternative references
-    alt_annotation = gp.annotate_with_multiple_references(sequence)
+# Check for old x notation
+if 'x' in grn_string and '.' not in grn_string:
+    print("Warning: Old GRN format detected")
 ```
 
 ## Summary
 
-GRNBaseProcessor provides:
-- Standardized residue numbering for protein families
-- Conservation and motif analysis
-- Integration with structure and sequence data  
-- Family-specific numbering schemes
-- Annotation transfer to novel sequences
-- Clustering and classification capabilities
+The GRN Processor provides:
+- Complete residue annotation for protein families
+- Flexible configuration for different numbering schemes
+- Integration with structure and sequence analysis
+- Conservation and motif analysis capabilities
+- Standardized data format for cross-study comparison
 
-The GRN system enables consistent analysis across diverse homologous sequences, facilitating structure-function studies and evolutionary analysis.
+For more details on GRN formats and specifications, see the [GRN Documentation](../grn.md).

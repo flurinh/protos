@@ -19,7 +19,7 @@ def test_simple_pdb_download():
     
     # Use processor's structure directory (managed by ProtosPaths)
     struct_proc = StructureProcessor(name="test_download")
-    target_dir = struct_proc.path_structure_dir
+    target_dir = struct_proc.self.path_resolver.get_subdir_path("structure", "structure_dir")
     
     # Test with PDBList directly first
     pdbl = PDBList()
@@ -65,7 +65,7 @@ def test_real_workflow_with_correct_paths():
     
     # Download a small protein
     pdb_id = "1l2y"
-    target_dir = processor.path_structure_dir
+    target_dir = processor.paths.get_subdir_path("structure", "structure_dir")
     
     # Use PDBList directly to understand the file structure
     pdbl = PDBList()

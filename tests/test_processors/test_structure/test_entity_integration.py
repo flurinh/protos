@@ -17,37 +17,33 @@ from protos.io import cif_utils
 @pytest.fixture
 def temp_data_dir(tmp_path):
     """Create a temporary data directory."""
-    return tmp_path / "test_data"
+    return Path(tmp_path) / "test_data"
 
 
 @pytest.fixture
-def setup_paths(temp_data_dir):
+def setup_paths(temp_data_dir, monkeypatch):
     """Set up ProtosPaths for testing."""
-    ProtosPaths.set_data_root(str(temp_data_dir))
+    monkeypatch.setenv("PROTOS_DATA_ROOT", str(temp_data_dir))
     return ProtosPaths()
 
 
 @pytest.fixture
-def conftest_setup(request):
+def conftest_setup(request, monkeypatch):
     """Use the test-data directory directly."""
-    # Set the global data root to our test-data directory
+    # Set the environment variable for data root
     # Use relative path from current file location
     current_file = Path(__file__)
     test_data_dir = current_file.parent.parent.parent / "test-data"
-    ProtosPaths.set_data_root(str(test_data_dir))
+    monkeypatch.setenv("PROTOS_DATA_ROOT", str(test_data_dir))
     
     # Return available test structures
-    mmcif_dir = test_data_dir / "structure" / "mmcif"
+    mmcif_dir = Path(test_data_dir) / "structure" / "mmcif"
     test_pdbs = []
     if mmcif_dir.exists():
         for cif_file in mmcif_dir.glob("*.cif"):
             test_pdbs.append(cif_file.stem)
     
-    def teardown():
-        # Clear the data root after test
-        ProtosPaths.set_data_root(None)
-    
-    request.addfinalizer(teardown)
+    # No cleanup needed - monkeypatch handles it
     return test_pdbs
 
 
@@ -112,7 +108,7 @@ class TestCifBaseProcessorEntityIntegration:
         global_registry = GlobalRegistry()
         
         # Register test structures
-        for pdb_id in ["1ABC", "2DEF", "3GHI"]:
+        for pdb_id in ["1ubq", "2gb1", "1crn"]:
             entity_id = generate_entity_id(pdb_id)
             global_registry.entity_registry.register_entity(
                 entity_id=entity_id,
@@ -126,9 +122,9 @@ class TestCifBaseProcessorEntityIntegration:
         structures = processor.list_structures()
         
         # Should return original PDB IDs, not hashes
-        assert "1ABC" in structures
-        assert "2DEF" in structures
-        assert "3GHI" in structures
+        assert "1ubq" in structures
+        assert "2gb1" in structures
+        assert "1crn" in structures
         
         # Should NOT contain hash IDs
         for struct in structures:
@@ -139,14 +135,14 @@ class TestCifBaseProcessorEntityIntegration:
         processor = StructureProcessor(name="test_consistency")
         
         # Get entity ID multiple times
-        entity_id1 = processor.get_entity_id_for_pdb("1ABC")
-        entity_id2 = processor.get_entity_id_for_pdb("1ABC")
+        entity_id1 = processor.get_entity_id_for_pdb("1ubq")
+        entity_id2 = processor.get_entity_id_for_pdb("1ubq")
         
         # Should be the same
         assert entity_id1 == entity_id2
         
         # Should be the expected hash
-        expected = generate_entity_id("1ABC")
+        expected = generate_entity_id("1ubq")
         assert entity_id1 == expected
     
     def test_save_structure_as_entity(self, conftest_setup):
@@ -188,7 +184,7 @@ class TestCifBaseProcessorEntityIntegration:
         assert 'metadata' in structure_format
         
         # Verify the file was created
-        expected_path = Path(processor.path_structure_dir) / f"{new_pdb_id}.cif"
+        expected_path = Path(processor.paths.get_subdir_path("structure", "structure_dir")) / f"{new_pdb_id}.cif"
         assert expected_path.exists()
         
         # Verify we can load the saved structure by entity ID

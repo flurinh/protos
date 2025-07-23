@@ -93,6 +93,7 @@ setup(
     ],
     python_requires=">=3.10",
     install_requires=[
+        "typer",
         "numpy>=1.22.0",
         "pandas>=1.4.0",
         "matplotlib>=3.5.0",
@@ -144,6 +145,7 @@ setup(
         'console_scripts': [
             'protos-init=protos.cli.init_data:init_data',
             'protos-cleanup=protos.cli.cleanup_data:cleanup_data',
+            'protos = protos.cli.cli:app'
         ],
     },
 )

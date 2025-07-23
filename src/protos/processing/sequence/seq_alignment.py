@@ -153,7 +153,7 @@ def get_best_alignment(msa, score_type='restricted'):
     return best_name, alignment
 
 
-def init_aligner(open_gap_score=-10):
+def init_aligner(match_score=2, mismatch_score=-2, extend_gap_score=-.05, open_gap_score=-10):
     # Load the original BLOSUM62 matrix
     blosum62 = substitution_matrices.load("BLOSUM62")
 
@@ -188,10 +188,10 @@ def init_aligner(open_gap_score=-10):
     # Initialize the aligner with the updated matrix
     aligner = Align.PairwiseAligner()
     aligner.mode = 'global'
-    aligner.match_score = 2
-    aligner.mismatch_score = -0.5
+    aligner.match_score = match_score
+    aligner.mismatch_score = mismatch_score
     aligner.open_gap_score = open_gap_score
-    aligner.extend_gap_score = -0.1
+    aligner.extend_gap_score = extend_gap_score
     aligner.target_end_gap_score = 0.0
     aligner.query_end_gap_score = 0.0
     aligner.substitution_matrix = updated_matrix
@@ -265,16 +265,16 @@ def mmseqs2_align(query_seq, seqs, temp_folder='temp'):
         query_file.write(f'>query\n{query_seq}\n')
 
     # use_wsl was already determined above
-    if use_wsl:
+    if not use_wsl:
         # Windows user with WSL
-        cmd_prefix = ['wsl']
+        cmd_prefix = ['wsl', 'bash', '-c', ]
     else:
         # Direct execution (Linux/WSL)
         cmd_prefix = []
     
     try:
         # Convert paths to WSL format if needed
-        if use_wsl:
+        if not use_wsl:
             sequences_fasta = windows_to_wsl_path(os.path.join(temp_folder, 'sequences.fasta'))
             query_fasta = windows_to_wsl_path(os.path.join(temp_folder, 'query.fasta'))
             sequences_db = windows_to_wsl_path(os.path.join(temp_folder, 'mmseqs_tmp', 'sequences_db'))
@@ -336,11 +336,11 @@ def mmseqs2_align2(query_seqs: Dict[str, str], ref_seqs: Dict[str, str], temp_fo
 
     # Detect MMseqs2
     path_mmseqs, use_wsl = detect_mmseqs2()
-    
+
     if not path_mmseqs:
         print("MMseqs2 not found. Please install it or set MMSEQS_PATH environment variable.")
         return None
-    
+
     write_fasta_file(ref_seqs, os.path.join(temp_folder, 'ref_seqs.fasta'))
     write_fasta_file(query_seqs, os.path.join(temp_folder, 'query_seqs.fasta'))
 
@@ -368,18 +368,18 @@ def mmseqs2_align2(query_seqs: Dict[str, str], ref_seqs: Dict[str, str], temp_fo
             results_db = f"{temp_folder}/mmseqs_tmp/results"
             tmp_dir = f"{temp_folder}/mmseqs_tmp"
             alignment_tsv = f"{temp_folder}/alignment_results.tsv"
-            
+
         subprocess.run(cmd_prefix + [path_mmseqs, 'createdb', ref_fasta,
-                        sequences_db], check=True)
+                                     sequences_db], check=True)
         subprocess.run(cmd_prefix + [path_mmseqs, 'createdb', query_fasta,
-                        query_db], check=True)
+                                     query_db], check=True)
         subprocess.run(cmd_prefix + [path_mmseqs, 'search', query_db,
-                        sequences_db, results_db,
-                        tmp_dir], check=True)
+                                     sequences_db, results_db,
+                                     tmp_dir], check=True)
         subprocess.run(cmd_prefix + [path_mmseqs, 'convertalis', query_db,
-                        sequences_db, results_db,
-                        alignment_tsv], check=True)
-        
+                                     sequences_db, results_db,
+                                     alignment_tsv], check=True)
+
         # Clean up
         if use_wsl:
             subprocess.run(['wsl', 'rm', '-rf', tmp_dir])
@@ -389,10 +389,10 @@ def mmseqs2_align2(query_seqs: Dict[str, str], ref_seqs: Dict[str, str], temp_fo
 
         # Load the first round alignment results into a dataframe
         alignment_df = load_alignment_file(os.path.join(temp_folder, 'alignment_results.tsv'))
-        os.remove(os.path.join(temp_folder, 'alignment_results.tsv'))
+        # os.remove(os.path.join(temp_folder, 'alignment_results.tsv'))
 
         return alignment_df
-        
+
     except subprocess.CalledProcessError as e:
         print(f"MMseqs2 error: {e}")
         return None

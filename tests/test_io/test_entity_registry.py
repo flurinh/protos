@@ -23,7 +23,7 @@ class TestEntityRegistry:
     def test_init_with_protospaths(self):
         """Test EntityRegistry accepts ProtosPaths in __init__."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+            paths = ProtosPaths(data_root=tmpdir)
             registry = EntityRegistry(paths=paths)
             
             # Should use ProtosPaths for registry file

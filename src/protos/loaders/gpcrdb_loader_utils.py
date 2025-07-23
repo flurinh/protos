@@ -1,9 +1,10 @@
-from data_download.utils import *
-
 from bs4 import BeautifulSoup
 import requests
-
 import pandas as pd
+import os
+from pathlib import Path
+from urllib.request import urlretrieve
+from tqdm import tqdm
 
 
 COLS = ['cross', 'filler', 'uniprot(gene)', 'filler2', 'receptor family', 'Cl.', 'Species', 'Method', 'PDB', \

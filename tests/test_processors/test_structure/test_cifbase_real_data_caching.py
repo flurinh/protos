@@ -26,7 +26,7 @@ class TestCifBaseRealDataCaching:
         tmpdir = tempfile.mkdtemp()
         
         # Set up ProtosPaths
-        paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+        paths = ProtosPaths(data_root=tmpdir)
         
         # Copy real CIF files to the temp directory
         source_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/tests/test-data/structure/mmcif")
@@ -69,7 +69,7 @@ class TestCifBaseRealDataCaching:
             print(f"  - Residues: {structure['auth_seq_id'].nunique()}")
             
             # Check cache was created
-            cache_file = processor.path_cache_dir / f"{cif_name}.pkl"
+            cache_file = processor.paths.get_subdir_path("structure", "cache_dir") / f"{cif_name}.pkl"
             assert cache_file.exists()
             print(f"  - Cache created: {cache_file}")
             
@@ -175,7 +175,7 @@ class TestCifBaseRealDataCaching:
         processor.create_dataset("fallback_dataset", pdb_ids)
         
         # Ensure no PKL exists
-        pkl_path = processor.path_dataset_dir / "fallback_dataset.pkl"
+        pkl_path = Path(processor.paths.get_subdir_path("structure", "dataset_dir")) / "fallback_dataset.pkl"
         assert not pkl_path.exists()
         
         # Load dataset - should fall back to individual files
@@ -224,7 +224,7 @@ class TestCifBaseRealDataCaching:
         
         # Check that 4pxk was loaded but not necessarily cached
         # (load_structures doesn't cache by default)
-        cache_file = processor.path_cache_dir / "4pxk.pkl"
+        cache_file = Path(processor.paths.get_subdir_path("structure", "cache_dir")) / "4pxk.pkl"
         if cache_file.exists():
             print("  - Previously uncached structure (4pxk) is now cached")
         else:

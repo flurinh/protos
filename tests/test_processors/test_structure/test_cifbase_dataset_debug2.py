@@ -4,6 +4,8 @@ Debug dataset loading issue.
 
 import pytest
 import tempfile
+import os
+import json
 import pandas as pd
 from pathlib import Path
 
@@ -14,7 +16,7 @@ from protos.processing.structure import StructureProcessor
 def test_dataset_loading_steps():
     """Test dataset loading step by step."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        paths = ProtosPaths(data_root=tmpdir, create_dirs=True)
+        paths = ProtosPaths(data_root=tmpdir)
         processor = StructureProcessor(paths=paths)
         
         # Create and save a structure
@@ -54,10 +56,9 @@ def test_dataset_loading_steps():
                 print(f"3. dataset_manager.load_dataset error: {e}")
         
         # Step 4: Check the actual JSON file
-        json_path = processor.data_path / "datasets" / "debug_test.json"
+        json_path = Path(tmpdir) / "structure" / "datasets" / "debug_test.json"
         print(f"4. JSON path exists: {json_path.exists()}")
         if json_path.exists():
-            import json
             with open(json_path) as f:
                 json_content = json.load(f)
             print(f"4. JSON content: {json_content}")
@@ -77,5 +78,5 @@ def test_dataset_loading_steps():
                 print(f"7. After load_structures, data shape: {processor.data.shape if processor.data is not None else 'None'}")
         
         # Step 7: Check if the structure cache files exist
-        cache_file = processor.path_cache_dir / "test1.pkl"
+        cache_file = Path(processor.paths.get_subdir_path("structure", "cache_dir")) / "test1.pkl"
         print(f"8. Cache file exists: {cache_file.exists()}")

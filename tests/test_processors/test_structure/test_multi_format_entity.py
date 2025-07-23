@@ -67,7 +67,7 @@ class TestMultiFormatEntity:
             entity_id=expected_entity_id,
             entity_type="sequence",
             original_id="1ubq",
-            file_path=str(setup_test_environment / "sequence" / "fasta" / "1ubq.fasta"),
+            file_path=str(Path(setup_test_environment) / "sequence" / "fasta" / "1ubq.fasta"),
             metadata={"length": len(sequence_data), "chain": "A"}
         )
         
@@ -133,12 +133,12 @@ class TestMultiFormatEntity:
         
         # Create entities with different format combinations
         # Entity 1: structure only
-        entity1 = generate_entity_id("1ABC")
+        entity1 = generate_entity_id("1ubq")
         global_registry.entity_registry.register_entity(
             entity_id=entity1,
             entity_type="structure",
-            original_id="1ABC",
-            file_path="/test/1ABC.cif"
+            original_id="1ubq",
+            file_path="/test/1ubq.cif"
         )
         
         # Entity 2: sequence only  
@@ -151,18 +151,18 @@ class TestMultiFormatEntity:
         )
         
         # Entity 3: both structure and sequence
-        entity3 = generate_entity_id("2DEF")
+        entity3 = generate_entity_id("2gb1")
         global_registry.entity_registry.register_entity(
             entity_id=entity3,
             entity_type="structure",
-            original_id="2DEF",
-            file_path="/test/2DEF.cif"
+            original_id="2gb1",
+            file_path="/test/2gb1.cif"
         )
         global_registry.entity_registry.register_entity(
             entity_id=entity3,
             entity_type="sequence",
-            original_id="2DEF",
-            file_path="/test/2DEF.fasta"
+            original_id="2gb1",
+            file_path="/test/2gb1.fasta"
         )
         
         # List by format

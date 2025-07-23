@@ -2249,6 +2249,725 @@
       },
       "created": "2025-07-14T22:17:16.291512",
       "modified": "2025-07-15T11:39:01.625917"
+    },
+    "36c2c0da93": {
+      "original_id": "1ubq",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\1ubq.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:24:48.680838"
+        },
+        "sequence": {
+          "file_path": "sequence\\fasta\\1ubq.fasta",
+          "metadata": {
+            "file_path": "C:\\Users\\hidbe\\PycharmProjects\\protos\\data\\sequence\\fasta\\1ubq.fasta",
+            "file_size": 20960,
+            "sequence_count": 72,
+            "sequence_ids": [
+              "3SN6_A",
+              "3SN6_B",
+              "3SN6_G",
+              "3SN6_R",
+              "3SN6_N",
+              "4LDO_A",
+              "4LDO_B",
+              "3P0G_A",
+              "3P0G_B",
+              "6MXT_A",
+              "6MXT_N",
+              "7JOZ_A",
+              "7JOZ_B",
+              "7JOZ_G",
+              "7JOZ_N",
+              "7JOZ_R",
+              "7CKZ_A",
+              "7CKZ_B",
+              "7CKZ_G",
+              "7CKZ_N",
+              "7CKZ_R",
+              "6VMS_A",
+              "6VMS_B",
+              "6VMS_C",
+              "6VMS_E",
+              "6VMS_R",
+              "7E2Y_A",
+              "7E2Y_B",
+              "7E2Y_G",
+              "7E2Y_R",
+              "6G79_B",
+              "6G79_G",
+              "6G79_A",
+              "6G79_S",
+              "4MQS_A",
+              "4MQS_B",
+              "4MQT_A",
+              "4MQT_B",
+              "7ARO_A",
+              "6GDG_A",
+              "6GDG_B",
+              "6GDG_C",
+              "6GDG_D",
+              "6GDG_E",
+              "2RH1_A",
+              "3NY8_A",
+              "3NYA_A",
+              "5JQH_A",
+              "5JQH_B",
+              "5JQH_D",
+              "5JQH_C",
+              "1U19_A",
+              "1U19_B",
+              "1GZM_A",
+              "1GZM_B",
+              "6CM4_A",
+              "6LUQ_A",
+              "6A93_A",
+              "6A93_B",
+              "6A94_A",
+              "6A94_B",
+              "6WGT_A",
+              "6WGT_B",
+              "6WGT_C",
+              "3UON_A",
+              "5CXV_A",
+              "5CXV_C",
+              "5UEN_A",
+              "5UEN_B",
+              "3VGA_A",
+              "3VGA_B",
+              "3VGA_C"
+            ],
+            "type": "multi_sequence"
+          },
+          "created": "2025-07-17T11:45:51.175993"
+        }
+      },
+      "created": "2025-07-17T11:24:48.680838",
+      "modified": "2025-07-17T11:45:51.175993"
+    },
+    "d72388c3cc": {
+      "original_id": "3SN6",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\3SN6.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:28.817688"
+        }
+      },
+      "created": "2025-07-17T11:33:28.817688",
+      "modified": "2025-07-17T11:33:28.817688"
+    },
+    "bd730af551": {
+      "original_id": "4LDO",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\4LDO.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:29.017011"
+        }
+      },
+      "created": "2025-07-17T11:33:29.017011",
+      "modified": "2025-07-17T11:33:29.017011"
+    },
+    "4bdf9fdb19": {
+      "original_id": "3P0G",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\3P0G.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:29.156728"
+        }
+      },
+      "created": "2025-07-17T11:33:29.156728",
+      "modified": "2025-07-17T11:33:29.156728"
+    },
+    "5c18b050bd": {
+      "original_id": "6MXT",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6MXT.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:29.353196"
+        }
+      },
+      "created": "2025-07-17T11:33:29.353196",
+      "modified": "2025-07-17T11:33:29.353196"
+    },
+    "ff4218a800": {
+      "original_id": "7JOZ",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\7JOZ.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:29.702996"
+        }
+      },
+      "created": "2025-07-17T11:33:29.702996",
+      "modified": "2025-07-17T11:33:29.702996"
+    },
+    "39bd0fc093": {
+      "original_id": "7CKZ",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\7CKZ.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:30.032540"
+        }
+      },
+      "created": "2025-07-17T11:33:30.032540",
+      "modified": "2025-07-17T11:33:30.032540"
+    },
+    "685a075aa4": {
+      "original_id": "6VMS",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6VMS.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:30.355582"
+        }
+      },
+      "created": "2025-07-17T11:33:30.355582",
+      "modified": "2025-07-17T11:33:30.355582"
+    },
+    "8e23b3e117": {
+      "original_id": "7E2Y",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\7E2Y.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:30.619805"
+        }
+      },
+      "created": "2025-07-17T11:33:30.619805",
+      "modified": "2025-07-17T11:33:30.619805"
+    },
+    "d4ea49284e": {
+      "original_id": "6G79",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6G79.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:30.848832"
+        }
+      },
+      "created": "2025-07-17T11:33:30.848832",
+      "modified": "2025-07-17T11:33:30.848832"
+    },
+    "8c7bdd92ec": {
+      "original_id": "4MQS",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\4MQS.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:30.984841"
+        }
+      },
+      "created": "2025-07-17T11:33:30.984841",
+      "modified": "2025-07-17T11:33:30.984841"
+    },
+    "6bdf30bf23": {
+      "original_id": "4MQT",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\4MQT.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:31.104233"
+        }
+      },
+      "created": "2025-07-17T11:33:31.104233",
+      "modified": "2025-07-17T11:33:31.104233"
+    },
+    "68dd7a7b12": {
+      "original_id": "7ARO",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\7ARO.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:31.237633"
+        }
+      },
+      "created": "2025-07-17T11:33:31.237633",
+      "modified": "2025-07-17T11:33:31.237633"
+    },
+    "e1e2f42bac": {
+      "original_id": "6GDG",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6GDG.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:31.512251"
+        }
+      },
+      "created": "2025-07-17T11:33:31.512251",
+      "modified": "2025-07-17T11:33:31.512251"
+    },
+    "c58babe4b2": {
+      "original_id": "2RH1",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\2RH1.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:31.670839"
+        }
+      },
+      "created": "2025-07-17T11:33:31.670839",
+      "modified": "2025-07-17T11:33:31.670839"
+    },
+    "7f84a165f2": {
+      "original_id": "3NY8",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\3NY8.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:31.820321"
+        }
+      },
+      "created": "2025-07-17T11:33:31.820321",
+      "modified": "2025-07-17T11:33:31.820321"
+    },
+    "7e3af24878": {
+      "original_id": "3NYA",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\3NYA.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:31.988827"
+        }
+      },
+      "created": "2025-07-17T11:33:31.988827",
+      "modified": "2025-07-17T11:33:31.988827"
+    },
+    "902d40d5d3": {
+      "original_id": "5JQH",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\5JQH.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:32.305334"
+        }
+      },
+      "created": "2025-07-17T11:33:32.305334",
+      "modified": "2025-07-17T11:33:32.305334"
+    },
+    "524b0cf673": {
+      "original_id": "1U19",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\1U19.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:32.538696"
+        }
+      },
+      "created": "2025-07-17T11:33:32.538696",
+      "modified": "2025-07-17T11:33:32.538696"
+    },
+    "24113f8785": {
+      "original_id": "1GZM",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\1GZM.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:32.775748"
+        }
+      },
+      "created": "2025-07-17T11:33:32.775748",
+      "modified": "2025-07-17T11:33:32.775748"
+    },
+    "118c4626a1": {
+      "original_id": "6CM4",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6CM4.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:32.922838"
+        }
+      },
+      "created": "2025-07-17T11:33:32.922838",
+      "modified": "2025-07-17T11:33:32.922838"
+    },
+    "9358170556": {
+      "original_id": "6LUQ",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6LUQ.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:33.058744"
+        }
+      },
+      "created": "2025-07-17T11:33:33.058744",
+      "modified": "2025-07-17T11:33:33.058744"
+    },
+    "b772533498": {
+      "original_id": "6A93",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6A93.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:33.284358"
+        }
+      },
+      "created": "2025-07-17T11:33:33.284358",
+      "modified": "2025-07-17T11:33:33.284358"
+    },
+    "c899c4d528": {
+      "original_id": "6A94",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6A94.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:33.559974"
+        }
+      },
+      "created": "2025-07-17T11:33:33.559974",
+      "modified": "2025-07-17T11:33:33.559974"
+    },
+    "9f427c6f3a": {
+      "original_id": "6WGT",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\6WGT.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:33.866681"
+        }
+      },
+      "created": "2025-07-17T11:33:33.866681",
+      "modified": "2025-07-17T11:33:33.866681"
+    },
+    "6591f0ef1a": {
+      "original_id": "3UON",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\3UON.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:34.010894"
+        }
+      },
+      "created": "2025-07-17T11:33:34.010894",
+      "modified": "2025-07-17T11:33:34.010894"
+    },
+    "ced52a8c0d": {
+      "original_id": "5CXV",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\5CXV.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:34.180132"
+        }
+      },
+      "created": "2025-07-17T11:33:34.180132",
+      "modified": "2025-07-17T11:33:34.180132"
+    },
+    "c22ec58e13": {
+      "original_id": "5UEN",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\5UEN.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:34.438251"
+        }
+      },
+      "created": "2025-07-17T11:33:34.438251",
+      "modified": "2025-07-17T11:33:34.438251"
+    },
+    "dcad17fc55": {
+      "original_id": "3VGA",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure\\mmcif\\3VGA.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-17T11:33:34.681024"
+        }
+      },
+      "created": "2025-07-17T11:33:34.681024",
+      "modified": "2025-07-17T11:33:34.681024"
+    },
+    "cf745663d5": {
+      "original_id": "CC(=O)OC1=CC=CC=C1C(=O)O",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/CC_lp__eq_O_rp_OC1_eq_CC_eq_CC_eq_C1C_lp__eq_O_rp_O.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL25"
+            ]
+          },
+          "created": "2025-07-23T21:53:31.608098"
+        }
+      },
+      "created": "2025-07-23T21:49:00.725397",
+      "modified": "2025-07-23T21:53:31.608109"
+    },
+    "0cc4e17c3c": {
+      "original_id": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/CC_lp_C_rp_CC1_eq_CC_eq_C_lp_C_eq_C1_rp_C_lp_C_rp_C_lp__eq_O_rp_O.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL521"
+            ]
+          },
+          "created": "2025-07-23T21:53:31.619043"
+        }
+      },
+      "created": "2025-07-23T21:49:00.736777",
+      "modified": "2025-07-23T21:53:31.619051"
+    },
+    "fcd06a5c57": {
+      "original_id": "Cc1cc(C)c(/C=C2\\C(=O)Nc3ncnc(Nc4ccc(F)c(Cl)c4)c32)[nH]1",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand\\sdf\\Cc1cc_lp_C_rp_c_lp__fs_C_eq_C2_bs_C_lp__eq_O_rp_Nc3ncnc_lp_Nc4ccc_lp_F_rp_c_lp_Cl_rp_c4_rp_c32_rp__lb_nH_rb_1.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL68920"
+            ]
+          },
+          "created": "2025-07-23T21:52:22.384209"
+        }
+      },
+      "created": "2025-07-23T21:52:21.725392",
+      "modified": "2025-07-23T21:52:22.384209"
+    },
+    "0752ea3be2": {
+      "original_id": "Cc1cc(C(=O)N2CCOCC2)[nH]c1/C=C1\\C(=O)Nc2ncnc(Nc3ccc(F)c(Cl)c3)c21",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand\\sdf\\Cc1cc_lp_C_lp__eq_O_rp_N2CCOCC2_rp__lb_nH_rb_c1_fs_C_eq_C1_bs_C_lp__eq_O_rp_Nc2ncnc_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_c21.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL69960"
+            ]
+          },
+          "created": "2025-07-23T21:52:22.399809"
+        }
+      },
+      "created": "2025-07-23T21:52:21.898389",
+      "modified": "2025-07-23T21:52:22.399809"
+    },
+    "b227e077f3": {
+      "original_id": "CN(c1ccccc1)c1ncnc2ccc(N/N=N/Cc3ccccn3)cc12",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand\\sdf\\CN_lp_c1ccccc1_rp_c1ncnc2ccc_lp_N_fs_N_eq_N_fs_Cc3ccccn3_rp_cc12.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL137635"
+            ]
+          },
+          "created": "2025-07-23T21:52:22.415434"
+        }
+      },
+      "created": "2025-07-23T21:52:22.055123",
+      "modified": "2025-07-23T21:52:22.415434"
+    },
+    "4c70a6a9ea": {
+      "original_id": "Cc1cc(C(=O)NCCN2CCOCC2)[nH]c1/C=C1\\C(=O)N(C)c2ncnc(Nc3ccc(F)c(Cl)c3)c21",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand\\sdf\\Cc1cc_lp_C_lp__eq_O_rp_NCCN2CCOCC2_rp__lb_nH_rb_c1_fs_C_eq_C1_bs_C_lp__eq_O_rp_N_lp_C_rp_c2ncnc_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_c21.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL443268"
+            ]
+          },
+          "created": "2025-07-23T21:52:22.431059"
+        }
+      },
+      "created": "2025-07-23T21:52:22.211530",
+      "modified": "2025-07-23T21:52:22.431059"
+    },
+    "7d082c045e": {
+      "original_id": "N#CC(C#N)=C(N)/C(C#N)=C/c1ccc(O)cc1",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand\\sdf\\N_triple_CC_lp_C_triple_N_rp__eq_C_lp_N_rp__fs_C_lp_C_triple_N_rp__eq_C_fs_c1ccc_lp_O_rp_cc1.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL76589"
+            ]
+          },
+          "created": "2025-07-23T21:52:22.436069"
+        }
+      },
+      "created": "2025-07-23T21:52:22.353047",
+      "modified": "2025-07-23T21:52:22.436069"
+    },
+    "2bb5d59e42": {
+      "original_id": "COC1=CC=CC=C1OCCN",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/COC1_eq_CC_eq_CC_eq_C1OCCN.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL1234"
+            ]
+          },
+          "created": "2025-07-23T21:53:31.632169"
+        }
+      },
+      "created": "2025-07-23T21:53:31.632156",
+      "modified": "2025-07-23T21:53:31.632171"
+    },
+    "d3cd41e66b": {
+      "original_id": "COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand\\sdf\\COc1cc2ncnc_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_c2cc1OCCCN1CCOCC1.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL553"
+            ]
+          },
+          "created": "2025-07-23T22:32:16.927679"
+        }
+      },
+      "created": "2025-07-23T21:55:26.180020",
+      "modified": "2025-07-23T22:32:16.927679"
+    },
+    "74d361edad": {
+      "original_id": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand\\sdf\\CN_lp_C_rp_C_fs_C_eq_C_fs_C_lp__eq_O_rp_Nc1cc2c_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_ncnc2cc1O_lb_C_at_H_rb_1CCOC1.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL1173"
+            ]
+          },
+          "created": "2025-07-23T22:32:16.958986"
+        }
+      },
+      "created": "2025-07-23T21:56:20.023058",
+      "modified": "2025-07-23T22:32:16.958986"
     }
   }
 }

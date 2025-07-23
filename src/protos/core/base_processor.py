@@ -281,12 +281,10 @@ class BaseProcessor(ABC):
         Returns:
             Path to subdirectory
         """
-        # Delegate to processor-specific methods in ProtosPaths
-        method_name = f"get_{self.processor_type}_subdir_path"
-        if hasattr(self.paths, method_name):
-            method = getattr(self.paths, method_name)
-            return Path(method(subdir_type))
-        else:
+        # Use ProtosPaths get_subdir_path method
+        try:
+            return Path(self.paths.get_subdir_path(self.processor_type, subdir_type))
+        except (ValueError, AttributeError):
             # Fallback to processor directory
             return self.data_path / subdir_type
     

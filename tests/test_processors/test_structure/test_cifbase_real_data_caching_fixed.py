@@ -32,7 +32,7 @@ class TestCifBaseRealDataCachingFixed:
         cif_files = ["1uaz", "3ddl", "4pxk"]
         
         for cif_name in cif_files:
-            cif_path = processor.path_structure_dir / f"{cif_name}.cif"
+            cif_path = Path(processor.paths.get_subdir_path("structure", "structure_dir")) / f"{cif_name}.cif"
             if not cif_path.exists():
                 print(f"Skipping {cif_name} - CIF file not found")
                 continue
@@ -40,7 +40,7 @@ class TestCifBaseRealDataCachingFixed:
             print(f"\nLoading {cif_name}...")
             
             # Clear any existing cache to test fresh
-            cache_file = processor.path_cache_dir / f"{cif_name}.pkl"
+            cache_file = Path(processor.paths.get_subdir_path("structure", "cache_dir")) / f"{cif_name}.pkl"
             if cache_file.exists():
                 cache_file.unlink()
             
@@ -78,7 +78,7 @@ class TestCifBaseRealDataCachingFixed:
         # Load structures using load_structures
         pdb_ids = ["1uaz", "3ddl", "4pxk"]
         available_ids = [pid for pid in pdb_ids 
-                        if (processor.path_structure_dir / f"{pid}.cif").exists()]
+                        if (Path(processor.paths.get_subdir_path("structure", "structure_dir")) / f"{pid}.cif").exists()]
         
         if not available_ids:
             pytest.skip("No CIF files available for testing")
@@ -126,15 +126,15 @@ class TestCifBaseRealDataCachingFixed:
         print("\n=== Testing Cache Persistence ===")
         
         # List current cache contents
-        cache_files = list(processor.path_cache_dir.glob("*.pkl"))
-        print(f"\nCache directory: {processor.path_cache_dir}")
+        cache_files = list(processor.paths.get_subdir_path("structure", "cache_dir").glob("*.pkl"))
+        print(f"\nCache directory: {processor.paths.get_subdir_path('structure', 'cache_dir')}")
         print(f"Cache files found: {len(cache_files)}")
         for cache_file in cache_files:
             print(f"  - {cache_file.name} ({cache_file.stat().st_size} bytes)")
         
         # List dataset contents
-        dataset_files = list(processor.path_dataset_dir.glob("*.pkl"))
-        print(f"\nDataset directory: {processor.path_dataset_dir}")
+        dataset_files = list(processor.paths.get_subdir_path("structure", "dataset_dir").glob("*.pkl"))
+        print(f"\nDataset directory: {processor.paths.get_subdir_path('structure', 'dataset_dir')}")
         print(f"Dataset files found: {len(dataset_files)}")
         for dataset_file in dataset_files:
             print(f"  - {dataset_file.name} ({dataset_file.stat().st_size} bytes)")

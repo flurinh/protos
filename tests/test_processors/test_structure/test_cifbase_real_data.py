@@ -17,7 +17,7 @@ class TestCifBaseProcessorRealData:
     def processor(self):
         """Create processor with test data directory."""
         # Use the test-data directory which has real CIF files
-        test_data_path = Path(__file__).parent.parent.parent.parent / "test-data"
+        test_data_path = Path(__file__).parent.parent.parent / "test-data"
         paths = ProtosPaths(data_root=str(test_data_path))
         return StructureProcessor(paths=paths)
     

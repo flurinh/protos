@@ -25,7 +25,7 @@ def setup_test_environment(request):
     # Use relative path from current file location
     current_file = Path(__file__)
     test_data_dir = current_file.parent.parent.parent / "test-data"
-    ProtosPaths.set_data_root(str(test_data_dir))
+    os.environ["PROTOS_DATA_ROOT"] = str(test_data_dir)
     
     # Clear global registry to ensure clean state
     global_registry = GlobalRegistry()
@@ -33,7 +33,9 @@ def setup_test_environment(request):
     global_registry.entity_registry._datasets = {}
     
     def teardown():
-        ProtosPaths.set_data_root(None)
+        # Clear environment
+        if "PROTOS_DATA_ROOT" in os.environ:
+            del os.environ["PROTOS_DATA_ROOT"]
     
     request.addfinalizer(teardown)
     return test_data_dir
@@ -49,7 +51,7 @@ class TestListOperationsReturnNames:
         # Load some real structures to populate the registry
         test_pdbs = ["1ubq", "1tqn", "3nir"]
         for pdb_id in test_pdbs:
-            cif_path = setup_test_environment / "structure" / "mmcif" / f"{pdb_id}.cif"
+            cif_path = Path(setup_test_environment) / "structure" / "mmcif" / f"{pdb_id}.cif"
             if cif_path.exists():
                 processor.load_structure(pdb_id)
         
@@ -71,7 +73,7 @@ class TestListOperationsReturnNames:
         processor = GRNProcessor(name="test_grn_list")
         
         # Check if we have real GRN data
-        grn_ref_path = setup_test_environment / "grn" / "ref" / "mo_grn.csv"
+        grn_ref_path = Path(setup_test_environment) / "grn" / "ref" / "mo_grn.csv"
         if grn_ref_path.exists():
             # Load real GRN table
             processor.load_grn_table("ref/mo_grn")

@@ -18,6 +18,7 @@ def copy_reference_data():
     
     # Define paths
     ref_data_dir = Path("src/protos/reference_data")
+    processing_dir = Path("src/protos/processing")
     test_data_dir = Path("tests/test-data")
     
     if not ref_data_dir.exists():
@@ -34,10 +35,11 @@ def copy_reference_data():
         ("grn/ref/mo_grn.csv", "grn/ref/mo_grn.csv"),
         ("grn/ref/gpcrdb_ref.csv", "grn/ref/gpcrdb_ref.csv"),
         
-        # GRN configs
+        # GRN configs - copy from processing directory
+        ("../processing/grn/configs/motif.json", "grn/configs/motif.json"),
+        # Also copy from reference data if they exist
         ("grn/configs/binding_domain.json", "grn/configs/binding_domain.json"),
         ("grn/configs/binding_domain2.json", "grn/configs/binding_domain2.json"),
-        ("grn/configs/config.json", "grn/configs/config.json"),
         ("grn/configs/motif.json", "grn/configs/motif.json"),
         
         # Structure files - ONLY REAL DATA
@@ -55,7 +57,21 @@ def copy_reference_data():
     ]
     
     copied_count = 0
+    
+    # First, copy the main GRN config from processing directory
+    grn_config_src = processing_dir / "grn/configs/motif.json"
+    grn_config_dst = test_data_dir / "grn/configs/motif.json"
+    if grn_config_src.exists():
+        grn_config_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(grn_config_src, grn_config_dst)
+        print(f"  ✓ Copied GRN config from processing directory")
+        copied_count += 1
+    
+    # Then copy other files from reference data
     for src_rel, dst_rel in files_to_copy:
+        if src_rel == "../processing/grn/configs/motif.json":
+            continue  # Already handled above
+            
         src_path = ref_data_dir / src_rel
         dst_path = test_data_dir / dst_rel
         

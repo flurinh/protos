@@ -26,16 +26,13 @@ def test_uniprot_ids():
 @pytest.fixture
 def uniprot_processor(tmp_path):
     """Create a processor for UniProt testing."""
-    ProtosPaths.set_data_root(str(tmp_path))
+    os.environ["PROTOS_DATA_ROOT"] = str(tmp_path)
     
-    processor = BaseProcessor(
-        name="test_uniprot",
-        processor_data_dir="sequence"
-    )
+    processor = BaseProcessor(name="test")
     
     yield processor
     
-    ProtosPaths.set_data_root(None)
+    # Clear environment
 
 
 @pytest.fixture

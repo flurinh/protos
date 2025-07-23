@@ -115,7 +115,7 @@ class TestEmbeddingProcessorFASTAProcessing:
         """Test successful embedding generation from FASTA file."""
         # Create test FASTA file
         fasta_content = ">protein1\nACDEFGHIKL\n>protein2\nMNPQRSTVWY\n"
-        fasta_file = tmp_path / "test.fasta"
+        fasta_file = Path(tmp_path) / "test.fasta"
         fasta_file.write_text(fasta_content)
         
         processor = EmbeddingProcessor(name="test", model_name="esm2_t6_8m", device="cpu")
@@ -133,7 +133,7 @@ class TestEmbeddingProcessorFASTAProcessing:
         """Test FASTA embedding with dataset saving."""
         # Create test FASTA file
         fasta_content = ">protein1\nACDEFGHIKL\n"
-        fasta_file = tmp_path / "test.fasta"
+        fasta_file = Path(tmp_path) / "test.fasta"
         fasta_file.write_text(fasta_content)
         
         # Set up processor with temp data path
@@ -148,11 +148,11 @@ class TestEmbeddingProcessorFASTAProcessing:
             )
             
             # Check dataset was saved
-            dataset_path = tmp_path / "datasets" / "test_dataset"
+            dataset_path = Path(tmp_path) / "datasets" / "test_dataset"
             assert dataset_path.exists()
-            assert (dataset_path / "embeddings.pt").exists()
-            assert (dataset_path / "sequences.json").exists()
-            assert (dataset_path / "metadata.json").exists()
+            assert (Path(dataset_path) / "embeddings.pt").exists()
+            assert (Path(dataset_path) / "sequences.json").exists()
+            assert (Path(dataset_path) / "metadata.json").exists()
             
             processor.clear_cache()
 
@@ -235,7 +235,7 @@ class TestEmbeddingProcessorDatasetManagement:
             processor.embed_sequences(sequences, save_dataset="test_dataset")
             
             # Check metadata
-            metadata_file = tmp_path / "datasets" / "test_dataset" / "metadata.json"
+            metadata_file = Path(tmp_path) / "datasets" / "test_dataset" / "metadata.json"
             with open(metadata_file, 'r') as f:
                 metadata = json.load(f)
             

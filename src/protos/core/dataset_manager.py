@@ -62,11 +62,11 @@ class DatasetManager:
         try:
             # Try processor-specific dataset directory first
             if self.processor_type == 'structure':
-                return self.paths.get_structure_subdir_path('dataset_dir')
+                return self.paths.get_subdir_path('structure', 'dataset_dir')
             elif self.processor_type == 'grn':
-                return self.paths.get_grn_subdir_path('grn_dir')
+                return self.paths.get_subdir_path('grn', 'grn_dir')
             elif self.processor_type == 'sequence':
-                return self.paths.get_sequence_subdir_path('metadata_dir')
+                return self.paths.get_subdir_path('sequence', 'metadata_dir')
             else:
                 # Default to datasets subdirectory in processor directory
                 processor_path = self.paths.get_processor_path(self.processor_type)

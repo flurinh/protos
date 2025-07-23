@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 GRN_PATTERNS = {
     'standard': r'^(\d+)x(\d+)$',  # e.g., 1x50
     'standard_dot': r'^([0-9])\.(\d+)$',  # e.g., 1.50, 0.00, 9.99 (dot notation)
+    'standard_insertion': r'^([0-9])\.(\d+)\.(\d+)$',
     'n_term': r'^n\.(\d+)$',       # e.g., n.10
     'c_term': r'^c\.(\d+)$',       # e.g., c.5
     'loop': r'^([1-8])([1-8])\.(\d+)$'  # e.g., 12.003, 65.011, also 12.47
@@ -29,6 +30,7 @@ GRN_PATTERNS = {
 GRN_FORMAT_DOCS = {
     'standard': "Standard GRN format: <helix>x<position> (e.g., 1x50)",
     'standard_dot': "Standard GRN format with dot notation: <helix>.<position> (e.g., 1.50)",
+    'standard_insertion': "Standard GRN insertion format: <helix>x<position> (e.g., 1x521)",
     'n_term': "N-terminal format: n.<position> (e.g., n.10)",
     'c_term': "C-terminal format: c.<position> (e.g., c.5)",
     'loop': """Loop region format: <closer helix><further helix>.<distance> where:
@@ -51,13 +53,18 @@ def parse_grn_str2float(grn: str) -> float:
     Convert a GRN string to its float representation for numerical operations.
     
     Handles multiple formats:
-    - 'n.XX' for N-terminal: converts to negative values
+    - 'n.XX' for N-terminal: converts to negative values (n.10 -> -10.0, n.1 -> -1.0)
     - 'c.XX' for C-terminal: adds to 100
-    - 'TxYY' for transmembrane regions with 'x' notation
-    - 'AB.CCC' for loop regions (between helix A and B, closer to A, distance CCC)
+    - 'TxYY' or 'T.YY' for transmembrane regions
+    - 'AB.CCC' for loop regions where:
+      - A is the closer helix (the residue is closer to this helix)
+      - B is the further helix
+      - CCC is the distance from the closer helix
+      Example: 67.001 = closer to helix 6, between 6 and 7, distance 1
+               76.001 = closer to helix 7, between 6 and 7, distance 1
     
     Args:
-        grn: GRN string to convert (e.g., '1x50', 'n.10', 'c.5', '12.003')
+        grn: GRN string to convert
         
     Returns:
         Float representation of the GRN position, or 0.0 for invalid strings
@@ -66,56 +73,63 @@ def parse_grn_str2float(grn: str) -> float:
         >>> parse_grn_str2float('1x50')
         1.5
         >>> parse_grn_str2float('n.10')
-        -0.1
+        -10.0
+        >>> parse_grn_str2float('n.1')
+        -1.0
         >>> parse_grn_str2float('c.5')
         100.05
-        >>> parse_grn_str2float('12.003')
-        12.003
+        >>> parse_grn_str2float('67.001')  # Closer to 6, between 6-7
+        67.001
+        >>> parse_grn_str2float('76.001')  # Closer to 7, between 6-7
+        76.001
+        >>> parse_grn_str2float('76.01')  # Closer to 7, between 6-7
+        76.010
+        >>> parse_grn_str2float('76.1')  # Closer to 7, between 6-7
+        76.100
+        >>> parse_grn_str2float('76.100')  # Closer to 7, between 6-7
+        76.100
     """
     try:
         # N-terminal region
-        if 'n.' in grn:
-            # Parse position number
+        if grn.startswith('n.'):
+            # Parse position number - keep as negative for sorting
             position = int(grn.split('n.')[1])
-            return -0.01 * position
+            return -1.0 * position
             
         # C-terminal region
-        elif 'c.' in grn:
+        elif grn.startswith('c.'):
             # Parse position number
             position = int(grn.split('c.')[1])
-            return 100.0 + 0.01 * position
+            return 100.0 + position
             
         # Check for dot notation (need to distinguish between loops and standard dot notation)
         elif '.' in grn:
             helix_part = grn.split('.')[0]
             position_part = grn.split('.')[1]
             
-            # Loop region with format AB.CCC (2 digits before dot, 3 after)
-            if len(helix_part) == 2 and len(position_part) == 3:
-                # Parse helix pair and distance
-                distance = int(position_part) / 1000.0
-                
+            # Loop region: 2 digits before dot, typically 3 after (e.g., 67.001, 76.001)
+            if len(helix_part) == 2 and helix_part.isdigit():
                 # Extract closer and further helix
                 closer_helix = int(helix_part[0])
                 further_helix = int(helix_part[1])
                 
-                # Create float representation:
-                # Integer part: 10*smaller_helix + larger_helix
-                # Decimal part: normalized distance (0-1)
-                helix_min = min(closer_helix, further_helix)
-                helix_max = max(closer_helix, further_helix)
+                # Parse distance, ensuring it's treated as a decimal
+                distance = int(position_part) / 1000.0
                 
-                # Calculate the float representation
-                return float(f"{helix_min}{helix_max}") + distance
+                # For sorting, we need to preserve the exact notation
+                # 67.001 should sort differently from 76.001
+                # Return the literal float value
+                return round(float(grn), 3)
             
-            # Standard dot notation (1 digit before dot, 1-2 after) e.g., 1.50
-            elif len(helix_part) == 1:
+            # Standard dot notation (1 digit before dot) e.g., 1.50, 7.50
+            elif len(helix_part) == 1 and helix_part.isdigit():
                 helix = int(helix_part)
                 position = int(position_part)
-                return helix + position / 100.0
+                return round(helix + position / 100.0, 3)
             
+            # Otherwise treat as a literal float for special cases
             else:
-                raise ValueError(f"Invalid dot notation format: {grn}")
+                return round(float(grn), 3)
                 
         # Standard GRN format with x notation (TM regions)
         elif 'x' in grn:
@@ -123,7 +137,7 @@ def parse_grn_str2float(grn: str) -> float:
             helix_str, position_str = grn.split('x')
             helix = int(helix_str)
             position = int(position_str)
-            return helix + position / 100.0
+            return round(helix + position / 100.0, 3)
             
         # Invalid or unrecognized format
         else:
@@ -135,31 +149,25 @@ def parse_grn_str2float(grn: str) -> float:
         return 0.0
 
 
-def parse_grn_float2str(grn_float: float) -> str:
+def parse_grn_float2str(grn_float: float, notation_type: str = 'dot') -> str:
     """
     Convert a GRN float representation to its string format.
-    
+    X notation is deprecated.
+
     Handles:
-    - Standard: 1.50 -> '1x50'
-    - N-terminal: -0.10 -> 'n.10'
+    - Standard dot: 1.50 -> '1.50' (default)
+    - Standard x: 1.50 -> '1x50' (when notation_type='x')
+    - N-terminal: -10.0 -> 'n.10', -1.0 -> 'n.1'
     - C-terminal: 100.05 -> 'c.5'
-    - Loop: 12.003 -> '12.003' (loop between helix 1-2, closer to 1, distance 3)
+    - Loop: 67.001 -> '67.001' (closer to helix 6, between 6-7)
+            76.001 -> '76.001' (closer to helix 7, between 6-7)
     
     Args:
-        grn_float: Float representation of GRN (e.g., 1.5, -0.1, 100.05, 12.003)
+        grn_float: Float representation of GRN
+        notation_type: 'dot' or 'x' for standard notation (default: 'dot')
         
     Returns:
         Standardized GRN string representation
-        
-    Examples:
-        >>> parse_grn_float2str(1.5)
-        '1x50'
-        >>> parse_grn_float2str(-0.1)
-        'n.10'
-        >>> parse_grn_float2str(100.05)
-        'c.5'
-        >>> parse_grn_float2str(12.003)
-        '12.003'
     """
     # Round to 3 decimal places to avoid floating point issues
     grn_float = round(grn_float, 3)
@@ -167,36 +175,39 @@ def parse_grn_float2str(grn_float: float) -> str:
     # N-terminal region (negative values)
     if grn_float < 0:
         # Convert to n.XX format
-        position = int(abs(grn_float) * 100)
+        position = int(abs(grn_float))
         return f"n.{position}"
     
     # C-terminal region (100+)
     elif grn_float >= 100:
-        # For values like 100.05, convert to c.5 format
-        position = int(round((grn_float - 100) * 100))
+        # For values like 101.0, convert to c.1 format
+        position = int(round(grn_float - 100))
         return f"c.{position}"
     
     # Loop region (values between 10 and 100)
     elif grn_float >= 10:
-        # Extract the parts
+        # For loop regions, preserve the exact format
+        # This handles cases like 67.001, 76.001
         int_part = int(grn_float)
-        decimal_part = round((grn_float - int_part) * 1000)
+        decimal_part = grn_float - int_part
         
-        # Get helix numbers
-        helix1 = int(int_part // 10)  # First digit
-        helix2 = int(int_part % 10)   # Second digit
+        # Convert decimal part to 3-digit distance
+        distance = int(round(decimal_part * 1000))
         
         # Format with proper zero padding for the distance
-        return f"{helix1}{helix2}.{decimal_part:03d}"
+        return f"{int_part}.{distance:03d}"
     
-    # Standard transmembrane region
+    # Standard transmembrane region (0-10)
     else:
         # Split into helix and position parts
         helix = int(grn_float)
         position = int(round((grn_float - helix) * 100))
         
-        # Format with proper zero padding
-        return f"{helix}x{position:02d}"
+        # Format based on notation type
+        if notation_type == 'x':
+            return f"{helix}x{position:02d}"
+        else:  # default to dot notation
+            return f"{helix}.{position:02d}"
 
 
 def normalize_grn_format(grn: str) -> str:
@@ -204,9 +215,10 @@ def normalize_grn_format(grn: str) -> str:
     Normalize a GRN string to the standardized format.
     
     Converts legacy formats to the new standard:
-    - '12x05' -> '12.005' (loop with x notation)
-    - '12.5' -> '12.005' (loop without zero padding)
-    - '1.2' -> '1x20' (standard GRN with dot instead of x)
+    - '12x05' -> '12.050' (loop with x notation)
+    - '12.5' -> '12.500' (loop without zero padding)
+    - '1.2' -> '1.20' (standard GRN with dot)
+    - '1.511' -> '1.511' (insertion with additional zero padding)
     
     Args:
         grn: GRN string to normalize
@@ -215,11 +227,15 @@ def normalize_grn_format(grn: str) -> str:
         Normalized GRN string
     
     Examples:
-        >>> normalize_grn_format('12x05')
-        '12.005'
         >>> normalize_grn_format('12.5')
+        '12.500'
+        >>> normalize_grn_format('12x05')
+        '12.050'
+        >>> normalize_grn_format('12x005')
         '12.005'
         >>> normalize_grn_format('1x50')
+        '1.50'
+        >>> normalize_grn_format('1x5')
         '1.50'
         >>> normalize_grn_format('1.50')
         '1.50'
@@ -422,78 +438,162 @@ def sort_grns(grn_floats: List[float]) -> List[float]:
     Sort a list of GRN floats in the standard order.
     
     Order:
-    1. N-terminal (negative values)
-    2. TM regions (1-8)
-    3. Loops (10-99)
-    4. C-terminal (100+)
+    1. N-terminal (negative values, sorted descending: n.10, n.9, ..., n.1)
+    2. Helix 1 and positions (1.xx)
+    3. Loop 1-2 (12.xxx, 21.xxx)
+    4. Helix 2 and positions (2.xx)
+    5. Loop 2-3 (23.xxx, 32.xxx)
+    ... and so on
+    8. C-terminal (100+, sorted ascending: c.1, c.2, ...)
     
-    Within each category, sort by value.
+    Loop positions are placed between their respective helices.
+    For example: 67.001, 76.001 come between helix 6 and helix 7.
     """
     # Separate into categories
     n_term = [g for g in grn_floats if g < 0]
-    tm_regions = [g for g in grn_floats if 0 <= g < 10]
-    loops = [g for g in grn_floats if 10 <= g < 100]
     c_term = [g for g in grn_floats if g >= 100]
     
-    # Sort each category
-    n_term.sort(reverse=True)  # Most negative last (closer to TM1)
-    tm_regions.sort()
-    loops.sort()
-    c_term.sort()
+    # Sort N-terminal and C-terminal
+    n_term.sort()  # Most negative first (-10 before -1)
+    c_term.sort()  # c.1 before c.2
     
-    # Combine in order
-    return n_term + tm_regions + loops + c_term
+    # Process helices and loops together
+    result = n_term.copy()
+    
+    # Process each helix and its following loop
+    for helix_num in range(1, 9):  # Helices 1-8
+        # Add positions from this helix (e.g., 1.39, 1.50, 1.57)
+        helix_positions = [g for g in grn_floats if helix_num <= g < helix_num + 1]
+        helix_positions.sort()
+        result.extend(helix_positions)
+        
+        # Add loop positions after this helix
+        if helix_num < 8:  # No loop after helix 8
+            next_helix = helix_num + 1
+            
+            # Loop positions closer to current helix (e.g., 12.xxx for loop 1-2)
+            loop_closer_current = [g for g in grn_floats 
+                                 if float(f"{helix_num}{next_helix}") <= g < float(f"{helix_num}{next_helix}") + 1]
+            
+            # Loop positions closer to next helix (e.g., 21.xxx for loop 1-2)
+            loop_closer_next = [g for g in grn_floats 
+                              if float(f"{next_helix}{helix_num}") <= g < float(f"{next_helix}{helix_num}") + 1]
+            
+            # Sort loop positions
+            loop_closer_current.sort()  # 12.001 before 12.002
+            loop_closer_next.sort()     # 21.002 before 21.001 (reverse for closer to next)
+            
+            # Add loop positions: first those closer to current helix, then those closer to next
+            result.extend(loop_closer_current)
+            result.extend(loop_closer_next)
+    
+    # Add C-terminal
+    result.extend(c_term)
+    
+    return result
 
 
-def sort_grns_str(grn_strs: List[str]) -> List[str]:
-    """Sort a list of GRN strings."""
-    # Convert to floats, sort, convert back
+def sort_grns_str(grn_strs: List[str], notation_type: str = None) -> List[str]:
+    """Sort a list of GRN strings with proper helix-loop-helix ordering.
+    
+    Args:
+        grn_strs: List of GRN strings to sort
+        notation_type: If specified, convert output to this notation ('dot' or 'x').
+                      If None, preserve original notation.
+    """
+    # Convert to floats for sorting
     grn_floats = [parse_grn_str2float(g) for g in grn_strs]
+    
+    # Sort using our custom sort function
     sorted_floats = sort_grns(grn_floats)
-    return [parse_grn_float2str(f) for f in sorted_floats]
+    
+    # Create a mapping from float to original string for notation preservation
+    float_to_orig = {parse_grn_str2float(g): g for g in grn_strs}
+    
+    # Convert back to strings
+    if notation_type is None:
+        # Preserve original notation
+        sorted_strs = []
+        for f in sorted_floats:
+            orig = float_to_orig.get(f, '')
+            if orig:
+                if 'x' in orig and '.' not in orig:
+                    sorted_strs.append(parse_grn_float2str(f, notation_type='x'))
+                else:
+                    sorted_strs.append(parse_grn_float2str(f, notation_type='dot'))
+            else:
+                # Fallback if original not found
+                sorted_strs.append(parse_grn_float2str(f, notation_type='dot'))
+        return sorted_strs
+    else:
+        # Convert all to specified notation
+        return [parse_grn_float2str(f, notation_type=notation_type) for f in sorted_floats]
 
 
 # ---------------------------------------------------------------------------
 #   5. GRN Interval and Configuration Management
 # ---------------------------------------------------------------------------
-def init_grn_intervals(protein_family, min_seq_id=0.3, max_gaps=20, max_e_value=10e-5, config_dir=None):
-    """Initialize GRN intervals from configuration files."""
-    if config_dir is None:
-        # Use default config directory
-        config_dir = Path(__file__).parent / 'configs'
-    else:
-        config_dir = Path(config_dir)
-        
-    config_file = config_dir / f'{protein_family}.json'
+def get_grn_interval(start_grn: str, end_grn: str, grns_str: List[str] = None) -> List[str]:
+    """Get GRN interval between start and end.
     
-    if not config_file.exists():
-        logger.warning(f"Config file not found: {config_file}")
-        return {}
+    Args:
+        start_grn: Starting GRN position
+        end_grn: Ending GRN position
+        grns_str: Optional list of valid GRN strings to filter from.
+                 If None, auto-generates GRNs with 0.01 stepsize.
         
-    with open(config_file, 'r') as f:
-        config_data = json.load(f)
+    Returns:
+        List of GRN strings within the interval [start_grn, end_grn]
+    """
+    start_float = parse_grn_str2float(start_grn)
+    end_float = parse_grn_str2float(end_grn)
+    
+    if grns_str is not None:
+        # Filter from provided list
+        return [g for g in grns_str if start_float <= parse_grn_str2float(g) <= end_float]
+    else:
+        # Auto-generate with 0.01 stepsize
+        result = []
         
+        # Determine if we're in a TM region or loop region
+        if '.' in start_grn and len(start_grn.split('.')[0]) == 1:
+            # TM region (e.g., 1.28 to 1.64)
+            helix = int(start_grn.split('.')[0])
+            start_pos = int(round((start_float - helix) * 100))
+            end_pos = int(round((end_float - helix) * 100))
+            
+            for pos in range(start_pos, end_pos + 1):
+                grn = f"{helix}.{pos:02d}"
+                result.append(grn)
+        
+        return result
+
+
+def init_grn_intervals(grn_ranges):
     intervals = {}
-    for grn_range in config_data.get('grn_ranges', []):
-        start_grn = grn_range['start']
-        end_grn = grn_range['end']
-        intervals[f"{start_grn}-{end_grn}"] = (
+    for grn_name, grn_range in grn_ranges.items():
+        start_grn = grn_range[0]
+        end_grn = grn_range[1]
+        intervals[grn_name] = (
             parse_grn_str2float(start_grn),
             parse_grn_str2float(end_grn)
         )
-    
+
     return intervals
 
 
 class GRNConfigManager:
     """Manages GRN configurations for different protein families."""
     
-    def __init__(self, config_dir=None):
-        if config_dir is None:
-            self.config_dir = Path(__file__).parent / 'configs'
-        else:
-            self.config_dir = Path(config_dir)
-            
+    def __init__(self, paths=None):
+        from protos.io.paths import ProtosPaths
+        
+        # Use ProtosPaths for all path management
+        self.paths = paths or ProtosPaths()
+        
+        # Get config directory through ProtosPaths
+        self.config_dir = Path(self.paths.get_processor_path("grn")) / "configs"
+        
         self.configs = {}
         self._load_configs()
     
@@ -503,7 +603,24 @@ class GRNConfigManager:
             logger.warning(f"Config directory not found: {self.config_dir}")
             return
             
+        # Check for main motif.json with multiple families
+        main_config = self.config_dir / 'motif.json'
+        if main_config.exists():
+            try:
+                with open(main_config, 'r') as f:
+                    all_configs = json.load(f)
+                    # If it contains protein families as keys, load them
+                    if isinstance(all_configs, dict):
+                        for family_name, family_config in all_configs.items():
+                            if isinstance(family_config, dict):
+                                self.configs[family_name] = family_config
+            except Exception as e:
+                logger.error(f"Error loading main config {main_config}: {e}")
+        
+        # Also load individual config files
         for config_file in self.config_dir.glob('*.json'):
+            if config_file.name == 'motif.json':
+                continue  # Already handled above
             family_name = config_file.stem
             try:
                 with open(config_file, 'r') as f:
@@ -517,13 +634,59 @@ class GRNConfigManager:
             logger.warning(f"No config found for protein family: {protein_family}")
             return {}
             
-        return init_grn_intervals(protein_family, config_dir=self.config_dir)
+        config = self.configs[protein_family]
+        intervals = {}
+        
+        # Handle the structure from motif.json (with standard/strict subdivisions)
+        if 'standard' in config or 'strict' in config:
+            # Use standard intervals by default
+            interval_data = config.get('standard', config.get('strict', {}))
+            for region_name, (start, end) in interval_data.items():
+                intervals[f"{start}-{end}"] = (
+                    parse_grn_str2float(start),
+                    parse_grn_str2float(end)
+                )
+        # Handle the structure with grn_ranges
+        elif 'grn_ranges' in config:
+            for grn_range in config['grn_ranges']:
+                start_grn = grn_range['start']
+                end_grn = grn_range['end']
+                intervals[f"{start_grn}-{end_grn}"] = (
+                    parse_grn_str2float(start_grn),
+                    parse_grn_str2float(end_grn)
+                )
+        
+        return intervals
+    
+    def get_config(self, protein_family, strict=False):
+        """Get configuration for a specific protein family.
+        
+        Args:
+            protein_family: Name of the protein family
+            strict: Whether to return strict or standard config
+            
+        Returns:
+            Configuration dictionary
+        """
+        if protein_family not in self.configs:
+            logger.warning(f"No config found for protein family: {protein_family}")
+            return {}
+            
+        config = self.configs[protein_family]
+        
+        # If config has strict/standard subdivisions
+        if strict and 'strict' in config:
+            return config['strict']
+        elif not strict and 'standard' in config:
+            return config['standard']
+        else:
+            return config
 
 
 # ---------------------------------------------------------------------------
 #   6. GRN Interval Calculation
 # ---------------------------------------------------------------------------
-def get_grn_interval(grn_target, intervals):
+def get_interval_for_grn(grn_target, intervals):
     """
     Get the GRN interval that contains the target GRN.
     
@@ -559,39 +722,57 @@ def init_std_grns(intervals):
     return sort_grns_str(std_grns)
 
 
+def generate_all_grns_from_config(grn_config, grns_str=None):
+    """Generate all GRN positions from a configuration dictionary.
+    
+    Args:
+        grn_config: Dictionary with TM regions as keys and [start, end] as values
+        grns_str: Optional list of valid GRN strings to filter from.
+                 If None, auto-generates GRNs.
+        
+    Returns:
+        List of all GRN strings within the defined intervals
+    """
+    all_grns = []
+    
+    for region_name, (start_grn, end_grn) in grn_config.items():
+        # Use get_grn_interval to get GRNs for this region
+        region_grns = get_grn_interval(start_grn, end_grn, grns_str)
+        all_grns.extend(region_grns)
+    
+    # Remove duplicates and sort
+    all_grns = list(set(all_grns))
+    return sort_grns_str(all_grns)
+
+
 # ---------------------------------------------------------------------------
 #   7. Visualization Support
 # ---------------------------------------------------------------------------
 def map_grn_to_color(grn, color_map=None):
     """Map a GRN to a color for visualization."""
     if color_map is None:
-        # Default color scheme based on helix
+        # Default color scheme using RGB values
         color_map = {
-            1: '#FF0000',  # Red
-            2: '#FF7F00',  # Orange
-            3: '#FFFF00',  # Yellow
-            4: '#00FF00',  # Green
-            5: '#0000FF',  # Blue
-            6: '#4B0082',  # Indigo
-            7: '#9400D3',  # Violet
-            8: '#FF1493',  # Deep Pink
+            'n_term': 'rgb(31, 119, 180)',     # N-terminal
+            'c_term': 'rgb(255, 127, 14)',     # C-terminal  
+            'tm': 'rgb(214, 39, 40)',          # Transmembrane regions
+            'loop': 'rgb(44, 160, 44)',        # Loop regions
         }
     
     grn_float = parse_grn_str2float(grn)
     
-    # N-terminal: Gray
+    # N-terminal
     if grn_float < 0:
-        return '#808080'
-    # C-terminal: Black
+        return color_map.get('n_term', 'rgb(31, 119, 180)')
+    # C-terminal
     elif grn_float >= 100:
-        return '#000000'
-    # Loops: Light gray
+        return color_map.get('c_term', 'rgb(255, 127, 14)')
+    # Loops (between 10 and 100)
     elif grn_float >= 10:
-        return '#C0C0C0'
-    # TM regions: Use helix color
+        return color_map.get('loop', 'rgb(44, 160, 44)')
+    # TM regions (less than 10)
     else:
-        helix = int(grn_float)
-        return color_map.get(helix, '#FFFFFF')
+        return color_map.get('tm', 'rgb(214, 39, 40)')
 
 
 # ---------------------------------------------------------------------------

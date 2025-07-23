@@ -321,7 +321,7 @@ def init_grn_intervals(grn_config):
 
 
 class GRNConfigManager:
-    def __init__(self, path=None, config_path='config.json', protein_family='gpcr_a'):
+    def __init__(self, path=None, config_path='motif.json', protein_family='gpcr_a'):
         if path is None:
             # Try different possible locations for configs
             possible_paths = [
