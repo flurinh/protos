@@ -23,7 +23,7 @@ GRN_PATTERNS = {
     'standard_insertion': r'^([0-9])\.(\d+)\.(\d+)$',
     'n_term': r'^n\.(\d+)$',       # e.g., n.10
     'c_term': r'^c\.(\d+)$',       # e.g., c.5
-    'loop': r'^([1-8])([1-8])\.(\d+)$'  # e.g., 12.003, 65.011, also 12.47
+    'loop': r'^([1-8])([1-8])\.(\d+)$'  # e.g., 12.003, 65.011, also 12.047
 }
 
 # Documentation for GRN formats
@@ -101,9 +101,8 @@ def parse_grn_str2float(grn: str) -> float:
             # Parse position number
             position = int(grn.split('c.')[1])
             return 100.0 + position
-            
-        # Check for dot notation (need to distinguish between loops and standard dot notation)
-        elif '.' in grn:
+
+        else:
             helix_part = grn.split('.')[0]
             position_part = grn.split('.')[1]
             
@@ -114,6 +113,7 @@ def parse_grn_str2float(grn: str) -> float:
                 further_helix = int(helix_part[1])
                 
                 # Parse distance, ensuring it's treated as a decimal
+                position_part.ljust(3, '0')
                 distance = int(position_part) / 1000.0
                 
                 # For sorting, we need to preserve the exact notation
@@ -121,7 +121,7 @@ def parse_grn_str2float(grn: str) -> float:
                 # Return the literal float value
                 return round(float(grn), 3)
             
-            # Standard dot notation (1 digit before dot) e.g., 1.50, 7.50
+            # Standard TM position e.g., 1.50, 7.50
             elif len(helix_part) == 1 and helix_part.isdigit():
                 helix = int(helix_part)
                 position = int(position_part)
@@ -130,19 +130,7 @@ def parse_grn_str2float(grn: str) -> float:
             # Otherwise treat as a literal float for special cases
             else:
                 return round(float(grn), 3)
-                
-        # Standard GRN format with x notation (TM regions)
-        elif 'x' in grn:
-            # Parse helix and position
-            helix_str, position_str = grn.split('x')
-            helix = int(helix_str)
-            position = int(position_str)
-            return round(helix + position / 100.0, 3)
-            
-        # Invalid or unrecognized format
-        else:
-            raise ValueError(f"Unrecognized GRN format: {grn}")
-            
+
     except (ValueError, IndexError) as e:
         # Log the error with the GRN string for debugging
         logger.error(f"Error parsing GRN string '{grn}': {e}")
@@ -204,10 +192,7 @@ def parse_grn_float2str(grn_float: float, notation_type: str = 'dot') -> str:
         position = int(round((grn_float - helix) * 100))
         
         # Format based on notation type
-        if notation_type == 'x':
-            return f"{helix}x{position:02d}"
-        else:  # default to dot notation
-            return f"{helix}.{position:02d}"
+        return f"{helix}.{position:02d}"
 
 
 def normalize_grn_format(grn: str) -> str:
@@ -241,23 +226,20 @@ def normalize_grn_format(grn: str) -> str:
         '1.50'
         >>> normalize_grn_format('1.5')
         '1.50'
+        >>> normalize_grn_format('1.521') # insertion notation
+        '1.521'
     """
-    # Check if already in standard format
-    for pattern_name, pattern_str in GRN_PATTERNS.items():
-        if re.match(pattern_str, grn):
-            return grn
+    # N-terminal (no normalization needed)
+    if grn.startswith('n.'):
+        return grn
     
-    # Legacy loop format with x (e.g., '12x05')
-    loop_x_pattern = re.compile(r'^([1-8])([1-8])x(\d+)$')
-    match = loop_x_pattern.match(grn)
-    if match:
-        helix_pair = match.group(1) + match.group(2)
-        distance = int(match.group(3))
-        return f"{helix_pair}.{distance:03d}"
+    # C-terminal (no normalization needed)
+    elif grn.startswith('c.'):
+        return grn
     
-    # Legacy loop format without zero padding (e.g., '12.5', '12.47')
-    loop_no_padding_pattern = re.compile(r'^([0-9])([0-9])\.(\d+)$')
-    match = loop_no_padding_pattern.match(grn)
+    # Loop format with dot notation (e.g., '12.5' -> '12.500', '12.05' -> '12.050')
+    loop_dot_pattern = re.compile(r'^([1-8])([1-8])\.(\d+)$')
+    match = loop_dot_pattern.match(grn)
     if match:
         helix_pair = match.group(1) + match.group(2)
         distance_str = match.group(3)
@@ -265,25 +247,29 @@ def normalize_grn_format(grn: str) -> str:
         # If already 3 digits, keep as is
         if len(distance_str) == 3:
             return grn
-        # Otherwise pad to 3 digits
+        # Otherwise normalize
         else:
             distance = int(distance_str)
+            # Same logic as above for normalizing distance
+            if len(distance_str) == 1:
+                distance = distance * 100
+            elif len(distance_str) == 2:
+                distance = distance * 10
+                
             return f"{helix_pair}.{distance:03d}"
     
-    # Standard GRN with x notation (e.g., '1x50')
-    std_x_pattern = re.compile(r'^([1-8])x(\d+)$')
-    match = std_x_pattern.match(grn)
-    if match:
-        helix = match.group(1)
-        position = int(match.group(2))
-        return f"{helix}.{position:02d}"
-    
     # Standard GRN with dot notation - normalize to 2-digit format (e.g., '1.5' -> '1.50')
-    std_dot_pattern = re.compile(r'^([1-8])\.(\d+)$')
+    std_dot_pattern = re.compile(r'^([0-9])\.(\d+)$')
     match = std_dot_pattern.match(grn)
     if match and len(match.group(1)) == 1:
         helix = match.group(1)
-        position = int(match.group(2))
+        position_str = match.group(2)
+        position = int(position_str)
+        
+        # Handle single digit positions that should be x0 (e.g., '5' -> '50')
+        if len(position_str) == 1:
+            position = position * 10
+            
         # Normalize to 2-digit format (1.5 -> 1.50, 1.50 -> 1.50)
         return f"{helix}.{position:02d}"
     
@@ -480,8 +466,8 @@ def sort_grns(grn_floats: List[float]) -> List[float]:
                               if float(f"{next_helix}{helix_num}") <= g < float(f"{next_helix}{helix_num}") + 1]
             
             # Sort loop positions
-            loop_closer_current.sort()  # 12.001 before 12.002
-            loop_closer_next.sort()     # 21.002 before 21.001 (reverse for closer to next)
+            loop_closer_current.sort()      # 12.001 before 12.002
+            loop_closer_next.sort(reverse=True)  # 21.002 before 21.001 (reverse for closer to next)
             
             # Add loop positions: first those closer to current helix, then those closer to next
             result.extend(loop_closer_current)
@@ -569,17 +555,18 @@ def get_grn_interval(start_grn: str, end_grn: str, grns_str: List[str] = None) -
         return result
 
 
-def init_grn_intervals(grn_ranges):
-    intervals = {}
-    for grn_name, grn_range in grn_ranges.items():
-        start_grn = grn_range[0]
-        end_grn = grn_range[1]
-        intervals[grn_name] = (
-            parse_grn_str2float(start_grn),
-            parse_grn_str2float(end_grn)
-        )
+def init_grn_intervals(grn_config_str):
 
-    return intervals
+    grns_str_str = []
+    if grn_config_str:
+        for region_name, (start_grn, end_grn) in grn_config_str.items():
+            # Generate GRNs for this interval (auto-generate since we don't have a predefined list)
+            region_grns = get_grn_interval(start_grn, end_grn, grns_str=None)
+            grns_str_str.extend(region_grns)
+    return grns_str_str
+
+
+
 
 
 class GRNConfigManager:

@@ -2934,7 +2934,7 @@
       "aliases": [],
       "formats": {
         "ligand": {
-          "file_path": "ligand\\sdf\\COc1cc2ncnc_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_c2cc1OCCCN1CCOCC1.sdf",
+          "file_path": "ligand/sdf/COc1cc2ncnc_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_c2cc1OCCCN1CCOCC1.sdf",
           "metadata": {
             "molecular_properties": {},
             "targets": [],
@@ -2943,18 +2943,18 @@
               "CHEMBL553"
             ]
           },
-          "created": "2025-07-23T22:32:16.927679"
+          "created": "2025-07-24T14:10:31.398649"
         }
       },
       "created": "2025-07-23T21:55:26.180020",
-      "modified": "2025-07-23T22:32:16.927679"
+      "modified": "2025-07-24T14:10:31.398664"
     },
     "74d361edad": {
       "original_id": "CN(C)C/C=C/C(=O)Nc1cc2c(Nc3ccc(F)c(Cl)c3)ncnc2cc1O[C@H]1CCOC1",
       "aliases": [],
       "formats": {
         "ligand": {
-          "file_path": "ligand\\sdf\\CN_lp_C_rp_C_fs_C_eq_C_fs_C_lp__eq_O_rp_Nc1cc2c_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_ncnc2cc1O_lb_C_at_H_rb_1CCOC1.sdf",
+          "file_path": "ligand/sdf/CN_lp_C_rp_C_fs_C_eq_C_fs_C_lp__eq_O_rp_Nc1cc2c_lp_Nc3ccc_lp_F_rp_c_lp_Cl_rp_c3_rp_ncnc2cc1O_lb_C_at_H_rb_1CCOC1.sdf",
           "metadata": {
             "molecular_properties": {},
             "targets": [],
@@ -2963,11 +2963,11 @@
               "CHEMBL1173"
             ]
           },
-          "created": "2025-07-23T22:32:16.958986"
+          "created": "2025-07-24T14:10:31.428688"
         }
       },
       "created": "2025-07-23T21:56:20.023058",
-      "modified": "2025-07-23T22:32:16.958986"
+      "modified": "2025-07-24T14:10:31.428704"
     }
   }
 }

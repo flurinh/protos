@@ -137,3 +137,6 @@
 [2025-07-20 18:48] [MODIFY] /tests/test_processors/interactions/test_multi_format_entity_scenarios.py - Fixed incomplete teardown function causing IndentationError
 [2025-07-20 18:56] [MODIFY] /tests/test_processors/test_structure/test_cifbase_real_data_caching_fixed.py - Fixed nested quotes in f-strings causing SyntaxError
 [2025-07-23 21:53] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/processing/ligand/ligand_processor.py - Fixed two issues: 1) Changed dataset_manager.get_dataset to load_dataset, 2) Changed user_data_root to data_root
+[2025-07-24 15:23] [MODIFY] /test_grn_assignment.py - Fixed imports and added debugging for x.50 positions issue
+[2025-07-24 15:46] [MODIFY] /src/protos/processing/grn/grn_utils.py - Fixed normalize_grn_format to properly normalize all GRN formats including 1.5->1.50
+[2025-07-24 15:51] [MODIFY] /src/protos/processing/grn/grn_processor.py - Fixed column normalization in load_reference_table and load_grn_table to use normalize_grn_format instead of parse_grn_float2str

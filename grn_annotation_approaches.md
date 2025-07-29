@@ -160,9 +160,126 @@ struct_proc.apply_grn_interval(binding_pocket_grns)
 2. **Missing Methods**: Some expected methods like `struct_proc.add_grn_annotations()` are not implemented
 3. **Ligand Analysis**: No built-in ligand processor for analyzing protein-ligand interactions by GRN position
 
+## Detailed Analysis of GRN Assignment Process
+
+### Multi-Step Assignment Process
+
+The GRN assignment follows a complex multi-step process:
+
+1. **Reference Selection**
+   - Uses MMseqs2 for fast similarity search
+   - Filters by sequence identity threshold (typically > 25%)
+   - Selects best matching reference sequence
+
+2. **Alignment**
+   - Performs pairwise alignment between query and reference
+   - Uses BioPython's PairwiseAligner with BLOSUM62 matrix
+   - Validates alignment quality
+
+3. **Strict GRN Transfer**
+   - Maps GRN positions through alignment
+   - Only transfers positions with exact matches
+   - Ignores standard positions during initial transfer
+
+4. **Expansion Steps**
+   
+   a) **N-terminal Expansion** (`calculate_missing_ntail_grns`)
+      - Assigns negative GRN numbers (n.1, n.2, etc.)
+      - Works backwards from first aligned position
+      - Can create gaps if calculation is incorrect
+   
+   b) **C-terminal Expansion** (`calculate_missing_ctail_grns`)
+      - Assigns high GRN numbers (c.1, c.2, etc.)
+      - Works forward from last aligned position
+      - Complex calculation can underestimate needed positions
+   
+   c) **Standard Position Expansion** (`assign_missing_std_grns`)
+      - Uses pivot-based approach to fill missing standard GRNs
+      - Searches for closest assigned positions as anchors
+      - Can skip positions if pivots are not well-distributed
+   
+   d) **Loop/Gap Annotation** (`annotate_gaps_and_loops`)
+      - Detects missing intervals between assigned positions
+      - Classifies as either loops (between helices) or gaps (within helices)
+      - Uses complex logic that can misclassify regions
+
+### Critical Issues Identified
+
+#### 1. Gap Compression Problems
+- **Issue**: Gaps outside strict regions are not properly compressed
+- **Cause**: The `_annotate_missing_rns` function assigns fractional GRNs (e.g., 3.501, 3.502) creating artificial gaps
+- **Impact**: Results in sparse annotations with unnecessary gaps
+
+#### 2. Missing Residues
+- **Issue**: Some residues remain unassigned after all expansion steps
+- **Cause**: Multiple factors:
+  - Pivot-based assignment can skip positions
+  - Terminal calculations may underestimate needed positions
+  - Gap/loop classification errors
+- **Impact**: Incomplete GRN coverage
+
+#### 3. Ordering Issues
+- **Issue**: Final GRN assignments may not maintain proper sequential order
+- **Cause**: 
+  - No validation of sequential ordering in final assembly
+  - Multiple expansion steps can create overlaps
+  - Sorting issues with loop positions (fixed in sort_grns)
+- **Impact**: Incorrect position mapping
+
+#### 4. Duplicate Assignments
+- **Issue**: Same residue can be assigned multiple GRNs
+- **Cause**: No duplicate checking in final assembly
+- **Impact**: Ambiguous position mapping
+
+### Helper Functions Analysis
+
+#### `is_sequential(rn_list)`
+- Checks if residue numbers form a sequential list
+- Used to validate continuous regions
+- Critical for gap detection
+
+#### `sort_grn_rn_pairs(sorted_grn_list, grn_rn_pairs)`
+- Sorts GRN-residue pairs based on GRN order
+- Ensures proper ordering in final output
+- Does not validate completeness
+
+#### `valid_jump(grn_std_f, assigned_grn_f)`
+- Checks if GRN assignment jump is reasonable
+- Prevents large gaps in assignments
+- Uses configurable max_jump parameter
+
+#### `_is_valid_gap(gene_nr_grn_dict, grn_std)`
+- Validates if a gap assignment is appropriate
+- Checks surrounding positions
+- Complex logic can lead to false positives
+
+### Recommended Improvements
+
+1. **Simplify Expansion Logic**
+   - Use a single-pass approach after initial alignment
+   - Fill all positions sequentially
+   - Validate coverage at each step
+
+2. **Improve Gap Compression**
+   - In standard regions: assign consecutive positions without gaps
+   - In loop regions: use appropriate loop notation
+   - No fractional positions unless necessary
+
+3. **Add Validation Steps**
+   - Check for complete coverage after each expansion
+   - Validate sequential ordering
+   - Remove duplicates before finalizing
+
+4. **Better Error Handling**
+   - Log warnings for unusual gaps
+   - Provide detailed debugging output
+   - Fail gracefully with partial results
+
 ## Recommendations
 
 1. **For simple batch processing**: Use the CLI command
-2. **For custom analysis pipelines**: Use direct code approach
+2. **For custom analysis pipelines**: Use direct code approach with careful validation
 3. **For structure-based analysis**: Use CifBaseProcessor's `assign_grns()` method
 4. **For GPCRs specifically**: Ensure the reference table format matches (may need GPCRdb API integration)
+5. **For debugging**: Enable verbose mode to track expansion steps
+6. **For production**: Add post-processing normalization to ensure complete, ordered assignments

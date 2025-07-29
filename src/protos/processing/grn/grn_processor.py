@@ -134,8 +134,8 @@ class GRNProcessor(BaseProcessor):
         
         self.logger.info(f"Loading reference table from {ref_path}")
         df = pd.read_csv(ref_path, index_col=0)
-        # Convert column names to strings to preserve formats like "1.50" instead of 1.5
-        df.columns = df.columns.astype(str)
+        # Normalize column names to standard format (e.g., '1.5' -> '1.50')
+        df.columns = [normalize_grn_format(str(col)) for col in df.columns.tolist()]
         return df
     
     def load_grn_config(self, config_name: str) -> dict:
@@ -445,8 +445,8 @@ class GRNProcessor(BaseProcessor):
                 kwargs['na_values'] = ['-']
             # Read CSV and ensure column names are preserved as strings
             df = pd.read_csv(table_path, index_col=0, low_memory=low_memory, **kwargs)
-            # Convert column names to strings to preserve formats like "1.50" instead of 1.5
-            df.columns = df.columns.astype(str)
+            # Normalize column names to standard format (e.g., '1.5' -> '1.50')
+            df.columns = [normalize_grn_format(str(col)) for col in df.columns.tolist()]
         else:
             # Try loading from dataset JSON
             dataset_path = Path(self.paths.get_subdir_path('grn', 'datasets_dir')) / f"{dataset_to_load}.json"
@@ -460,8 +460,8 @@ class GRNProcessor(BaseProcessor):
                     if table_file.exists():
                         self.logger.info(f"Loading GRN table from dataset reference: {table_file}")
                         df = pd.read_csv(table_file, index_col=0, low_memory=low_memory, **kwargs)
-                        # Convert column names to strings to preserve formats like "1.50" instead of 1.5
-                        df.columns = df.columns.astype(str)
+                        # Normalize column names to standard format (e.g., '1.5' -> '1.50')
+                        df.columns = [normalize_grn_format(str(col)) for col in df.columns.tolist()]
                     else:
                         raise FileNotFoundError(f"Table file not found: {table_file}")
                 else:
