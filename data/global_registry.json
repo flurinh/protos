@@ -2968,6 +2968,51 @@
       },
       "created": "2025-07-23T21:56:20.023058",
       "modified": "2025-07-24T14:10:31.428704"
+    },
+    "cd4dad5541": {
+      "original_id": "1UAZ",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure/mmcif/1UAZ.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-29T19:52:09.300980"
+        }
+      },
+      "created": "2025-07-29T19:52:09.300964",
+      "modified": "2025-07-29T19:52:09.300982"
+    },
+    "3ece010800": {
+      "original_id": "3DDL",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure/mmcif/3DDL.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-29T19:52:09.455859"
+        }
+      },
+      "created": "2025-07-29T19:52:09.455845",
+      "modified": "2025-07-29T19:52:09.455860"
+    },
+    "936721c6a5": {
+      "original_id": "4PXK",
+      "aliases": [],
+      "formats": {
+        "structure": {
+          "file_path": "structure/mmcif/4PXK.cif",
+          "metadata": {
+            "auto_discovered": true
+          },
+          "created": "2025-07-29T19:52:09.552234"
+        }
+      },
+      "created": "2025-07-29T19:52:09.552221",
+      "modified": "2025-07-29T19:52:09.552236"
     }
   }
 }

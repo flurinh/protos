@@ -151,7 +151,7 @@ def main():
         
         # Get best sequence match
         query_alignments = alignment_df[alignment_df['query_id'] == q]
-        best_alignment = query_alignments.loc[query_alignments['sequence_identity'].idxmax()]
+        best_alignment = query_alignments.loc[query_alignments['e_value'].idxmin()]
         ref_id = best_alignment['target_id']
         
         print(f"Best match: {ref_id} (identity: {best_alignment['sequence_identity']:.1%})")
