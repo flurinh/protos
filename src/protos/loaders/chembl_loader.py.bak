@@ -23,25 +23,14 @@ from protos.loaders.ligand_utils import (
 
 logger = logging.getLogger(__name__)
 
-# ChEMBL client will be imported on demand
-HAS_CHEMBL = None
-chembl_client = None
-
-def _get_chembl_client():
-    """Lazy import of ChEMBL client."""
-    global HAS_CHEMBL, chembl_client
-    
-    if HAS_CHEMBL is None:
-        try:
-            from chembl_webresource_client.new_client import new_client as _chembl_client
-            chembl_client = _chembl_client
-            HAS_CHEMBL = True
-        except (ImportError, Exception) as e:
-            logger.warning(f"chembl_webresource_client not available: {e}")
-            HAS_CHEMBL = False
-            chembl_client = None
-    
-    return chembl_client
+# Try to import ChEMBL client
+try:
+    from chembl_webresource_client.new_client import new_client as chembl_client
+    HAS_CHEMBL = True
+except ImportError:
+    logger.warning("chembl_webresource_client not available. ChEMBL functionality will be limited.")
+    HAS_CHEMBL = False
+    chembl_client = None
 
 
 class ChEMBLDL:

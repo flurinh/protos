@@ -1,5 +1,125 @@
 # PROTOS TODO - DATA MANAGEMENT IMPLEMENTATION
 
+## 🚨 CURRENT WORK IN PROGRESS: GRN Assignment for Structure Processor
+
+### Overview
+We are implementing the `assign_grns` method for the StructureProcessor class to enable GRN (Generic Residue Numbering) assignment directly to protein structures.
+
+### Completed Work
+- ✅ Created annotation scripts for microbial opsins sequences (`annotate_microbial_opsins_proper.py`)
+- ✅ Created annotation scripts for sequences from YAML (`annotate_opsin_sequences_from_yaml.py`)
+- ✅ Designed the `assign_grns` method implementation for StructureProcessor
+- ✅ Created patch files for integration (`structure_processor_assign_grns_final.patch`)
+
+### GRN Assignment Workflow
+
+The GRN assignment process follows a systematic workflow:
+
+```
+// ============================================
+// Phase 1: Preparation
+// ============================================
+
+1. LOAD Query Sequences:
+   - Read query protein sequences from a source (e.g., PDB files, FASTA).
+   - Store them in a dictionary: { query_id: sequence_string }.
+
+2. LOAD Reference Database:
+   - Read a reference GRN table (e.g., CSV file) into a DataFrame.
+   - The table should have reference protein IDs as the index and GRN labels as columns.
+   - Create a dictionary of reference sequences from this table: { ref_id: sequence_string }.
+
+3. DEFINE Standard GRN Set:
+   - Load a configuration file that defines the "official" GRN positions for the protein family 
+     (e.g., gpcr_a, microbial_opsins). This list is used to filter and validate annotations.
+
+// ============================================
+// Phase 2: Finding the Best Template
+// ============================================
+
+4. PERFORM Initial Search (e.g., using MMseqs2):
+   - Align all query sequences against all reference sequences.
+   - Generate a results table containing query_id, target_id, sequence_identity, and e_value.
+
+5. FOR EACH unique Query Protein:
+   a. FILTER the alignment results to find all potential reference matches for that query.
+   b. SELECT the best reference protein.
+      - **Crucial Step**: Choose the reference with the **lowest E-value**. 
+        This ensures the most statistically significant overall match.
+      - Store the best ref_id.
+
+// ============================================
+// Phase 3: Detailed Annotation
+// ============================================
+
+   c. PERFORM Pairwise Alignment:
+      - Conduct a high-quality pairwise alignment (e.g., using BLOSUM62) between 
+        the query sequence and its chosen best reference sequence.
+
+   d. CREATE Initial Annotation Row:
+      - Use the alignment to transfer GRNs from the reference to the query.
+      - If a query residue aligns with a reference residue that has a GRN, 
+        assign that GRN to the query residue.
+      - Filter this initial row to only include the "official" standard GRNs 
+        defined in Step 3.
+
+   e. EXPAND the Annotation to Full Sequence:
+      - This is a multi-step function (expand_annotation):
+        i.   Annotate N- and C-Termini: Sequentially number any residues before 
+             the first aligned GRN and after the last aligned GRN.
+        ii.  Fill Helical Gaps: Interpolate and assign GRNs to residues that fall 
+             between two aligned anchor points within a helix (e.g., if 3.50 and 
+             3.53 are known, fill in 3.51 and 3.52).
+        iii. Annotate Loops/Gaps: Assign special labels to any remaining unannotated 
+             residues, which are assumed to be in loop regions. (This is where 
+             high-quality alignments from Step 5b are critical to prevent errors).
+
+   f. STORE the final, fully annotated row for the query protein.
+
+// ============================================
+// Phase 4: Finalization
+// ============================================
+
+6. COMBINE all annotated rows into a final DataFrame.
+7. SORT the columns (GRNs) in numerical/helical order.
+8. FILL any remaining empty cells with a gap character ('-').
+9. SAVE the final GRN table to a file.
+```
+
+### Key Implementation Details for StructureProcessor
+
+1. **For StructureProcessor**, the key difference is that GRN assignments are stored in a new 'grn' column in the structure data
+2. The method accepts a `protein_family` parameter to select the appropriate reference table and configuration
+3. The assignment process uses the same core functions: `init_row_from_alignment` and `expand_annotation`
+4. Results can be queried directly from structure data, e.g., `struct_proc.data[struct_proc.data['grn'] == '3.50']`
+
+### Next Steps for GRN Assignment
+- [x] Create minimal example that loads a single GPCR structure and annotates it (`minimal_gpcr_grn_visualization.py`)
+- [x] Verify the 'grn' column is properly populated in self.data (included in minimal example)
+- [x] Create 3D visualization with Plotly showing GRN positions with a slider (interactive HTML output)
+- [ ] Test with different protein families (GPCRs, microbial opsins)
+- [ ] Integrate the patch into the main StructureProcessor class
+- [ ] Write comprehensive tests for the new functionality
+
+### Minimal GPCR GRN Example
+The file `minimal_gpcr_grn_visualization.py` demonstrates:
+1. Loading a single GPCR structure (5TVN or 3SN6)
+2. Applying the `assign_grns` method patch
+3. Annotating the structure with GRN positions
+4. Printing the populated 'grn' column data
+5. Creating an interactive 3D visualization with:
+   - Backbone representation in gray
+   - GRN position slider to highlight individual positions
+   - Play/Pause animation controls
+   - Hover information showing residue details
+6. Generating a static overview showing all GRN positions color-coded by helix
+
+Output files:
+- `gpcr_grn_visualization.html` - Interactive visualization with slider
+- `gpcr_grn_overview.html` - Static view of all GRN positions
+
+---
+
 ## 🚀 QUICK START & ESSENTIAL CONTEXT
 
 ### Environment Setup

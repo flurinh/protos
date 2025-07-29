@@ -1013,20 +1013,311 @@ class StructureProcessor(BaseProcessor):
         self.update_pdb_ids()
     
     # GRN methods
-    def assign_grns(self, grn_table, chain_ids=None, grn_chain_dict=None):
+    def assign_grns(self, protein_family='microbial_opsins', reference_table=None, 
+                    similarity_threshold=0.2, use_mmseqs=True, verbose=True):
         """
         Assign GRN annotations to structure data.
         
+        This method follows the same process as test_grn_assignment.py:
+        1. Extracts sequences from the loaded structures
+        2. Loads the specified reference GRN table
+        3. Aligns sequences against reference
+        4. Assigns GRN positions using init_row_from_alignment and expand_annotation
+        5. Stores results in 'grn' column of self.data
+        
         Args:
-            grn_table: DataFrame with GRN mappings
-            chain_ids: List of chain IDs to process
-            grn_chain_dict: Dictionary mapping chain IDs to GRN chain IDs
-        """
-        if self.data is None:
-            raise ValueError("No data loaded")
+            protein_family: Protein family for GRN config ('microbial_opsins', 'gpcr_a', etc.)
+            reference_table: Name of reference GRN table (e.g., 'mo_ref', 'gpcrdb_ref')
+                            If None, must be specified based on protein_family
+            similarity_threshold: Minimum sequence identity for alignment
+            use_mmseqs: Whether to use MMseqs2 for alignment
+            verbose: Whether to print progress messages
             
-        # Implementation would go here
-        self.logger.warning("GRN assignment not yet implemented in merged version")
+        Returns:
+            Dictionary mapping chain IDs to pandas Series of GRN assignments
+        """
+        import pandas as pd
+        from pathlib import Path
+        import shutil
+        import platform
+        import re
+        
+        # Protos imports (same as test scripts)
+        from protos.processing.grn.grn_processor import GRNProcessor
+        from protos.processing.grn.grn_table_utils import (
+            init_row_from_alignment,
+            expand_annotation,
+        )
+        from protos.processing.grn.grn_utils import (
+            get_seq, sort_grns_str, GRNConfigManager, parse_grn_str2float,
+            parse_grn_float2str, get_grn_interval
+        )
+        from protos.processing.sequence.seq_alignment import (
+            init_aligner,
+            align_blosum62,
+            mmseqs2_align2,
+            format_alignment
+        )
+        
+        if self.data is None:
+            raise ValueError("No structure data loaded")
+        
+        # Initialize GRN processor
+        grn_proc = GRNProcessor(paths=self.paths)
+        
+        # Determine reference table
+        if reference_table is None:
+            if protein_family == 'microbial_opsins':
+                reference_table = 'mo_ref'
+            elif protein_family == 'gpcr_a':
+                reference_table = 'gpcrdb_ref'
+            else:
+                raise ValueError(f"No default reference table for protein_family '{protein_family}'. "
+                               "Please specify reference_table parameter.")
+        
+        # Extract sequences from structure (same as test_grn_assignment.py line 60)
+        if verbose:
+            self.logger.info("Extracting sequences from structures...")
+        sequences = self.get_seq_dict()
+        
+        if not sequences:
+            self.logger.warning("No sequences found in structure data")
+            return {}
+        
+        # Load reference GRN table (same as test_grn_assignment.py line 72)
+        if verbose:
+            self.logger.info(f"Loading reference GRN table: {reference_table}")
+        
+        ref_file = grn_proc.path_ref_dir / f"{reference_table}.csv"
+        if not ref_file.exists():
+            raise FileNotFoundError(f"Reference GRN table not found: {ref_file}")
+        
+        grn_proc.data = grn_proc.load_reference_table(reference_table)
+        grn_proc.ids = grn_proc.data.index.tolist()
+        
+        if verbose:
+            self.logger.info(f"Loaded {len(grn_proc.data)} sequences from reference table")
+        
+        # Get reference sequences
+        ref_sequences = grn_proc.get_seq_dict()
+        
+        # Clean up temp directory before alignment (same as test_grn_assignment.py line 82)
+        mmseqs_tmp_dir = Path("temp/mmseqs_tmp")
+        if mmseqs_tmp_dir.exists():
+            if verbose:
+                self.logger.info("Cleaning up existing MMseqs2 temp directory...")
+            if platform.system() == "Windows":
+                try:
+                    for item in mmseqs_tmp_dir.iterdir():
+                        if item.is_symlink():
+                            item.unlink()
+                    shutil.rmtree(mmseqs_tmp_dir)
+                except Exception as e:
+                    self.logger.warning(f"Could not fully clean temp directory: {e}")
+                    import subprocess
+                    try:
+                        subprocess.run(['wsl', 'rm', '-rf', 'temp/mmseqs_tmp'], check=True)
+                    except:
+                        pass
+            else:
+                shutil.rmtree(mmseqs_tmp_dir)
+        
+        # Perform alignment (same as test_grn_assignment.py line 111)
+        if verbose:
+            self.logger.info("Performing MMseqs2 alignment...")
+        alignment_df = mmseqs2_align2(sequences, ref_sequences)
+        
+        if alignment_df is None:
+            self.logger.error("MMseqs2 alignment failed")
+            return {}
+        
+        # Filter by sequence identity
+        alignment_df = alignment_df[alignment_df['sequence_identity'] > similarity_threshold]
+        print("alm", alignment_df.head(5))
+        if verbose:
+            self.logger.info(f"Found {len(alignment_df)} alignments with > {similarity_threshold:.0%} sequence identity")
+        
+        # Get unique queries
+        queries = alignment_df['query_id'].unique().tolist()
+        if verbose:
+            self.logger.info(f"Processing {len(queries)} unique queries")
+        
+        # Initialize aligner and config (following annotate_microbial_opsins_proper.py)
+        aligner = init_aligner()
+        config = GRNConfigManager(paths=self.paths)
+        
+        # First try with strict=True (same as annotate_microbial_opsins_proper.py line 184)
+        grn_config_str = config.get_config(protein_family=protein_family, strict=True)
+        
+        # If no specific config, use all GRN positions from reference
+        if not grn_config_str:
+            if verbose:
+                self.logger.info(f"No specific {protein_family} config found, using all GRN positions from reference")
+            grns_str_str_strict = list(grn_proc.data.columns)
+        else:
+            grns_str_str_strict = []
+            for region_name, (start_grn, end_grn) in grn_config_str.items():
+                region_grns = get_grn_interval(start_grn, end_grn, grns_str=None)
+                grns_str_str_strict.extend(region_grns)
+            grns_str_str_strict = list(set(grns_str_str_strict))
+        
+        grns_str_str_strict = sort_grns_str(grns_str_str_strict)
+        if verbose:
+            self.logger.info(f"strict {len(grns_str_str_strict)} GRN positions for annotation: {grns_str_str_strict}")
+        
+        # Now try with strict=False to get all positions including loops
+        # (same as annotate_microbial_opsins_proper.py line 201)
+        grn_config_str = config.get_config(protein_family=protein_family, strict=False)
+        
+        # If no specific config, use all GRN positions from reference
+        if not grn_config_str:
+            if verbose:
+                self.logger.info(f"No specific {protein_family} config found, using all GRN positions from reference")
+            grns_str_str = list(grn_proc.data.columns)
+        else:
+            grns_str_str = []
+            for region_name, (start_grn, end_grn) in grn_config_str.items():
+                region_grns = get_grn_interval(start_grn, end_grn, grns_str=None)
+                grns_str_str.extend(region_grns)
+            grns_str_str = list(set(grns_str_str))
+        
+        grns_str_str = sort_grns_str(grns_str_str)
+        if verbose:
+            self.logger.info(f"standard {len(grns_str_str)} GRN positions for annotation: {grns_str_str}")
+        
+        # Initialize GRN column if not exists
+        if 'grn' not in self.data.columns:
+            self.data['grn'] = None
+        
+        # Process each query (following annotate_microbial_opsins_proper.py line 218)
+        rows = {}
+        if verbose:
+            self.logger.info("\nAnnotating sequences...")
+        
+        for i, q in enumerate(queries):
+            if verbose:
+                self.logger.info(f"\n{'='*60}")
+                self.logger.info(f"Processing {i+1}/{len(queries)}: {q}")
+                self.logger.info(f"{'='*60}")
+            
+            # Get best sequence match
+            query_alignments = alignment_df[alignment_df['query_id'] == q]
+            if verbose:
+                self.logger.info(f"query {q} alignments {query_alignments.head(5)}")
+            best_alignment = query_alignments.loc[query_alignments['e_value'].idxmin()]
+            ref_id = best_alignment['target_id']
+            
+            if verbose:
+                self.logger.info(f"Best match: {ref_id} (identity: {best_alignment['sequence_identity']:.1%})")
+            
+            # Get sequences
+            test_seq = sequences[q]
+            ref_seq = ref_sequences[ref_id]
+            
+            # Align sequences
+            alignment = align_blosum62(test_seq, ref_seq, aligner)
+            formatted = format_alignment(alignment)
+            
+            if verbose:
+                self.logger.info(f"\nAlignment preview (first 100 chars):")
+                self.logger.info(f"Query:  {formatted[0][:100]}...")
+                self.logger.info(f"Match:  {formatted[1][:100]}...")
+                self.logger.info(f"Ref:    {formatted[2][:100]}...")
+            
+            # Create initial annotation
+            ref_row = grn_proc.data.loc[ref_id]
+            ref_dict = {grn: res for grn, res in ref_row.to_dict().items() if res != '-'}
+            seq_pos2grn = dict([(i + 1, grn) for i, grn in enumerate(list(ref_dict.keys()))])
+            
+            new_row = init_row_from_alignment(formatted, seq_pos2grn)
+            grns = [grn for grn in grns_str_str if grn in new_row.index]
+            new_row = new_row[grns]
+            
+            if verbose:
+                self.logger.info(f"new_row {new_row.head(30)}")
+                
+                # Check key positions
+                self.logger.info(f"\nInitial annotation has {len(new_row)} positions")
+                key_positions = ['1.50', '2.50', '3.50', '4.50', '5.50', '6.50', '7.50']
+                self.logger.info(f"Key positions (x.50) in initial annotation:")
+                for pos in key_positions:
+                    if pos in new_row.index:
+                        self.logger.info(f"  {pos} -> {new_row[pos]}")
+            
+            # Expand annotation
+            if verbose:
+                self.logger.info(f"\nExpanding annotation...")
+            
+            try:
+                grn_list, rn_list, missing = expand_annotation(
+                    new_row,
+                    test_seq.replace('-', ''),
+                    formatted,
+                    max_alignment_gap=1,
+                    protein_family=protein_family,
+                    verbose=1 if verbose else 0
+                )
+                
+                if verbose:
+                    # Check key positions in final annotation
+                    key_in_final = [(g, r) for g, r in zip(grn_list, rn_list) if g.endswith('.50')]
+                    self.logger.info(f"\nKey positions (x.50) in final annotation: {len(key_in_final)}")
+                    for grn, rn in key_in_final:
+                        self.logger.info(f"  {grn} -> {rn}")
+                
+                # Create final row
+                final_row = pd.Series(dict(zip(grn_list, rn_list)))
+                rows[q] = final_row
+                
+                if verbose:
+                    self.logger.info(f"\nSummary: Annotated {len(grn_list)} positions, {len(missing)} missing")
+                
+                # Now assign GRN values to structure data
+                # Parse chain ID from query (format: PDBID_CHAIN)
+                pdb_id, chain_id = q.rsplit('_', 1)
+                
+                # Get the mapping from sequence position to auth_seq_id
+                # We need to reconstruct how the sequence was built in get_seq_dict
+                chain_mask = (self.data['pdb_id'] == pdb_id) & (self.data['auth_chain_id'] == chain_id)
+                backbone_mask = chain_mask & (self.data['res_atom_name'] == 'CA') & (self.data['group'] == 'ATOM')
+                chain_backbone = self.data[backbone_mask].sort_values(by='gen_seq_id')
+                
+                # Create mapping from sequence position (1-based) to auth_seq_id
+                seq_pos_to_auth_seq_id = {}
+                for i, (idx, row) in enumerate(chain_backbone.iterrows(), start=1):
+                    seq_pos_to_auth_seq_id[i] = row['auth_seq_id']
+                
+                # Create mapping from auth_seq_id to GRN
+                # rn_list contains entries like 'M1', 'L2', etc.
+                auth_seq_id_to_grn = {}
+                for rn, grn in zip(rn_list, grn_list):
+                    # Extract position number from residue notation (e.g., 'M1' -> 1)
+                    match = re.match(r'([A-Z])(\d+)', rn)
+                    if match:
+                        res_type = match.group(1)
+                        seq_pos = int(match.group(2))  # This is position in sequence (1-based)
+                        
+                        # Convert sequence position to auth_seq_id
+                        if seq_pos in seq_pos_to_auth_seq_id:
+                            auth_seq_id = seq_pos_to_auth_seq_id[seq_pos]
+                            auth_seq_id_to_grn[auth_seq_id] = grn
+                
+                # Assign GRN values to all atoms with matching auth_seq_id
+                for idx in self.data[chain_mask].index:
+                    auth_seq_id = self.data.loc[idx, 'auth_seq_id']
+                    if auth_seq_id in auth_seq_id_to_grn:
+                        self.data.loc[idx, 'grn'] = auth_seq_id_to_grn[auth_seq_id]
+                
+            except Exception as e:
+                self.logger.warning(f"Error in annotation for {q}: {e}")
+                # Store partial results
+                rows[q] = new_row
+        
+        if verbose:
+            total_grn_residues = self.data[self.data['grn'].notna()].shape[0]
+            self.logger.info(f"Total residues with GRN annotations: {total_grn_residues}")
+        
+        return rows
     
     def get_grn_dict(self):
         """Get dictionary of GRN values."""

@@ -3,9 +3,9 @@
   "entities": [
     "4PXK_A",
     "1UAZ_B",
-    "3DDL_B",
     "1UAZ_A",
-    "3DDL_A"
+    "3DDL_A",
+    "3DDL_B"
   ],
   "table_file": "..\\tables\\microbial_opsins_grn_annotations.csv",
   "metadata": {
@@ -271,6 +271,6 @@
       "c.9"
     ],
     "entity_count": 5,
-    "created": "2025-07-29T20:38:17.725570"
+    "created": "2025-07-29T22:40:08.268806"
   }
 }
