@@ -3,13 +3,12 @@
   "processor_type": "ligand",
   "entities": [
     "CC(=O)OC1=CC=CC=C1C(=O)O",
-    "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
-    "COC1=CC=CC=C1OCCN"
+    "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"
   ],
   "metadata": {
-    "description": "Test dataset for ligand download",
-    "source": "Synthetic"
+    "test": true,
+    "source": "ChEMBL/synthetic"
   },
-  "created": "2025-07-23T21:53:31.645190",
-  "modified": "2025-07-23T21:53:31.645203"
+  "created": "2025-08-05T16:28:06.893580",
+  "modified": "2025-08-05T16:28:06.893608"
 }

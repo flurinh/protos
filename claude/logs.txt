@@ -140,3 +140,22 @@
 [2025-07-24 15:23] [MODIFY] /test_grn_assignment.py - Fixed imports and added debugging for x.50 positions issue
 [2025-07-24 15:46] [MODIFY] /src/protos/processing/grn/grn_utils.py - Fixed normalize_grn_format to properly normalize all GRN formats including 1.5->1.50
 [2025-07-24 15:51] [MODIFY] /src/protos/processing/grn/grn_processor.py - Fixed column normalization in load_reference_table and load_grn_table to use normalize_grn_format instead of parse_grn_float2str
+[2025-07-30 19:53] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/input.fasta - Reformatted to valid FASTA format
+[2025-07-30 19:55] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/input.fasta - Reformatted sequences to 80 character width
+[2025-07-30 20:04] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/data/sequence/fasta/mo_small.fasta - Moved input.fasta to proper location following Protos data management
+[2025-07-30 20:04] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/annotate_mo_small.py - Created script to annotate mo_small dataset following Protos data management principles
+[2025-07-30 21:41] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/annotate_mo_small.py - Fixed path setup to match visualization script approach
+[2025-07-30 22:07] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/data/sequence/fasta/mo_small.fasta - Simplified sequence names to MO_001-MO_028 for MMseqs2 compatibility
+[2025-08-05 14:08] [CREATE] /mnt/c/Users/hidbe/PycharmProjects/protos/ligand.md - Creating comprehensive documentation for ligand processor capabilities
+[2025-08-05 14:17] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/loaders/chembl_loader.py - Fixed ChEMBL client initialization
+[2025-08-05 14:17] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/processing/ligand/ligand_processor.py - Fixed path handling in _load_ligand_data method
+[2025-08-05 14:23] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/processing/ligand/ligand_processor.py - Fixed list_entities method and EntityInfo.original_id reference
+[2025-08-05 14:23] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/loaders/chembl_loader.py - Improved gene name mapping with partial matching
+[2025-08-05 14:28] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/ligand.md - Updated with recent improvements and fixes
+[2025-08-05 14:29] [MODIFY] /mnt/c/Users/hidbe/PycharmProjects/protos/src/protos/loaders/chembl_loader.py - Added gene name aliases and smart target selection for ChEMBL mapping
+[2025-08-05 14:48] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Fixed SDF file handling to check existence and gracefully handle missing RDKit
+[2025-08-05 15:03] [CREATE] /src/protos/processing/ligand/ligand_processor_refactored.py - Created refactored ligand processor following Protos data management principles
+[2025-08-05 15:03] [CREATE] /LIGAND_PROCESSOR_VIOLATIONS.md - Documented Protos principle violations in current ligand processor
+[2025-08-05 16:23] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Refactored to follow Protos data management principles
+[2025-08-05 16:23] [CREATE] /src/protos/loaders/chembl_loader_refactored.py - Created pure utility ChEMBL loader following proper patterns
+[2025-08-05 16:23] [CREATE] /LOADER_PATTERN_VIOLATIONS.md - Documented proper loader patterns and current violations

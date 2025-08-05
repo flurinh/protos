@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
-Enhanced Microbial Opsin GRN visualization with corrected mapping and NaN handling.
-This script creates interactive and static visualizations of microbial opsin structures with GRN annotations.
+Visualize microbial opsin structures with GRN annotations.
+This script properly uses the built-in assign_grns method which includes expand_annotation.
 """
 
 import os
@@ -13,33 +13,29 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 
-# Setup paths
+# Setup paths following Protos principles
 project_root = Path(__file__).parent.absolute()
-sys.path.insert(0, str(project_root))
+data_dir = project_root / "data"
+os.environ["PROTOS_DATA_ROOT"] = str(data_dir.absolute())
 
+# Protos imports
 from protos.io.paths import ProtosPaths
 from protos.processing.structure.structure_processor import StructureProcessor
-from protos.processing.grn.grn_processor import GRNProcessor
-from protos.processing.grn.grn_table_utils import init_row_from_alignment, expand_annotation
+from protos.processing.grn.grn_utils import sort_grns_str
 
 def main():
-    """Main function to create enhanced GRN visualizations for microbial opsins."""
+    """Main function to create GRN visualizations for microbial opsins."""
     
-    # Setup
-    data_dir = project_root / "data"
-    os.environ["PROTOS_DATA_ROOT"] = str(data_dir.absolute())
-    
-    paths = ProtosPaths()
-    struct_proc = StructureProcessor(name="mo_viz", paths=paths)
+    # Initialize processor - let it handle everything internally
+    struct_proc = StructureProcessor(name="mo_viz")
     
     # Load structure
-    print("Enhanced Microbial Opsin GRN Visualization")
+    print("Microbial Opsin GRN Visualization (Correct Implementation)")
     print("="*60)
     print("\nLoading microbial opsin structure...")
     
-    # Try to load a microbial opsin structure
-    # Common examples: 1UAZ (sensory rhodopsin II), 6RMK (channelrhodopsin), 1M0L (bacteriorhodopsin)
-    pdb_ids = ["1UAZ", "6RMK", "1M0L", "3UG9", "4HYJ"]  # Various microbial opsins
+    # Try to load common microbial opsin structures
+    pdb_ids = ["1UAZ", "6RMK", "1M0L", "3UG9", "4HYJ", "4PXK", "1VGO", "1XIO", "1JGJ"]
     
     loaded_pdb_id = None
     for pdb_id in pdb_ids:
@@ -61,122 +57,21 @@ def main():
     pdb_id = loaded_pdb_id
     print(f"\nUsing {pdb_id} with {len(struct_proc.data)} atoms")
     
-    # Manually handle GRN assignment to avoid the NaN issue
+    # Use the built-in assign_grns method which properly:
+    # 1. Loads the reference table using processor methods
+    # 2. Uses expand_annotation functionality
+    # 3. Handles all the complex mapping correctly
     print("\nAssigning GRN positions for microbial opsins...")
+    print("(Using built-in assign_grns with expand_annotation)")
     
-    # Load GRN processor and reference table
-    grn_proc = GRNProcessor(name="grn_processor", paths=paths)
+    grn_assignments = struct_proc.assign_grns(
+        protein_family='microbial_opsins',
+        reference_table='mo_ref',  # This will be loaded by the processor
+        similarity_threshold=0.20,  # 20% as used in annotate_microbial_opsins_proper.py
+        verbose=True
+    )
     
-    # Load reference table and handle NaN values
-    ref_table_path = data_dir / "grn" / "ref" / "mo_ref.csv"
-    print(f"Loading reference table from {ref_table_path}")
-    ref_table = pd.read_csv(ref_table_path, index_col=0)
-    
-    # Replace NaN values with '-' (gap symbol)
-    ref_table = ref_table.fillna('-')
-    
-    # Set the reference table in the processor
-    grn_proc.data = ref_table
-    grn_proc.ids = ref_table.index.tolist()
-    grn_proc.grns = ref_table.columns.tolist()
-    
-    # Get sequences from structure
-    sequences = struct_proc.get_seq_dict()
-    
-    # Find chains with sequences
-    chains_annotated = []
-    for (pdb_id_seq, chain_id), sequence in sequences.items():
-        if pdb_id_seq == pdb_id and len(sequence) > 50:  # Reasonable length for opsin
-            print(f"\nProcessing chain {chain_id} ({len(sequence)} residues)")
-            
-            # Create temporary fasta for alignment
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.fasta', delete=False) as query_file:
-                query_file.write(f">{pdb_id}_{chain_id}\n{sequence}\n")
-                query_path = query_file.name
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.fasta', delete=False) as ref_file:
-                # Write reference sequences
-                for ref_id in ref_table.index:
-                    ref_seq_parts = []
-                    for val in ref_table.loc[ref_id].values:
-                        if val not in ['-', 'X', np.nan] and pd.notna(val):
-                            # Extract just the amino acid letter
-                            if isinstance(val, str) and len(val) > 0:
-                                ref_seq_parts.append(val[0])
-                    if ref_seq_parts:
-                        ref_file.write(f">{ref_id}\n{''.join(ref_seq_parts)}\n")
-                ref_path = ref_file.name
-            
-            # Run alignment
-            try:
-                from protos.processing.sequence.mmseqs_utils import run_mmseqs_search
-                results = run_mmseqs_search(
-                    query_path,
-                    ref_path,
-                    sensitivity=3.0,
-                    output_format='query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits'
-                )
-                
-                # Parse results
-                if results:
-                    best_result = results[0]  # Already sorted by E-value
-                    ref_id = best_result['target']
-                    e_value = float(best_result['evalue'])
-                    
-                    if e_value < 0.1:  # Reasonable threshold
-                        print(f"  Best match: {ref_id} (E-value: {e_value:.2e})")
-                        
-                        # Initialize GRN assignment
-                        grn_positions = init_row_from_alignment(
-                            int(best_result['qstart']),
-                            int(best_result['qend']),
-                            int(best_result['tstart']),
-                            int(best_result['tend']),
-                            ref_table.loc[ref_id]
-                        )
-                        
-                        # Expand annotation
-                        full_grn = expand_annotation(grn_positions, ref_table)
-                        
-                        # Apply to structure - with corrected mapping
-                        chain_mask = (struct_proc.data['pdb_id'] == pdb_id) & (struct_proc.data['auth_chain_id'] == chain_id)
-                        backbone_mask = chain_mask & (struct_proc.data['res_atom_name'] == 'CA') & (struct_proc.data['group'] == 'ATOM')
-                        chain_backbone = struct_proc.data[backbone_mask].sort_values(by='gen_seq_id')
-                        
-                        # Create mapping from sequence position to auth_seq_id
-                        seq_pos_to_auth_seq_id = {}
-                        for i, (idx, row) in enumerate(chain_backbone.iterrows(), start=1):
-                            seq_pos_to_auth_seq_id[i] = row['auth_seq_id']
-                        
-                        # Apply GRN assignments
-                        assigned_count = 0
-                        for pos, grn in full_grn.items():
-                            if grn and grn != '-' and pos in seq_pos_to_auth_seq_id:
-                                auth_seq_id = seq_pos_to_auth_seq_id[pos]
-                                res_mask = chain_mask & (struct_proc.data['auth_seq_id'] == auth_seq_id)
-                                struct_proc.data.loc[res_mask, 'grn'] = grn
-                                assigned_count += 1
-                        
-                        print(f"  Assigned {assigned_count} GRN positions")
-                        chains_annotated.append(chain_id)
-                
-            except Exception as e:
-                print(f"  Alignment failed: {e}")
-            
-            finally:
-                # Cleanup temp files
-                try:
-                    os.unlink(query_path)
-                    os.unlink(ref_path)
-                except:
-                    pass
-    
-    if not chains_annotated:
-        print("ERROR: No chains could be annotated!")
-        return
-    
-    print(f"\nAssigned GRNs to {len(chains_annotated)} chains")
+    print(f"\nAssigned GRNs to {len(grn_assignments)} chains")
     
     # Find the chain with most GRN assignments
     grn_data = struct_proc.data[struct_proc.data['grn'].notna()]
@@ -187,6 +82,22 @@ def main():
     chain_counts = grn_data.groupby('auth_chain_id').size()
     opsin_chain = chain_counts.idxmax()
     print(f"\nUsing chain {opsin_chain} (has {chain_counts[opsin_chain]} residues with GRN)")
+    
+    # Show GRN coverage statistics
+    print("\nGRN Assignment Statistics:")
+    unique_grns = sort_grns_str(grn_data['grn'].unique().tolist())
+    print(f"  Total unique GRN positions: {len(unique_grns)}")
+    print(f"  GRN range: {unique_grns[0]} to {unique_grns[-1]}")
+    
+    # Count by helix
+    helix_counts = {}
+    for grn in unique_grns:
+        helix = grn.split('.')[0]
+        helix_counts[helix] = helix_counts.get(helix, 0) + 1
+    
+    print("\n  Positions per helix:")
+    for helix in sorted(helix_counts.keys()):
+        print(f"    Helix {helix}: {helix_counts[helix]} positions")
     
     # Verify key positions
     print("\nVerifying key microbial opsin positions:")
@@ -202,11 +113,11 @@ def main():
     
     print("\n" + "="*60)
     print("Visualization files created:")
-    print("- mo_helix_wheel.html (2D helix wheel projection)")
-    print("- mo_snake_plot.html (2D snake-like diagram)")
-    print("- mo_3d_structure.html (3D structure with all GRNs)")
-    print("- mo_3d_interactive_slider.html (3D structure with GRN slider)")
-    print("- mo_grn_heatmap.html (GRN position heatmap)")
+    print("- mo_helix_wheel_correct.html")
+    print("- mo_snake_plot_correct.html")
+    print("- mo_3d_structure_correct.html")
+    print("- mo_3d_interactive_slider_correct.html")
+    print("- mo_grn_heatmap_correct.html")
 
 
 def verify_key_positions(struct_proc, pdb_id, chain_id):
@@ -214,22 +125,17 @@ def verify_key_positions(struct_proc, pdb_id, chain_id):
     chain_mask = (struct_proc.data['pdb_id'] == pdb_id) & (struct_proc.data['auth_chain_id'] == chain_id)
     grn_data = struct_proc.data[chain_mask & struct_proc.data['grn'].notna()]
     
-    # Key microbial opsin positions
-    key_positions = {
-        '3.50': 'D/E (Asp/Glu) - Counterion',
-        '7.43': 'K (Lys) - Retinal binding site',
-        '7.46': 'Retinal binding pocket',
-        '3.46': 'Proton acceptor region',
-        '2.50': 'Conserved position',
-        '6.50': 'Conserved position'
-    }
+    # Key x.50 positions in microbial opsins
+    key_positions = ['1.50', '2.50', '3.50', '4.50', '5.50', '6.50', '7.50']
     
-    print("\nKey positions found:")
-    for grn, description in key_positions.items():
+    print("\nKey conserved positions (x.50) found:")
+    for grn in key_positions:
         residues = grn_data[(grn_data['grn'] == grn) & (grn_data['res_atom_name'] == 'CA')]
         if not residues.empty:
             res = residues.iloc[0]
-            print(f"  {grn}: {res['res_name3l']}{res['auth_seq_id']} - {description}")
+            print(f"  {grn}: {res['res_name3l']}{res['auth_seq_id']}")
+        else:
+            print(f"  {grn}: Not found")
 
 
 def create_helix_wheel_view(struct_proc, pdb_id, chain_id):
@@ -265,12 +171,8 @@ def create_helix_wheel_view(struct_proc, pdb_id, chain_id):
                 radii.append(1)
                 texts.append(f"{res['res_name1l']}{res['auth_seq_id']}<br>{res['grn']}")
                 
-                # Highlight functionally important positions
-                if res['grn'] == '7.43':  # Retinal binding lysine
-                    colors.append('gold')
-                elif res['grn'] == '3.50':  # Counterion
-                    colors.append('red')
-                elif res['grn'].endswith('.50'):
+                # Highlight conserved x.50 positions
+                if res['grn'].endswith('.50'):
                     colors.append('orange')
                 else:
                     colors.append(helix_colors[helix_num-1])
@@ -293,12 +195,12 @@ def create_helix_wheel_view(struct_proc, pdb_id, chain_id):
             )
     
     fig.update_layout(
-        title="Microbial Opsin Helix Wheel Projections",
+        title="Microbial Opsin Helix Wheel Projections (with expand_annotation)",
         height=800,
         showlegend=False
     )
     
-    fig.write_html("mo_helix_wheel.html")
+    fig.write_html("mo_helix_wheel_correct.html")
 
 
 def create_snake_plot(struct_proc, pdb_id, chain_id):
@@ -336,14 +238,8 @@ def create_snake_plot(struct_proc, pdb_id, chain_id):
                 else:
                     y = -i * 10
                 
-                # Color based on functional importance
-                if res['grn'] == '7.43':  # Retinal binding lysine
-                    color = 'gold'
-                    size = 20
-                elif res['grn'] == '3.50':  # Counterion
-                    color = 'red'
-                    size = 18
-                elif res['grn'].endswith('.50'):
+                # Color based on properties
+                if res['grn'].endswith('.50'):  # Conserved x.50 positions
                     color = 'orange'
                     size = 15
                 elif res['res_name1l'] in 'RKH':  # Basic
@@ -383,13 +279,13 @@ def create_snake_plot(struct_proc, pdb_id, chain_id):
     # Add legend for key residues
     fig.add_annotation(
         x=700, y=100,
-        text="Key: Gold=K(7.43), Red=D/E(3.50), Orange=x.50",
+        text="Key: Orange=x.50 conserved positions, Blue=Basic, Red=Acidic, Gray=Hydrophobic",
         showarrow=False,
         font=dict(size=12)
     )
     
     fig.update_layout(
-        title="Microbial Opsin Snake Plot - 2D Topology",
+        title="Microbial Opsin Snake Plot - 2D Topology (with expand_annotation)",
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         height=800,
@@ -397,7 +293,7 @@ def create_snake_plot(struct_proc, pdb_id, chain_id):
         plot_bgcolor='white'
     )
     
-    fig.write_html("mo_snake_plot.html")
+    fig.write_html("mo_snake_plot_correct.html")
 
 
 def create_3d_structure_view(struct_proc, pdb_id, chain_id):
@@ -412,7 +308,7 @@ def create_3d_structure_view(struct_proc, pdb_id, chain_id):
     
     # Get GRN data
     grn_data = chain_data[chain_data['grn'].notna()]
-    unique_grns = sorted(grn_data['grn'].unique())
+    unique_grns = sort_grns_str(grn_data['grn'].unique().tolist())
     
     # Create figure
     fig = go.Figure()
@@ -470,53 +366,8 @@ def create_3d_structure_view(struct_proc, pdb_id, chain_id):
                     )
                 )
     
-    # Highlight functionally important positions
-    # Retinal binding lysine (7.43)
-    retinal_k = grn_data[(grn_data['grn'] == '7.43') & (grn_data['res_atom_name'] == 'CA')]
-    if not retinal_k.empty:
-        fig.add_trace(
-            go.Scatter3d(
-                x=retinal_k['x'].values,
-                y=retinal_k['y'].values,
-                z=retinal_k['z'].values,
-                mode='markers',
-                marker=dict(
-                    size=20,
-                    color='gold',
-                    symbol='diamond',
-                    line=dict(width=3, color='black')
-                ),
-                text=[f"RETINAL BINDING<br>{row['res_name3l']}{row['auth_seq_id']}<br>GRN: 7.43" 
-                      for _, row in retinal_k.iterrows()],
-                hovertemplate='%{text}<extra></extra>',
-                name='Retinal Binding K'
-            )
-        )
-    
-    # Counterion (3.50)
-    counterion = grn_data[(grn_data['grn'] == '3.50') & (grn_data['res_atom_name'] == 'CA')]
-    if not counterion.empty:
-        fig.add_trace(
-            go.Scatter3d(
-                x=counterion['x'].values,
-                y=counterion['y'].values,
-                z=counterion['z'].values,
-                mode='markers',
-                marker=dict(
-                    size=18,
-                    color='red',
-                    symbol='diamond',
-                    line=dict(width=3, color='darkred')
-                ),
-                text=[f"COUNTERION<br>{row['res_name3l']}{row['auth_seq_id']}<br>GRN: 3.50" 
-                      for _, row in counterion.iterrows()],
-                hovertemplate='%{text}<extra></extra>',
-                name='Counterion'
-            )
-        )
-    
-    # Other key positions
-    key_positions = ['1.50', '2.50', '4.50', '5.50', '6.50']
+    # Highlight conserved x.50 positions
+    key_positions = ['1.50', '2.50', '3.50', '4.50', '5.50', '6.50', '7.50']
     key_mask = grn_data['grn'].isin(key_positions) & (grn_data['res_atom_name'] == 'CA')
     key_atoms = grn_data[key_mask]
     
@@ -524,7 +375,7 @@ def create_3d_structure_view(struct_proc, pdb_id, chain_id):
         hover_text = []
         for _, res in key_atoms.iterrows():
             hover_text.append(
-                f"KEY POSITION<br>"
+                f"CONSERVED POSITION<br>"
                 f"{res['res_name3l']}{res['auth_seq_id']}<br>"
                 f"GRN: {res['grn']}"
             )
@@ -543,13 +394,13 @@ def create_3d_structure_view(struct_proc, pdb_id, chain_id):
                 ),
                 text=hover_text,
                 hovertemplate='%{text}<extra></extra>',
-                name='Key Positions (x.50)'
+                name='Conserved Positions (x.50)'
             )
         )
     
     # Update layout
     fig.update_layout(
-        title=f"Microbial Opsin Structure {pdb_id} Chain {chain_id} - GRN Positions",
+        title=f"Microbial Opsin Structure {pdb_id} Chain {chain_id} - GRN Positions (with expand_annotation)",
         scene=dict(
             xaxis_title='X (Å)',
             yaxis_title='Y (Å)',
@@ -570,7 +421,7 @@ def create_3d_structure_view(struct_proc, pdb_id, chain_id):
         )
     )
     
-    fig.write_html("mo_3d_structure.html")
+    fig.write_html("mo_3d_structure_correct.html")
 
 
 def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
@@ -585,7 +436,7 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
     
     # Get GRN data
     grn_data = chain_data[chain_data['grn'].notna()]
-    unique_grns = sorted(grn_data['grn'].unique())
+    unique_grns = sort_grns_str(grn_data['grn'].unique().tolist())
     
     print(f"    Found {len(unique_grns)} unique GRN positions for slider")
     
@@ -632,10 +483,8 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
             hover_text_ca = []
             for _, res in grn_ca.iterrows():
                 special_label = ""
-                if grn_pos == '7.43':
-                    special_label = " (RETINAL BINDING)"
-                elif grn_pos == '3.50':
-                    special_label = " (COUNTERION)"
+                if grn_pos.endswith('.50'):
+                    special_label = " (CONSERVED)"
                 
                 hover_text_ca.append(
                     f"GRN: {grn_pos}{special_label}<br>"
@@ -643,14 +492,8 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
                     f"Helix {grn_pos.split('.')[0]}"
                 )
             
-            # Determine color based on functional importance
-            if grn_pos == '7.43':
-                color = 'gold'
-                size = 20
-            elif grn_pos == '3.50':
-                color = 'red'
-                size = 18
-            elif grn_pos.endswith('.50'):
+            # Determine color based on conservation
+            if grn_pos.endswith('.50'):
                 color = 'orange'
                 size = 15
             else:
@@ -687,21 +530,6 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
                 )
             ]
             
-            # Add side chain atoms for key positions
-            if grn_pos in ['7.43', '3.50']:
-                side_chain_atoms = grn_residues[grn_residues['res_atom_name'] != 'CA']
-                if not side_chain_atoms.empty:
-                    frame_data.append(
-                        go.Scatter3d(
-                            x=side_chain_atoms['x'].values,
-                            y=side_chain_atoms['y'].values,
-                            z=side_chain_atoms['z'].values,
-                            mode='markers',
-                            marker=dict(size=6, color='pink', opacity=0.7),
-                            name='Side chain',
-                            hoverinfo='skip'
-                        )
-                    )
             
             frame = go.Frame(
                 data=frame_data,
@@ -754,10 +582,8 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
             hover_text = []
             for _, res in grn_ca.iterrows():
                 special_label = ""
-                if first_grn == '7.43':
-                    special_label = " (RETINAL BINDING)"
-                elif first_grn == '3.50':
-                    special_label = " (COUNTERION)"
+                if first_grn.endswith('.50'):
+                    special_label = " (CONSERVED)"
                 
                 hover_text.append(
                     f"GRN: {first_grn}{special_label}<br>"
@@ -771,13 +597,7 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
             fig.data[1].z = grn_ca['z'].values
             fig.data[1].text = hover_text
             
-            if first_grn == '7.43':
-                fig.data[1].marker.color = 'gold'
-                fig.data[1].marker.size = 20
-            elif first_grn == '3.50':
-                fig.data[1].marker.color = 'red'
-                fig.data[1].marker.size = 18
-            elif first_grn.endswith('.50'):
+            if first_grn.endswith('.50'):
                 fig.data[1].marker.color = 'orange'
                 fig.data[1].marker.size = 15
             
@@ -785,7 +605,7 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
     
     # Update layout
     fig.update_layout(
-        title=f"Microbial Opsin Structure {pdb_id} Chain {chain_id} - Interactive GRN Navigator",
+        title=f"Microbial Opsin {pdb_id} Chain {chain_id} - Interactive GRN Navigator (with expand_annotation)",
         scene=dict(
             xaxis_title='X (Å)',
             yaxis_title='Y (Å)',
@@ -836,14 +656,14 @@ def create_interactive_3d_with_slider(struct_proc, pdb_id, chain_id):
     
     # Add annotations for key information
     fig.add_annotation(
-        text="Use slider to navigate GRN positions<br>Gold=Retinal K(7.43), Red=Counterion(3.50), Orange=x.50",
+        text="Use slider to navigate GRN positions<br>Orange = x.50 conserved positions",
         xref="paper", yref="paper",
         x=0.5, y=0.95,
         showarrow=False,
         font=dict(size=12)
     )
     
-    fig.write_html("mo_3d_interactive_slider.html")
+    fig.write_html("mo_3d_interactive_slider_correct.html")
 
 
 def create_grn_heatmap(struct_proc, pdb_id, chain_id):
@@ -879,11 +699,9 @@ def create_grn_heatmap(struct_proc, pdb_id, chain_id):
             row_data = []
             label = f"{res['grn']} ({res['res_name1l']}{res['auth_seq_id']})"
             
-            # Add special markers for key positions
-            if res['grn'] == '7.43':
-                label += " *RET*"
-            elif res['grn'] == '3.50':
-                label += " *CI*"
+            # Add special marker for conserved positions
+            if res['grn'].endswith('.50'):
+                label += " *"
             
             grn_labels.append(label)
             
@@ -924,14 +742,14 @@ def create_grn_heatmap(struct_proc, pdb_id, chain_id):
         )
     
     fig.update_layout(
-        title="Microbial Opsin GRN Position Properties<br>*RET* = Retinal binding, *CI* = Counterion",
+        title="Microbial Opsin GRN Position Properties (with expand_annotation)<br>* = x.50 conserved positions",
         xaxis_title="Residue Properties",
         yaxis_title="GRN Positions",
         height=1200,
         width=800
     )
     
-    fig.write_html("mo_grn_heatmap.html")
+    fig.write_html("mo_grn_heatmap_correct.html")
 
 
 if __name__ == "__main__":

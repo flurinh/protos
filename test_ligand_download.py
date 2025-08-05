@@ -1,11 +1,10 @@
 """
-Minimal test script for ligand download and processing.
+Minimal test script for ligand download and processing - FIXED version.
 
-This script demonstrates:
-1. Setting up the Protos environment
-2. Downloading ligand data from ChEMBL
-3. Registering ligands with LigandProcessor
-4. Creating and loading datasets
+This script demonstrates proper usage of the LigandProcessor following Protos principles:
+1. NO direct path manipulation
+2. NO direct loader usage
+3. ALL operations through the processor
 """
 
 import os
@@ -20,287 +19,191 @@ from protos.processing.ligand import LigandProcessor
 
 
 def main():
-    # Setup data directory
-    # Use platform-independent path
-    datadir = Path(__file__).parent  # Get the directory where this script is located
-    test_data_root = datadir / "data"
-    test_data_root.mkdir(exist_ok=True, parents=True)
-    
-    # Set environment variable for data root
+    """Test ligand processor functionality."""
+    # Setup - only set environment variable, no path manipulation
+    test_data_root = Path(__file__).parent / "data"
     os.environ["PROTOS_DATA_ROOT"] = str(test_data_root.absolute())
     
-    # Create ProtosPaths instance
-    paths = ProtosPaths()
+    # Initialize processor - that's all!
+    print("Initializing LigandProcessor...")
+    lig_proc = LigandProcessor()
+    print("✓ LigandProcessor initialized")
     
-    # Initialize processors
-    print("Initializing processors...")
-    lig_proc = LigandProcessor(paths=paths)
-    
-    print(f"✓ LigandProcessor initialized")
-    print(f"  Data path: {lig_proc.data_path}")
-    print(f"  SDF directory: {lig_proc.sdf_dir}")
-    
-    # Initialize ChEMBL loader
+    # Test ChEMBL functionality
     print("\n" + "="*60)
-    print("Testing ChEMBL Download")
+    print("Testing ChEMBL Integration")
     print("="*60)
     
-    # Import ChEMBL here to avoid circular import issues
-    try:
-        from protos.loaders.chembl_loader import ChEMBLDL
-        chembl_loader = ChEMBLDL(data_root=str(test_data_root.absolute()))
-    except ImportError as e:
-        print(f"⚠️  Could not import ChEMBL loader: {e}")
-        chembl_loader = None
-    
-    # Check if ChEMBL is available
-    if not chembl_loader or not chembl_loader.chembl:
-        print("\n⚠️  ChEMBL client not available!")
+    if not lig_proc.chembl_available:
+        print("\n⚠️  ChEMBL functionality not available!")
         print("To test ChEMBL functionality, install: pip install chembl_webresource_client")
-        print("\nTesting with synthetic data instead...")
+        print("\nUsing synthetic test data instead...")
         
         # Create synthetic test data
         test_compounds = [
             {
-                'smiles': 'CC(=O)OC1=CC=CC=C1C(=O)O',
+                'smiles': 'CC(=O)OC1=CC=CC=C1C(=O)O',  # Aspirin
                 'chembl_id': 'CHEMBL25',
                 'activity_type': 'IC50',
-                'value': 100,
-                'units': 'nM',
                 'value_nm': 100,
-                'protein_id': 'TEST_PROTEIN'
+                'protein_id': 'COX2'
             },
             {
-                'smiles': 'CC(C)CC1=CC=C(C=C1)C(C)C(=O)O',
+                'smiles': 'CC(C)CC1=CC=C(C=C1)C(C)C(=O)O',  # Ibuprofen
                 'chembl_id': 'CHEMBL521',
                 'activity_type': 'IC50',
-                'value': 250,
-                'units': 'nM', 
                 'value_nm': 250,
-                'protein_id': 'TEST_PROTEIN'
-            },
-            {
-                'smiles': 'COC1=CC=CC=C1OCCN',
-                'chembl_id': 'CHEMBL1234',
-                'activity_type': 'Ki',
-                'value': 50,
-                'units': 'nM',
-                'value_nm': 50,
-                'protein_id': 'TEST_PROTEIN'
+                'protein_id': 'COX2'
             }
         ]
     else:
-        # Test with real ChEMBL data
-        print("✓ ChEMBL client available")
+        print("✓ ChEMBL functionality available")
         
-        # Test protein targets
-        test_proteins = ["EGFR", "COX2"]
-        
-        print("\nTesting protein to ChEMBL mapping:")
-        for protein in test_proteins:
-            chembl_id = chembl_loader.map_protein_to_chembl_target(protein)
-            print(f"  {protein} → {chembl_id}")
-            
-        # Try with UniProt IDs as well
-        print("\nTrying with UniProt IDs:")
-        uniprot_test = {"P00533": "EGFR", "P35354": "COX2"}
-        for uniprot_id, gene_name in uniprot_test.items():
-            chembl_id = chembl_loader.map_protein_to_chembl_target(uniprot_id)
-            print(f"  {uniprot_id} ({gene_name}) → {chembl_id}")
-        
-        # Download ligands for a protein (limit to 5 for testing)
-        print(f"\nDownloading ligands for EGFR (limit=5)...")
-        chembl_loader.limit = 5
-        
+        # Download ligands using processor method
+        print("\nDownloading ligands for EGFR (limit=5)...")
         try:
-            compounds_dict = chembl_loader.download_protein_ligands(
+            test_compounds = lig_proc.get_protein_ligands(
                 "EGFR",
-                min_pchembl=6.0,  # Good potency
-                save_sdf=True
+                min_pchembl=6.0,
+                limit=5
             )
-            test_compounds = compounds_dict.get("EGFR", [])
             print(f"✓ Downloaded {len(test_compounds)} compounds")
             
-            # If no compounds found, try with UniProt ID
+            # If no compounds, try another target
             if not test_compounds:
-                print("\nTrying with UniProt ID P00533...")
-                compounds_dict = chembl_loader.download_protein_ligands(
-                    "P00533",
-                    min_pchembl=5.0,  # Lower threshold
-                    save_sdf=True
+                print("\nTrying COX2...")
+                test_compounds = lig_proc.get_protein_ligands(
+                    "COX2",
+                    min_pchembl=5.0,
+                    limit=5
                 )
-                test_compounds = compounds_dict.get("P00533", [])
                 print(f"✓ Downloaded {len(test_compounds)} compounds")
                 
         except Exception as e:
             print(f"⚠️  Download failed: {e}")
-            print("Using synthetic data instead...")
             test_compounds = []
-            
-        # If still no compounds, use synthetic data
-        if not test_compounds:
-            print("\nNo compounds found from ChEMBL. Using synthetic test data...")
-            test_compounds = [
-                {
-                    'smiles': 'CC(=O)OC1=CC=CC=C1C(=O)O',
-                    'chembl_id': 'CHEMBL25',
-                    'activity_type': 'IC50',
-                    'value': 100,
-                    'units': 'nM',
-                    'value_nm': 100,
-                    'protein_id': 'EGFR'
-                },
-                {
-                    'smiles': 'CC(C)CC1=CC=C(C=C1)C(C)C(=O)O',
-                    'chembl_id': 'CHEMBL521',
-                    'activity_type': 'IC50',
-                    'value': 250,
-                    'units': 'nM', 
-                    'value_nm': 250,
-                    'protein_id': 'EGFR'
-                }
-            ]
     
-    # Register compounds with LigandProcessor
-    print("\n" + "="*60)
-    print("Testing LigandProcessor Entity Management")
-    print("="*60)
-    
-    registered_smiles = []  # Initialize here to avoid UnboundLocalError
-    
-    if test_compounds:
-        print(f"\nRegistering {len(test_compounds)} compounds...")
-        
-        for i, compound in enumerate(test_compounds):
-            try:
-                smiles = compound['smiles']
-                
-                # Save entity
-                lig_proc.save_entity(smiles, {
-                    'smiles': smiles,
-                    'chembl_id': compound.get('chembl_id', f'TEST_{i}')
-                })
-                
-                registered_smiles.append(smiles)
-                print(f"  ✓ Registered: {compound.get('chembl_id', f'TEST_{i}')}")
-                
-                # Calculate and display properties
-                props = lig_proc.calculate_properties(smiles)
-                if props:
-                    print(f"    MW: {props.get('mw', 'N/A'):.1f}, LogP: {props.get('logp', 'N/A'):.2f}")
-                
-            except Exception as e:
-                print(f"  ⚠️  Failed to register compound {i}: {e}")
-        
-        print(f"\n✓ Registered {len(registered_smiles)} compounds")
+    # If still no compounds, use synthetic data
+    if not test_compounds:
+        print("\nUsing synthetic test data...")
+        test_compounds = [
+            {
+                'smiles': 'CC(=O)OC1=CC=CC=C1C(=O)O',
+                'chembl_id': 'CHEMBL25',
+                'protein_id': 'TEST'
+            }
+        ]
     
     # Test entity operations
     print("\n" + "="*60)
     print("Testing Entity Operations")
     print("="*60)
     
-    # List all entities
-    all_entities = lig_proc.list_entities()
-    print(f"\nTotal ligand entities: {len(all_entities)}")
+    # Save entities (they're already saved if from ChEMBL, but let's ensure)
+    registered_smiles = []
+    for compound in test_compounds[:3]:  # Limit to 3 for testing
+        try:
+            smiles = compound['smiles']
+            lig_proc.save_entity(smiles, compound)
+            registered_smiles.append(smiles)
+            print(f"✓ Saved: {compound.get('chembl_id', 'Unknown')}")
+        except Exception as e:
+            print(f"⚠️  Failed to save: {e}")
     
-    # Show first few
-    if all_entities:
-        print("\nFirst 3 entities:")
-        for entity in all_entities[:3]:
+    # List entities
+    print("\nListing entities...")
+    entities = lig_proc.list_entities()
+    print(f"Total entities: {len(entities)}")
+    if entities:
+        print("First 3:")
+        for entity in entities[:3]:
             print(f"  - {entity[:50]}..." if len(entity) > 50 else f"  - {entity}")
     
-    # Test loading an entity
+    # Load entity
     if registered_smiles:
-        test_smiles = registered_smiles[0]
-        print(f"\nLoading entity: {test_smiles[:30]}...")
-        
-        entity_data = lig_proc.load_entity(test_smiles)
+        print(f"\nLoading entity...")
+        entity_data = lig_proc.load_entity(registered_smiles[0])
         if entity_data:
-            print("✓ Entity loaded successfully")
+            print("✓ Entity loaded")
             print(f"  ChEMBL ID: {entity_data.get('chembl_id', 'N/A')}")
-            if 'properties' in entity_data:
-                print(f"  MW: {entity_data['properties'].get('mw', 'N/A')}")
+            props = entity_data.get('properties', {})
+            if props:
+                print(f"  MW: {props.get('mw', 'N/A')}")
     
-    # Create a dataset
+    # Test datasets
     print("\n" + "="*60)
-    print("Testing Dataset Management")
+    print("Testing Dataset Operations")
     print("="*60)
     
     if registered_smiles:
         dataset_name = "test_ligands"
-        print(f"\nCreating dataset '{dataset_name}' with {len(registered_smiles)} compounds...")
         
+        # Create dataset
+        print(f"\nCreating dataset '{dataset_name}'...")
         try:
             lig_proc.create_dataset(
                 dataset_name,
-                registered_smiles[:3],  # Use first 3 compounds
-                metadata={
-                    "description": "Test dataset for ligand download",
-                    "source": "ChEMBL" if chembl_loader.chembl else "Synthetic"
-                }
+                registered_smiles,
+                metadata={"test": True, "source": "ChEMBL/synthetic"}
             )
-            print("✓ Dataset created successfully")
+            print("✓ Dataset created")
         except Exception as e:
-            print(f"⚠️  Failed to create dataset: {e}")
+            print(f"⚠️  Failed: {e}")
+        
+        # List datasets
+        datasets = lig_proc.list_datasets()
+        print(f"\nAvailable datasets: {datasets}")
+        
+        # Load dataset
+        if dataset_name in datasets:
+            print(f"\nLoading dataset '{dataset_name}'...")
+            try:
+                dataset_data = lig_proc.load_dataset(dataset_name)
+                print(f"✓ Loaded {len(dataset_data)} entries")
+            except Exception as e:
+                print(f"⚠️  Failed: {e}")
     
-    # List datasets
-    print("\nListing all datasets:")
-    datasets = lig_proc.list_datasets()
-    for ds in datasets:
-        print(f"  - {ds}")
-    
-    # Load dataset
-    if datasets and dataset_name in datasets:
-        print(f"\nLoading dataset '{dataset_name}'...")
-        try:
-            dataset_contents = lig_proc.load_dataset(dataset_name)
-            print(f"✓ Dataset loaded with {len(dataset_contents)} entries")
-            
-            # Show first entry
-            if dataset_contents:
-                first_key = list(dataset_contents.keys())[0]
-                first_entry = dataset_contents[first_key]
-                print(f"\nFirst entry:")
-                print(f"  SMILES: {first_key[:30]}...")
-                print(f"  ChEMBL ID: {first_entry.get('chembl_id', 'N/A')}")
-        except Exception as e:
-            print(f"⚠️  Failed to load dataset: {e}")
-    
-    # Test similarity search
+    # Test similarity search (if RDKit available)
     print("\n" + "="*60)
     print("Testing Similarity Search")
     print("="*60)
     
     if registered_smiles and len(registered_smiles) > 1:
-        query_smiles = registered_smiles[0]
-        print(f"\nSearching for compounds similar to: {query_smiles[:30]}...")
-        
+        query = registered_smiles[0]
+        print(f"\nSearching similar to: {query[:30]}...")
         try:
-            similar = lig_proc.search_similar_ligands(query_smiles, similarity=0.3)
+            similar = lig_proc.search_similar_ligands(query, similarity=0.5)
             print(f"✓ Found {len(similar)} similar compounds")
-            
-            for smiles, score in similar[:3]:
-                print(f"  - Similarity: {score:.3f} - {smiles[:30]}...")
+            for smiles, score in similar[:2]:
+                print(f"  - Score: {score:.3f} - {smiles[:30]}...")
         except Exception as e:
-            print(f"⚠️  Similarity search failed: {e}")
+            print(f"⚠️  Search failed: {e}")
     
-    # Test drug-likeness filter
+    # Test property calculation
     print("\n" + "="*60)
-    print("Testing Drug-Likeness Filter")
+    print("Testing Property Calculation")
     print("="*60)
     
     if registered_smiles:
-        print(f"\nChecking drug-likeness for {len(registered_smiles)} compounds...")
-        
-        drug_like = lig_proc.filter_drug_like(registered_smiles)
-        print(f"✓ Drug-like compounds: {len(drug_like)}/{len(registered_smiles)}")
-        
-        drug_like_strict = lig_proc.filter_drug_like(registered_smiles, strict=True)
-        print(f"✓ Drug-like (strict): {len(drug_like_strict)}/{len(registered_smiles)}")
+        smiles = registered_smiles[0]
+        print(f"\nCalculating properties for: {smiles[:30]}...")
+        props = lig_proc.calculate_properties(smiles)
+        if props:
+            print("✓ Properties calculated:")
+            print(f"  MW: {props.get('mw', 'N/A')}")
+            print(f"  LogP: {props.get('logp', 'N/A')}")
+            print(f"  HBA: {props.get('hba', 'N/A')}")
+            print(f"  HBD: {props.get('hbd', 'N/A')}")
+        else:
+            print("⚠️  Properties not available (RDKit may be missing)")
     
-    print("\n" + "="*60)
-    print("✓ All tests completed!")
-    print("="*60)
+    # Test drug-likeness filter
+    if registered_smiles:
+        print("\nTesting drug-likeness filter...")
+        drug_like = lig_proc.filter_drug_like(registered_smiles)
+        print(f"Drug-like compounds: {len(drug_like)}/{len(registered_smiles)}")
+    
+    print("\n✅ All tests completed!")
 
 
 if __name__ == "__main__":

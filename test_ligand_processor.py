@@ -1,7 +1,8 @@
 """
-Test script for LigandProcessor and ChEMBL loader.
+Test script for LigandProcessor functionality.
 
-This script demonstrates the basic functionality of the new ligand handling system.
+This script demonstrates the basic functionality of the ligand handling system
+following Protos principles - all operations through the processor.
 """
 
 import os
@@ -22,8 +23,8 @@ def test_ligand_processor():
     # Initialize processor
     print("1. Initializing LigandProcessor...")
     lig_proc = LigandProcessor()
-    print(f"   Data path: {lig_proc.data_path}")
     print(f"   Processor type: {lig_proc.processor_type}")
+    print(f"   ChEMBL available: {lig_proc.chembl_available}")
     
     # Test SMILES validation and property calculation
     print("\n2. Testing SMILES validation and properties...")
@@ -66,6 +67,13 @@ def test_ligand_processor():
         "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"  # Caffeine
     ]
     
+    # Save entities first
+    for smiles in test_smiles:
+        try:
+            lig_proc.save_entity(smiles, {'smiles': smiles})
+        except:
+            pass
+    
     try:
         lig_proc.create_dataset("test_drugs", test_smiles, 
                                metadata={"description": "Common drug molecules"})
@@ -85,38 +93,48 @@ def test_ligand_processor():
     print("\n=== Basic tests completed ===")
 
 
-def test_chembl_loader():
-    """Test ChEMBL loader functionality."""
+def test_chembl_integration():
+    """Test ChEMBL integration through the processor."""
     
-    print("\n=== Testing ChEMBL Loader ===\n")
+    print("\n=== Testing ChEMBL Integration ===\n")
     
-    from protos.loaders.chembl_loader import ChEMBLDL
+    # Initialize processor
+    lig_proc = LigandProcessor()
     
-    # Initialize loader
-    print("1. Initializing ChEMBL loader...")
-    chembl_loader = ChEMBLDL()
-    print(f"   ChEMBL client available: {chembl_loader.chembl is not None}")
-    
-    if not chembl_loader.chembl:
-        print("   ChEMBL client not available. Install chembl_webresource_client to test.")
+    if not lig_proc.chembl_available:
+        print("   ChEMBL functionality not available")
+        print("   Install with: pip install chembl_webresource_client")
         return
     
-    # Test protein mapping
-    print("\n2. Testing protein ID mapping...")
-    test_proteins = ["EGFR", "P00533", "1M17"]  # Gene name, UniProt, PDB
+    print("1. ChEMBL functionality available")
+    
+    # Test protein mapping through processor
+    print("\n2. Testing protein ligand download...")
+    test_proteins = ["EGFR", "P00533", "1M17"]
     
     for protein in test_proteins:
-        chembl_id = chembl_loader.map_protein_to_chembl_target(protein)
-        print(f"   {protein} -> {chembl_id}")
+        print(f"\n   Testing {protein}:")
+        try:
+            # Use processor method, not direct ChEMBL
+            ligands = lig_proc.get_protein_ligands(protein, limit=2)
+            print(f"   Found {len(ligands)} ligands")
+            
+            if ligands:
+                first = ligands[0]
+                print(f"   Example: {first.get('chembl_id', 'N/A')}")
+                print(f"   Activity: {first.get('activity_type', 'N/A')} = {first.get('value_nm', 'N/A')} nM")
+        except Exception as e:
+            print(f"   Error: {e}")
     
     print("\n=== ChEMBL tests completed ===")
 
 
-if __name__ == "__main__":
-    # Test basic functionality
+def main():
+    """Run all tests."""
     test_ligand_processor()
-    
-    # Test ChEMBL integration (requires chembl_webresource_client)
-    test_chembl_loader()
-    
+    test_chembl_integration()
     print("\n✓ All tests completed!")
+
+
+if __name__ == "__main__":
+    main()

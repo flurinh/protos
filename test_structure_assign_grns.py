@@ -43,7 +43,6 @@ def test_assign_grns_microbial_opsins():
         protein_family='microbial_opsins',
         similarity_threshold=0.2,  # 20% identity threshold
         use_mmseqs=True,           # Use fast MMseqs2 alignment
-        save_results=True          # Save GRN table
     )
     
     # Check results
@@ -71,7 +70,7 @@ def test_assign_grns_microbial_opsins():
                 residues = chain_data[chain_data['grn'] == pos]
                 if not residues.empty:
                     res = residues.iloc[0]
-                    print(f"  {pos}: {res['auth_comp_id']}{res['auth_seq_id']}")
+                    print(f"  {pos}: {res['res_name1l']}{res['auth_seq_id']}")
     
     # Get GRN dictionary
     print("\nTesting get_grn_dict()...")
@@ -111,8 +110,7 @@ def test_assign_grns_gpcr():
     grn_assignments = struct_proc.assign_grns(
         protein_family='gpcr_a',
         similarity_threshold=0.25,  # 25% identity threshold for GPCRs
-        use_mmseqs=True,
-        save_results=True
+        use_mmseqs=True
     )
     
     print(f"\nGRN assignment complete!")
@@ -146,9 +144,8 @@ def test_assign_grns_custom():
     print("\nAssigning GRN positions with custom settings...")
     grn_assignments = struct_proc.assign_grns(
         protein_family='microbial_opsins',
-        similarity_threshold=0.15,     # Lower threshold
+        similarity_threshold=0.2,     # Lower threshold
         use_mmseqs=False,              # Use BioPython for single structure
-        save_results=False,            # Don't save for single structure
         reference_table='mo_ref'       # Explicit reference table
     )
     

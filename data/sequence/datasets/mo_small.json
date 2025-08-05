@@ -1,0 +1,43 @@
+{
+  "name": "mo_small",
+  "processor_type": "sequence",
+  "entities": [
+    "MO_001",
+    "MO_002",
+    "MO_003",
+    "MO_004",
+    "MO_005",
+    "MO_006",
+    "MO_007",
+    "MO_008",
+    "MO_009",
+    "MO_010",
+    "MO_011",
+    "MO_012",
+    "MO_013",
+    "MO_014",
+    "MO_015",
+    "MO_016",
+    "MO_017",
+    "MO_018",
+    "MO_019",
+    "MO_020",
+    "MO_021",
+    "MO_022",
+    "MO_023",
+    "MO_024",
+    "MO_025",
+    "MO_026",
+    "MO_027",
+    "MO_028"
+  ],
+  "metadata": {
+    "description": "Small set of microbial opsin sequences for GRN annotation (simplified names)",
+    "source": "mo_small.fasta",
+    "organism": "various microbial species",
+    "naming_map": "mo_small_name_mapping.txt",
+    "note": "Names simplified to MO_001-MO_028 for compatibility"
+  },
+  "created": "2025-07-30T23:01:40.921518",
+  "modified": "2025-07-30T23:01:40.921518"
+}

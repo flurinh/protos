@@ -10,7 +10,7 @@ from protos.loaders.download_structures import (
     download_protein_structures,
     download_structures_with_processor
 )
-from protos.loaders.chembl_loader import ChEMBLDL
+from protos.loaders import chembl_loader
 from protos.loaders.ligand_utils import (
     sanitize_smiles_filename,
     validate_smiles,
@@ -27,7 +27,7 @@ __all__ = [
     # 'GPCRdbDL',  # Temporarily disabled
     'download_protein_structures',
     'download_structures_with_processor',
-    'ChEMBLDL',
+    'chembl_loader',
     'sanitize_smiles_filename',
     'validate_smiles',
     'smiles_to_inchi',
