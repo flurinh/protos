@@ -159,3 +159,28 @@
 [2025-08-05 16:23] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Refactored to follow Protos data management principles
 [2025-08-05 16:23] [CREATE] /src/protos/loaders/chembl_loader_refactored.py - Created pure utility ChEMBL loader following proper patterns
 [2025-08-05 16:23] [CREATE] /LOADER_PATTERN_VIOLATIONS.md - Documented proper loader patterns and current violations
+[2025-08-05 16:29] [DELETE] /src/protos/loaders/chembl_loader.py.bak - Removed backup file after successful refactoring
+[2025-08-05 16:30] [DELETE] /LIGAND_PROCESSOR_VIOLATIONS.md - Removed violation documentation after successful refactoring
+[2025-08-05 16:30] [DELETE] /LOADER_PATTERN_VIOLATIONS.md - Removed violation documentation after successful refactoring
+[2025-08-05 16:31] [COMPLETE] Ligand processor refactoring - All files cleaned up, tests passing
+[2025-08-05 16:42] [CREATE] /src/protos/io/sdf_utils.py - Created SDF file utilities following Protos format handler pattern
+[2025-08-05 16:43] [MODIFY] /src/protos/io/formats.py - Added SDFHandler class and registered sdf/mol formats
+[2025-08-05 16:43] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Added SDF file operations and structure conversion methods
+[2025-08-05 16:44] [MODIFY] /ligand.md - Updated documentation with SDF handling features and PDB mapping fixes
+[2025-08-05 16:56] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Added CIF conversion methods for structure integration
+[2025-08-05 17:02] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Changed default structure format from PDB to CIF
+[2025-08-05 17:03] [MODIFY] /ligand.md - Updated documentation to reflect CIF as default structure format
+[2025-08-05 17:21] [CREATE] /src/protos/loaders/qm9_loader.py - QM9 quantum chemistry dataset loader with auto-download and property search
+[2025-08-05 17:21] [CREATE] /src/protos/loaders/ccd_loader.py - PDB Chemical Component Dictionary loader with component search and SMILES extraction
+[2025-08-05 17:21] [CREATE] /src/protos/loaders/enamine_loader.py - Enamine REAL database loader with subset management and similarity search
+[2025-08-05 17:21] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Added database integration methods for CCD, QM9, and Enamine with auto-download
+[2025-08-05 17:22] [CREATE] /test_ligand_databases.py - Test script demonstrating ligand database integration with ProtosPaths
+[2025-08-05 17:22] [MODIFY] /ligand.md - Added documentation for local database access (CCD, QM9, Enamine)
+[2025-08-05 17:39] [MODIFY] /src/protos/loaders/enamine_loader.py - Enhanced with dotenv support, multiple datasets, and credential-based authentication
+[2025-08-05 17:40] [MODIFY] /src/protos/processing/ligand/ligand_processor.py - Updated to use new Enamine dataset system with credentials
+[2025-08-05 17:40] [CREATE] /.env.example - Example environment file documenting Enamine credentials
+[2025-08-05 17:40] [MODIFY] /test_ligand_databases.py - Enhanced test script with Enamine dataset listing and credential checking
+[2025-08-05 17:49] [MODIFY] /src/protos/loaders/ccd_loader.py - Added tqdm progress bars for downloads
+[2025-08-05 17:50] [MODIFY] /src/protos/loaders/qm9_loader.py - Added tqdm progress bars for downloads and extraction
+[2025-08-05 17:50] [MODIFY] /src/protos/loaders/enamine_loader.py - Added tqdm progress bars for downloads and extraction
+[2025-08-05 17:50] [CREATE] /test_enamine_small.py - Example script showing Enamine small dataset usage

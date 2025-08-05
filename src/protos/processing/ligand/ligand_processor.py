@@ -112,6 +112,11 @@ class LigandProcessor(BaseProcessor):
         """Get cache subdirectory name (not path!)."""
         return 'cache'
     
+    @property
+    def databases_subdir(self) -> str:
+        """Get databases subdirectory name (not path!)."""
+        return 'databases'
+    
     # ===== Abstract Method Implementations =====
     
     def load_entity(self, name: str) -> Optional[Dict]:
@@ -528,3 +533,705 @@ class LigandProcessor(BaseProcessor):
             return result
         
         raise ValueError(f"Dataset '{dataset_name}' not found")
+    
+    # ===== SDF File Operations =====
+    
+    def load_sdf_file(self, sdf_name: str, as_entities: bool = True) -> Union[List[Dict], pd.DataFrame]:
+        """
+        Load an SDF file.
+        
+        Args:
+            sdf_name: Name of the SDF file (without .sdf extension)
+            as_entities: Register molecules as entities (default: True)
+            
+        Returns:
+            List of molecule dictionaries or DataFrame
+        """
+        # Build path to SDF file
+        sdf_path = Path(self.paths.get_processor_path(self.processor_type)) / self.sdf_subdir / f"{sdf_name}.sdf"
+        
+        if not sdf_path.exists():
+            raise FileNotFoundError(f"SDF file not found: {sdf_path}")
+        
+        # Use format registry to read
+        from protos.io.formats import FormatRegistry
+        registry = FormatRegistry()
+        
+        # Read as list of dictionaries
+        molecules = registry.read(str(sdf_path), format_type='sdf')
+        
+        # Register as entities if requested
+        if as_entities:
+            for mol_data in molecules:
+                if 'smiles' in mol_data:
+                    try:
+                        self.save_entity(mol_data['smiles'], mol_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to register molecule: {e}")
+        
+        return molecules
+    
+    def save_sdf_file(self, sdf_name: str, data: Union[List[str], List[Dict], pd.DataFrame],
+                      include_properties: bool = True) -> str:
+        """
+        Save molecules to an SDF file.
+        
+        Args:
+            sdf_name: Name for the SDF file (without extension)
+            data: Can be:
+                - List of SMILES strings
+                - List of entity names to load
+                - List of molecule dictionaries
+                - DataFrame with 'smiles' column
+            include_properties: Include molecular properties
+            
+        Returns:
+            Path to the created SDF file
+        """
+        # Convert data to appropriate format
+        if isinstance(data, list) and data and isinstance(data[0], str):
+            # List of SMILES or entity names
+            molecules = []
+            for item in data:
+                # Try to load as entity first
+                entity_data = self.load_entity(item)
+                if entity_data:
+                    molecules.append(entity_data)
+                else:
+                    # Treat as SMILES
+                    molecules.append({'smiles': item})
+        elif isinstance(data, pd.DataFrame):
+            # DataFrame - will be handled by SDFHandler
+            molecules = data
+        else:
+            # Assume list of dictionaries
+            molecules = data
+        
+        # Build output path
+        sdf_path = Path(self.paths.get_processor_path(self.processor_type)) / self.sdf_subdir / f"{sdf_name}.sdf"
+        sdf_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Use format registry to write
+        from protos.io.formats import FormatRegistry
+        registry = FormatRegistry()
+        
+        registry.write(str(sdf_path), molecules, format_type='sdf')
+        
+        logger.info(f"Saved {len(molecules)} molecules to {sdf_path}")
+        return str(sdf_path)
+    
+    def convert_to_structure_format(self, ligand_name: str, 
+                                   output_format: str = 'cif',
+                                   chain_id: str = 'L',
+                                   res_name: Optional[str] = None) -> Optional[str]:
+        """
+        Convert ligand to structure format for CifBaseProcessor compatibility.
+        
+        Args:
+            ligand_name: Ligand entity name or SMILES
+            output_format: Output format ('cif', 'pdb', or 'mol2') - default is 'cif'
+            chain_id: Chain identifier (default: 'L')
+            res_name: Residue name (optional)
+            
+        Returns:
+            Path to the converted file, or None if conversion failed
+        """
+        if not HAS_RDKIT:
+            logger.error("RDKit required for structure conversion")
+            return None
+        
+        # Load ligand data
+        ligand_data = self.load_entity(ligand_name)
+        if not ligand_data:
+            logger.error(f"Ligand {ligand_name} not found")
+            return None
+        
+        smiles = ligand_data.get('smiles')
+        if not smiles:
+            logger.error("No SMILES found for ligand")
+            return None
+        
+        try:
+            # Create 3D structure
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                logger.error(f"Failed to parse SMILES: {smiles}")
+                return None
+            
+            # Add hydrogens and generate 3D coordinates
+            mol = Chem.AddHs(mol)
+            AllChem.EmbedMolecule(mol, randomSeed=42)
+            AllChem.MMFFOptimizeMolecule(mol)
+            
+            # Save to file
+            safe_name = sanitize_smiles_filename(smiles)
+            if output_format == 'cif':
+                output_path = Path(self.paths.get_processor_path(self.processor_type)) / 'structures' / f"{safe_name}.cif"
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                # Use our CIF conversion
+                return self.save_as_cif(ligand_name, str(output_path), chain_id=chain_id, res_name=res_name)
+            elif output_format == 'pdb':
+                output_path = Path(self.paths.get_processor_path(self.processor_type)) / 'structures' / f"{safe_name}.pdb"
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                Chem.MolToPDBFile(mol, str(output_path))
+            elif output_format == 'mol2':
+                output_path = Path(self.paths.get_processor_path(self.processor_type)) / 'structures' / f"{safe_name}.mol2"
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                Chem.MolToMol2File(mol, str(output_path))
+            else:
+                logger.error(f"Unsupported output format: {output_format}")
+                return None
+            
+            logger.info(f"Converted ligand to {output_format}: {output_path}")
+            return str(output_path)
+            
+        except Exception as e:
+            logger.error(f"Failed to convert ligand: {e}")
+            return None
+    
+    def convert_to_cif_dataframe(self, ligand_name: str, 
+                                 chain_id: str = 'L',
+                                 res_name: Optional[str] = None,
+                                 res_id: int = 1) -> Optional[pd.DataFrame]:
+        """
+        Convert ligand to CIF DataFrame format compatible with StructureProcessor.
+        
+        This creates a DataFrame with the same columns as used by CifBaseProcessor,
+        allowing seamless integration between ligand and structure data.
+        
+        Args:
+            ligand_name: Ligand entity name or SMILES
+            chain_id: Chain identifier for the ligand (default: 'L')
+            res_name: Residue name (default: 'LIG' or from ChEMBL ID)
+            res_id: Residue sequence number (default: 1)
+            
+        Returns:
+            DataFrame in CIF format, or None if conversion failed
+        """
+        if not HAS_RDKIT:
+            logger.error("RDKit required for structure conversion")
+            return None
+        
+        # Load ligand data
+        ligand_data = self.load_entity(ligand_name)
+        if not ligand_data:
+            logger.error(f"Ligand {ligand_name} not found")
+            return None
+        
+        smiles = ligand_data.get('smiles')
+        if not smiles:
+            logger.error("No SMILES found for ligand")
+            return None
+        
+        try:
+            # Create 3D structure
+            mol = Chem.MolFromSmiles(smiles)
+            if mol is None:
+                logger.error(f"Failed to parse SMILES: {smiles}")
+                return None
+            
+            # Add hydrogens and generate 3D coordinates
+            mol = Chem.AddHs(mol)
+            AllChem.EmbedMolecule(mol, randomSeed=42)
+            AllChem.MMFFOptimizeMolecule(mol)
+            
+            # Determine residue name
+            if res_name is None:
+                if 'chembl_id' in ligand_data and ligand_data['chembl_id']:
+                    # Use last 3 chars of ChEMBL ID (e.g., CHEMBL25 -> L25)
+                    res_name = ligand_data['chembl_id'][-3:]
+                else:
+                    res_name = 'LIG'
+            
+            # Build CIF DataFrame
+            rows = []
+            conf = mol.GetConformer()
+            
+            for atom_idx in range(mol.GetNumAtoms()):
+                atom = mol.GetAtomWithIdx(atom_idx)
+                pos = conf.GetAtomPosition(atom_idx)
+                
+                # Create row matching CIF format
+                row = {
+                    'group': 'HETATM',
+                    'atom_id': atom_idx + 1,
+                    'atom_name': f"{atom.GetSymbol()}{atom_idx + 1}",
+                    'res_name': res_name,
+                    'auth_chain_id': chain_id,
+                    'auth_seq_id': res_id,
+                    'x': round(pos.x, 3),
+                    'y': round(pos.y, 3),
+                    'z': round(pos.z, 3),
+                    'element': atom.GetSymbol(),
+                    'occupancy': 1.00,
+                    'b_factor': 30.00,
+                    'entity_id': 2,  # Typically 2 for ligands (1 is protein)
+                    'model_num': 1,
+                    'res_name3l': res_name,
+                    'res_id': f"{res_name}_{res_id}_{chain_id}",
+                    'label_chain_id': chain_id,
+                    'label_seq_id': 1,
+                    'alt_id': '.',
+                    'charge': atom.GetFormalCharge() if atom.GetFormalCharge() != 0 else None
+                }
+                
+                rows.append(row)
+            
+            # Create DataFrame
+            df = pd.DataFrame(rows)
+            
+            # Add any additional metadata
+            if 'pdb_id' in ligand_data:
+                df['pdb_id'] = ligand_data['pdb_id']
+            
+            logger.info(f"Converted ligand to CIF DataFrame: {len(df)} atoms")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Failed to convert ligand to CIF format: {e}")
+            return None
+    
+    def save_as_cif(self, ligand_name: str, output_path: str,
+                    chain_id: str = 'L', res_name: Optional[str] = None) -> Optional[str]:
+        """
+        Save ligand as a CIF file using the standard CIF handler.
+        
+        Args:
+            ligand_name: Ligand entity name or SMILES
+            output_path: Path for output CIF file
+            chain_id: Chain identifier (default: 'L')
+            res_name: Residue name (optional)
+            
+        Returns:
+            Path to saved file, or None if failed
+        """
+        # Convert to CIF DataFrame
+        df = self.convert_to_cif_dataframe(ligand_name, chain_id=chain_id, res_name=res_name)
+        if df is None:
+            return None
+        
+        try:
+            # Use CIF handler to write
+            from protos.io.cif_handler import CifHandler
+            handler = CifHandler()
+            
+            # Write the file with force_overwrite
+            written_path = handler.write_with_versioning(
+                output_path, df, 
+                versioned=False, 
+                force_overwrite=True
+            )
+            logger.info(f"Saved ligand as CIF: {written_path}")
+            return written_path
+            
+        except Exception as e:
+            logger.error(f"Failed to save CIF file: {e}")
+            return None
+    
+    # ===== Database Integration Methods =====
+    
+    def get_ccd_ligand(self, ccd_id: str, download_if_missing: bool = True) -> Optional[Dict]:
+        """
+        Get ligand from PDB Chemical Component Dictionary.
+        
+        This accesses the local CCD database, downloading it first if needed.
+        The CCD contains all small molecules found in PDB structures.
+        
+        Args:
+            ccd_id: Three-letter CCD code (e.g., 'ATP', 'NAD', 'HEM')
+            download_if_missing: Auto-download CCD if not present
+            
+        Returns:
+            Dictionary with ligand data, or None if not found
+            
+        Example:
+            >>> atp = processor.get_ccd_ligand('ATP')
+            >>> print(atp['smiles'])
+            >>> print(atp['name'])
+        """
+        from protos.loaders import ccd_loader
+        
+        # Get database path using ProtosPaths
+        db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'ccd'
+        
+        # Check if CCD is downloaded
+        if not ccd_loader.is_ccd_downloaded(db_path):
+            if download_if_missing:
+                logger.info("CCD not found. Downloading PDB Chemical Component Dictionary...")
+                db_path.mkdir(parents=True, exist_ok=True)
+                ccd_loader.download_ccd_components(db_path)
+            else:
+                logger.error("CCD database not found. Set download_if_missing=True to download.")
+                return None
+        
+        # Load component
+        component = ccd_loader.load_ccd_component(db_path, ccd_id)
+        if not component:
+            return None
+        
+        # Get SMILES
+        smiles = ccd_loader.get_ccd_smiles(db_path, ccd_id)
+        if not smiles:
+            logger.warning(f"No SMILES found for CCD component {ccd_id}")
+            return None
+        
+        # Build ligand data
+        ligand_data = {
+            'smiles': smiles,
+            'ccd_id': ccd_id,
+            'name': component.get('name', ccd_id),
+            'formula': component.get('formula', ''),
+            'type': component.get('type', 'non-polymer'),
+            'source': 'CCD',
+            'properties': calculate_molecular_properties(smiles) if HAS_RDKIT else {}
+        }
+        
+        # Add InChI if available
+        if 'inchi' in component:
+            ligand_data['inchi'] = component['inchi']
+        if 'inchi_key' in component:
+            ligand_data['inchi_key'] = component['inchi_key']
+        
+        return ligand_data
+    
+    def search_qm9_by_properties(self, property_filters: Dict[str, Tuple[float, float]], 
+                                 limit: Optional[int] = None,
+                                 download_if_missing: bool = True) -> List[Dict]:
+        """
+        Search QM9 dataset by quantum chemical properties.
+        
+        QM9 contains ~134k small organic molecules with DFT-calculated properties.
+        
+        Args:
+            property_filters: Dict mapping property names to (min, max) ranges
+                Available properties: 'gap', 'homo', 'lumo', 'dipole', 'alpha', 
+                                    'zpve', 'cv', 'u0', 'u298', 'h298', 'g298'
+            limit: Maximum number of results
+            download_if_missing: Auto-download QM9 if not present
+            
+        Returns:
+            List of ligand dictionaries matching criteria
+            
+        Example:
+            >>> # Find molecules with small HOMO-LUMO gap
+            >>> molecules = processor.search_qm9_by_properties({
+            ...     'gap': (0.1, 0.3),
+            ...     'dipole': (0, 2.0)
+            ... }, limit=100)
+        """
+        from protos.loaders import qm9_loader
+        
+        # Get database path using ProtosPaths
+        db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'qm9'
+        
+        # Check if QM9 is downloaded
+        if not qm9_loader.is_qm9_downloaded(db_path):
+            if download_if_missing:
+                logger.info("QM9 not found. Downloading QM9 quantum chemistry dataset...")
+                db_path.mkdir(parents=True, exist_ok=True)
+                qm9_loader.download_qm9_dataset(db_path)
+            else:
+                logger.error("QM9 database not found. Set download_if_missing=True to download.")
+                return []
+        
+        # Search by each property
+        results = None
+        for prop_name, (min_val, max_val) in property_filters.items():
+            matches = qm9_loader.search_qm9_by_property(db_path, prop_name, min_val, max_val)
+            
+            if results is None:
+                results = matches
+            else:
+                # Intersection of results
+                result_ids = {m['id'] for m in results}
+                match_ids = {m['id'] for m in matches}
+                keep_ids = result_ids & match_ids
+                results = [m for m in results if m['id'] in keep_ids]
+        
+        if results is None:
+            results = []
+        
+        # Apply limit
+        if limit and len(results) > limit:
+            results = results[:limit]
+        
+        # Convert to ligand format
+        ligands = []
+        for mol in results:
+            ligand_data = {
+                'smiles': mol['smiles'],
+                'qm9_id': mol['id'],
+                'source': 'QM9',
+                'quantum_properties': mol['properties'],
+                'xyz_coordinates': mol.get('xyz', None)
+            }
+            
+            # Add RDKit properties if available
+            if HAS_RDKIT:
+                ligand_data['properties'] = calculate_molecular_properties(mol['smiles'])
+            
+            ligands.append(ligand_data)
+        
+        return ligands
+    
+    def get_qm9_molecule(self, qm9_id: int, download_if_missing: bool = True) -> Optional[Dict]:
+        """
+        Get specific molecule from QM9 by ID.
+        
+        Args:
+            qm9_id: QM9 molecule ID (1-133885)
+            download_if_missing: Auto-download QM9 if not present
+            
+        Returns:
+            Ligand dictionary with quantum properties, or None if not found
+        """
+        from protos.loaders import qm9_loader
+        
+        # Get database path using ProtosPaths
+        db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'qm9'
+        
+        # Check if QM9 is downloaded
+        if not qm9_loader.is_qm9_downloaded(db_path):
+            if download_if_missing:
+                logger.info("QM9 not found. Downloading QM9 quantum chemistry dataset...")
+                db_path.mkdir(parents=True, exist_ok=True)
+                qm9_loader.download_qm9_dataset(db_path)
+            else:
+                logger.error("QM9 database not found. Set download_if_missing=True to download.")
+                return None
+        
+        # Load molecule
+        mol_data = qm9_loader.load_qm9_molecule(db_path, qm9_id)
+        if not mol_data:
+            return None
+        
+        # Convert to ligand format
+        ligand_data = {
+            'smiles': mol_data['smiles'],
+            'qm9_id': qm9_id,
+            'source': 'QM9',
+            'quantum_properties': mol_data['properties'],
+            'xyz_coordinates': mol_data.get('xyz', None)
+        }
+        
+        # Add RDKit properties if available
+        if HAS_RDKIT:
+            ligand_data['properties'] = calculate_molecular_properties(mol_data['smiles'])
+        
+        return ligand_data
+    
+    def search_enamine_by_similarity(self, query_smiles: str, 
+                                    dataset: str = 'diversity_1k',
+                                    similarity: float = 0.7,
+                                    limit: Optional[int] = 100,
+                                    download_if_missing: bool = True) -> List[Tuple[str, float, Dict]]:
+        """
+        Search Enamine REAL database by structural similarity.
+        
+        Note: Enamine is a commercial database. Credentials must be set via
+        environment variables (ENAMINE_USERNAME, ENAMINE_PASSWORD).
+        
+        Args:
+            query_smiles: Query molecule SMILES
+            dataset: Dataset name (e.g., 'diversity_1k', 'hit2lead_10k')
+                    See enamine_loader.list_available_datasets() for options
+            similarity: Tanimoto similarity threshold (0-1)
+            limit: Maximum number of results
+            download_if_missing: Auto-download dataset if not present
+            
+        Returns:
+            List of (smiles, similarity_score, properties) tuples
+            
+        Example:
+            >>> # Search for molecules similar to aspirin
+            >>> similar = processor.search_enamine_by_similarity(
+            ...     "CC(=O)Oc1ccccc1C(=O)O",
+            ...     dataset='diversity_1k',  # Small test dataset
+            ...     similarity=0.7
+            ... )
+        """
+        if not HAS_RDKIT:
+            logger.error("RDKit required for similarity search")
+            return []
+        
+        from protos.loaders import enamine_loader
+        
+        # Get database path using ProtosPaths
+        db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'enamine'
+        
+        # Check if dataset is downloaded
+        if not enamine_loader.is_dataset_downloaded(db_path, dataset):
+            if download_if_missing:
+                logger.info(f"Downloading Enamine dataset '{dataset}'...")
+                db_path.mkdir(parents=True, exist_ok=True)
+                if not enamine_loader.download_enamine_dataset(db_path, dataset):
+                    logger.error(f"Failed to download dataset '{dataset}'")
+                    return []
+            else:
+                logger.error(f"Enamine dataset '{dataset}' not found. Set download_if_missing=True to download.")
+                return []
+        
+        # Get query fingerprint
+        query_fp = self._get_fingerprint(query_smiles)
+        if query_fp is None:
+            return []
+        
+        # Search database
+        results = []
+        for compound in enamine_loader.stream_enamine_compounds(db_path, dataset):
+            comp_fp = self._get_fingerprint(compound['smiles'])
+            if comp_fp is not None:
+                sim = TanimotoSimilarity(query_fp, comp_fp)
+                if sim >= similarity:
+                    results.append((compound['smiles'], sim, compound))
+                    if limit and len(results) >= limit:
+                        break
+        
+        # Sort by similarity
+        results.sort(key=lambda x: x[1], reverse=True)
+        
+        return results
+    
+    def create_ccd_dataset(self, dataset_name: str, ccd_ids: List[str],
+                          download_if_missing: bool = True) -> List[str]:
+        """
+        Create a dataset from CCD components.
+        
+        This is useful for working with known PDB ligands.
+        
+        Args:
+            dataset_name: Name for the dataset
+            ccd_ids: List of CCD three-letter codes
+            download_if_missing: Auto-download CCD if not present
+            
+        Returns:
+            List of successfully added entity names
+            
+        Example:
+            >>> # Create dataset of common cofactors
+            >>> processor.create_ccd_dataset(
+            ...     "cofactors",
+            ...     ["ATP", "NAD", "FAD", "COA", "HEM", "PLP"]
+            ... )
+        """
+        successful = []
+        
+        for ccd_id in ccd_ids:
+            ligand_data = self.get_ccd_ligand(ccd_id, download_if_missing)
+            if ligand_data:
+                try:
+                    # Save as entity
+                    self.save_entity(ligand_data['smiles'], ligand_data)
+                    successful.append(ligand_data['smiles'])
+                except Exception as e:
+                    logger.warning(f"Failed to save CCD component {ccd_id}: {e}")
+        
+        if successful:
+            # Create dataset
+            self.create_dataset(dataset_name, successful)
+            logger.info(f"Created dataset '{dataset_name}' with {len(successful)} CCD components")
+        
+        return successful
+    
+    def list_enamine_datasets(self) -> Dict[str, Dict]:
+        """
+        List all available Enamine datasets.
+        
+        Returns:
+            Dictionary with dataset names and information
+            
+        Example:
+            >>> datasets = processor.list_enamine_datasets()
+            >>> for name, info in datasets.items():
+            ...     print(f"{name}: {info['description']} ({info['size']} compounds)")
+        """
+        from protos.loaders import enamine_loader
+        return enamine_loader.list_available_datasets()
+    
+    def get_enamine_dataset_info(self, dataset_name: str) -> Optional[Dict]:
+        """
+        Get detailed information about an Enamine dataset.
+        
+        Args:
+            dataset_name: Name of the dataset
+            
+        Returns:
+            Dataset information including download status
+        """
+        from protos.loaders import enamine_loader
+        
+        info = enamine_loader.get_dataset_info(dataset_name)
+        if not info:
+            return None
+        
+        # Add download status
+        db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'enamine'
+        info['downloaded'] = enamine_loader.is_dataset_downloaded(db_path, dataset_name)
+        
+        # Add metadata if downloaded
+        if info['downloaded']:
+            metadata = enamine_loader.load_dataset_metadata(db_path, dataset_name)
+            if metadata:
+                info['download_date'] = metadata.get('downloaded')
+        
+        return info
+    
+    def get_database_statistics(self) -> Dict[str, Dict]:
+        """
+        Get statistics about available databases.
+        
+        Returns:
+            Dictionary with database names and their statistics
+        """
+        from protos.loaders import qm9_loader, ccd_loader, enamine_loader
+        
+        stats = {}
+        
+        # Check CCD
+        ccd_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'ccd'
+        if ccd_loader.is_ccd_downloaded(ccd_path):
+            stats['CCD'] = {
+                'downloaded': True,
+                'path': str(ccd_path),
+                'component_count': len(list(ccd_path.glob('*.cif'))),
+                'description': 'PDB Chemical Component Dictionary'
+            }
+        else:
+            stats['CCD'] = {'downloaded': False, 'description': 'PDB Chemical Component Dictionary'}
+        
+        # Check QM9
+        qm9_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'qm9'
+        if qm9_loader.is_qm9_downloaded(qm9_path):
+            stats['QM9'] = {
+                'downloaded': True,
+                'path': str(qm9_path),
+                'molecule_count': 133885,
+                'properties': ['gap', 'homo', 'lumo', 'dipole', 'alpha', 'zpve', 
+                              'cv', 'u0', 'u298', 'h298', 'g298'],
+                'description': 'Quantum chemistry dataset of small organic molecules'
+            }
+        else:
+            stats['QM9'] = {'downloaded': False, 'description': 'Quantum chemistry dataset'}
+        
+        # Check Enamine
+        enamine_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'enamine'
+        
+        # Get info about all available datasets
+        available_datasets = enamine_loader.list_available_datasets()
+        downloaded_datasets = []
+        
+        if enamine_path.exists():
+            for dataset_name in available_datasets:
+                if enamine_loader.is_dataset_downloaded(enamine_path, dataset_name):
+                    downloaded_datasets.append(dataset_name)
+        
+        stats['Enamine'] = {
+            'downloaded': len(downloaded_datasets) > 0,
+            'path': str(enamine_path) if enamine_path.exists() else None,
+            'available_datasets': len(available_datasets),
+            'downloaded_datasets': downloaded_datasets,
+            'description': 'Enamine REAL commercial compound library',
+            'credentials_set': bool(enamine_loader.get_enamine_credentials()[0])
+        }
+        
+        return stats

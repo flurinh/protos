@@ -1,0 +1,54 @@
+data_cn1c_lp__eq_o_rp_c2c_lp_ncn2c_rp_n_lp_c_rp_c1_eq_o
+#
+# Created on 2025-08-05 17:00:18
+#
+_entry.id cn1c_lp__eq_o_rp_c2c_lp_ncn2c_rp_n_lp_c_rp_c1_eq_o
+_struct.title 'Generated Structure'
+
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.occupancy 
+_atom_site.B_iso_or_equiv 
+_atom_site.pdbx_formal_charge 
+_atom_site.auth_seq_id 
+_atom_site.auth_comp_id 
+_atom_site.auth_asym_id 
+_atom_site.auth_atom_id 
+_atom_site.pdbx_PDB_model_num 
+HETATM 1    C  C1    . CAF R 4 1   ? -1.401  2.813  0.377   0.93 30.00  ? 1    CAF R C1    1
+HETATM 2    N  N2    . CAF R 4 1   ? -0.912  1.466  0.156   0.93 30.00  ? 1    CAF R N2    1
+HETATM 3    C  C3    . CAF R 4 1   ? 0.470   1.261  0.143   0.93 30.00  ? 1    CAF R C3    1
+HETATM 4    O  O4    . CAF R 4 1   ? 1.306   2.144  0.306   0.93 30.00  ? 1    CAF R O4    1
+HETATM 5    C  C5    . CAF R 4 1   ? 0.822   -0.098 -0.082  0.93 30.00  ? 1    CAF R C5    1
+HETATM 6    C  C6    . CAF R 4 1   ? -0.096  -1.087 -0.264  0.93 30.00  ? 1    CAF R C6    1
+HETATM 7    N  N7    . CAF R 4 1   ? 0.493   -2.299 -0.460  0.93 30.00  ? 1    CAF R N7    1
+HETATM 8    C  C8    . CAF R 4 1   ? 1.786   -2.050 -0.398  0.93 30.00  ? 1    CAF R C8    1
+HETATM 9    N  N9    . CAF R 4 1   ? 2.033   -0.722 -0.169  0.93 30.00  ? 1    CAF R N9    1
+HETATM 10   C  C10   . CAF R 4 1   ? 3.331   -0.107 -0.044  0.93 30.00  ? 1    CAF R C10   1
+HETATM 11   N  N11   . CAF R 4 1   ? -1.447  -0.834 -0.242  0.93 30.00  ? 1    CAF R N11   1
+HETATM 12   C  C12   . CAF R 4 1   ? -2.392  -1.917 -0.441  0.93 30.00  ? 1    CAF R C12   1
+HETATM 13   C  C13   . CAF R 4 1   ? -1.894  0.470  -0.028  0.93 30.00  ? 1    CAF R C13   1
+HETATM 14   O  O14   . CAF R 4 1   ? -3.096  0.751  0.001   0.93 30.00  ? 1    CAF R O14   1
+HETATM 15   H  H15   . CAF R 4 1   ? -0.593  3.537  0.512   0.93 30.00  ? 1    CAF R H15   1
+HETATM 16   H  H16   . CAF R 4 1   ? -2.009  3.117  -0.482  0.93 30.00  ? 1    CAF R H16   1
+HETATM 17   H  H17   . CAF R 4 1   ? -2.036  2.820  1.269   0.93 30.00  ? 1    CAF R H17   1
+HETATM 18   H  H18   . CAF R 4 1   ? 2.573   -2.784 -0.510  0.93 30.00  ? 1    CAF R H18   1
+HETATM 19   H  H19   . CAF R 4 1   ? 3.407   0.347  0.946   0.93 30.00  ? 1    CAF R H19   1
+HETATM 20   H  H20   . CAF R 4 1   ? 4.107   -0.868 -0.161  0.93 30.00  ? 1    CAF R H20   1
+HETATM 21   H  H21   . CAF R 4 1   ? 3.435   0.648  -0.827  0.93 30.00  ? 1    CAF R H21   1
+HETATM 22   H  H22   . CAF R 4 1   ? -2.244  -2.669 0.342   0.93 30.00  ? 1    CAF R H22   1
+HETATM 23   H  H23   . CAF R 4 1   ? -2.217  -2.370 -1.422  0.93 30.00  ? 1    CAF R H23   1
+HETATM 24   H  H24   . CAF R 4 1   ? -3.427  -1.569 -0.397  0.93 30.00  ? 1    CAF R H24   1
+#

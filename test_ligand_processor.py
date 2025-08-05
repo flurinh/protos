@@ -36,8 +36,10 @@ def test_ligand_processor():
         print(f"   SMILES: {aspirin_data['smiles']}")
         if aspirin_data.get('properties'):
             props = aspirin_data['properties']
-            print(f"   MW: {props.get('mw', 'N/A'):.2f}")
-            print(f"   LogP: {props.get('logp', 'N/A'):.2f}")
+            mw = props.get('mw', 'N/A')
+            logp = props.get('logp', 'N/A')
+            print(f"   MW: {mw:.2f}" if isinstance(mw, (int, float)) else f"   MW: {mw}")
+            print(f"   LogP: {logp:.2f}" if isinstance(logp, (int, float)) else f"   LogP: {logp}")
             print(f"   HBA: {props.get('hba', 'N/A')}")
             print(f"   HBD: {props.get('hbd', 'N/A')}")
     

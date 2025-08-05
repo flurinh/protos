@@ -85,7 +85,78 @@ With `chembl_webresource_client` installed:
 - **Automatic SDF file generation** from ChEMBL compounds
 - **Caching system** for protein mappings and activity data
 
-### 5. Similarity Search
+### 5. Local Database Access (NEW)
+
+The LigandProcessor now provides seamless access to three major ligand databases that are downloaded once and cached locally. All database paths are managed by ProtosPaths - no hardcoded paths!
+
+#### PDB Chemical Component Dictionary (CCD)
+Access all small molecules found in PDB structures:
+
+```python
+# Get specific ligand from CCD
+atp = lig_proc.get_ccd_ligand('ATP')  # Auto-downloads CCD on first use
+print(f"ATP SMILES: {atp['smiles']}")
+print(f"ATP formula: {atp['formula']}")
+
+# Create dataset from CCD components
+cofactors = lig_proc.create_ccd_dataset(
+    "cofactors",
+    ["ATP", "NAD", "FAD", "COA", "HEM", "PLP"]
+)
+```
+
+#### QM9 Quantum Chemistry Dataset
+Search 134k molecules by quantum properties:
+
+```python
+# Find molecules with specific HOMO-LUMO gap
+molecules = lig_proc.search_qm9_by_properties({
+    'gap': (0.1, 0.3),      # eV
+    'dipole': (0, 2.0),     # Debye
+    'homo': (-7.0, -5.0)    # eV
+}, limit=100)
+
+# Get specific molecule with all quantum properties
+mol = lig_proc.get_qm9_molecule(12345)
+print(f"Quantum properties: {mol['quantum_properties']}")
+```
+
+#### Enamine REAL Database
+Commercial compound library (requires Enamine subscription):
+
+```python
+# Search by similarity in Enamine subsets
+similar = lig_proc.search_enamine_by_similarity(
+    "CC(=O)Oc1ccccc1C(=O)O",  # Aspirin
+    dataset='diversity_1k',    # Small test dataset (default)
+    similarity=0.7
+)
+
+# Available datasets:
+# - diversity_1k: 1,000 diverse compounds (test)
+# - hit2lead_1k: 1,000 lead-like compounds (test)
+# - diversity_10k: 10,000 diverse compounds
+# - fragments_5k: 5,000 fragments (MW < 300)
+# - kinase_focused: 50,000 kinase-targeted compounds
+# - gpcr_focused: 50,000 GPCR-targeted compounds
+```
+
+**Note**: Enamine is a commercial database. The loader includes placeholder URLs
+that need to be replaced with actual download links from your Enamine subscription.
+Contact Enamine (https://enamine.net) for access to their REAL database.
+
+#### Database Statistics
+Check which databases are available:
+
+```python
+stats = lig_proc.get_database_statistics()
+for db_name, info in stats.items():
+    print(f"{db_name}: {'Downloaded' if info['downloaded'] else 'Not downloaded'}")
+    if info['downloaded']:
+        print(f"  Path: {info['path']}")
+```
+
+### 6. Similarity Search
 
 With RDKit available:
 
@@ -171,6 +242,73 @@ With RDKit available:
    - Checking if SDF files exist before attempting to read
    - Gracefully handling missing RDKit by falling back to metadata
    - Preventing SDF creation errors when RDKit is not available
+5. **PDB to ChEMBL mapping** - Fixed PDB code mapping by:
+   - Adding PDB_ALIASES dictionary for common PDB structures
+   - Updating API calls to avoid deprecated paths
+   - Example: 1M17 now correctly maps to CHEMBL203 (EGFR)
+
+### New Features (August 5, 2025)
+
+1. **SDF File Operations** - Full support for Structure Data Format files:
+   ```python
+   # Load SDF file
+   molecules = lig_proc.load_sdf_file('drug_library', as_entities=True)
+   
+   # Save molecules to SDF
+   sdf_path = lig_proc.save_sdf_file('egfr_inhibitors', molecules)
+   
+   # Convert DataFrame to SDF
+   lig_proc.save_sdf_file('compounds', df)
+   ```
+
+2. **Structure Format Conversion** - Convert ligands to 3D structures:
+   ```python
+   # Convert to CIF format (DEFAULT) - fully compatible with StructureProcessor
+   cif_path = lig_proc.convert_to_structure_format(smiles)  # CIF is default
+   
+   # Specify chain and residue name for CIF
+   cif_path = lig_proc.convert_to_structure_format(smiles, 
+                                                   chain_id='L', 
+                                                   res_name='ATP')
+   
+   # Also supports PDB format (if specifically needed)
+   pdb_path = lig_proc.convert_to_structure_format(smiles, output_format='pdb')
+   
+   # And MOL2 format
+   mol2_path = lig_proc.convert_to_structure_format(smiles, output_format='mol2')
+   ```
+
+3. **CIF DataFrame Integration** - Direct integration with StructureProcessor:
+   ```python
+   # Convert ligand to CIF DataFrame format
+   ligand_df = lig_proc.convert_to_cif_dataframe(smiles, 
+                                                 chain_id='L', 
+                                                 res_name='LIG')
+   
+   # Merge with protein structure
+   complex_df = pd.concat([protein_df, ligand_df], ignore_index=True)
+   
+   # Save using CIF handler
+   from protos.io.cif_handler import CifHandler
+   handler = CifHandler()
+   handler.write('complex.cif', complex_df)
+   ```
+
+4. **Format Handler Integration** - SDF files are now part of Protos format registry:
+   - Automatic format detection
+   - Consistent read/write interface
+   - Validation support
+   - Works with both .sdf and .mol extensions
+
+5. **SDF Utilities** (in protos.io.sdf_utils):
+   - `read_sdf_file()` - Read with optional sanitization
+   - `write_sdf_file()` - Write with property selection
+   - `sdf_to_dataframe()` - Convert to pandas DataFrame
+   - `dataframe_to_sdf()` - Convert from DataFrame
+   - `merge_sdf_files()` - Combine multiple SDFs
+   - `validate_sdf_file()` - Check file validity
+   - `filter_sdf_by_property()` - Filter by property values
+   - `extract_unique_properties()` - List all properties
 
 ## Current Limitations & Missing Functionality
 
@@ -263,6 +401,30 @@ ligand_list = [
 similarity = compare_ligand_binding_sites(
     struct_proc, ligand_list, cutoff=5.0
 )
+```
+
+### 4. Creating Protein-Ligand Complexes (NEW)
+```python
+# Download ligand from ChEMBL
+compounds = lig_proc.get_protein_ligands("EGFR", limit=1)
+smiles = compounds[0]['smiles']
+
+# Convert to CIF format (default)
+ligand_df = lig_proc.convert_to_cif_dataframe(smiles, 
+                                              chain_id='L',
+                                              res_name='INH')
+
+# Load protein structure
+struct_proc.load_structure('1M17')
+protein_df = struct_proc.data
+
+# Create complex
+complex_df = pd.concat([protein_df, ligand_df], ignore_index=True)
+
+# Save complex as CIF
+from protos.io.cif_handler import CifHandler
+handler = CifHandler()
+handler.write('1M17_with_inhibitor.cif', complex_df)
 ```
 
 ## Future Development Priorities

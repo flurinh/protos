@@ -389,3 +389,4 @@ def create_sdf_from_smiles(smiles: str, properties: Optional[Dict] = None) -> Op
     except Exception as e:
         logger.debug(f"SDF creation failed for '{smiles}': {e}")
         return None
+

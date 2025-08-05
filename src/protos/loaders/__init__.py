@@ -22,6 +22,11 @@ from protos.loaders.ligand_utils import (
     extract_protein_mapping
 )
 
+# Import new ligand database loaders
+from protos.loaders import qm9_loader
+from protos.loaders import ccd_loader
+from protos.loaders import enamine_loader
+
 __all__ = [
     'UniprotDL',
     # 'GPCRdbDL',  # Temporarily disabled
@@ -35,5 +40,9 @@ __all__ = [
     'is_drug_like',
     'parse_activity_value',
     'create_sdf_from_smiles',
-    'extract_protein_mapping'
+    'extract_protein_mapping',
+    # New loaders
+    'qm9_loader',
+    'ccd_loader', 
+    'enamine_loader'
 ]

@@ -2823,11 +2823,11 @@
               "CHEMBL68920"
             ]
           },
-          "created": "2025-08-05T15:13:10.566008"
+          "created": "2025-08-05T16:43:24.622373"
         }
       },
       "created": "2025-07-23T21:52:21.725392",
-      "modified": "2025-08-05T15:13:10.566017"
+      "modified": "2025-08-05T16:43:24.622383"
     },
     "0752ea3be2": {
       "original_id": "Cc1cc(C(=O)N2CCOCC2)[nH]c1/C=C1\\C(=O)Nc2ncnc(Nc3ccc(F)c(Cl)c3)c21",
@@ -3024,15 +3024,13 @@
             "molecular_properties": {},
             "targets": [],
             "activities": [],
-            "aliases": [
-              "CHEMBL25"
-            ]
+            "aliases": []
           },
-          "created": "2025-08-05T14:15:58.128394"
+          "created": "2025-08-05T16:57:05.237641"
         }
       },
       "created": "2025-08-05T14:10:05.047928",
-      "modified": "2025-08-05T14:15:58.128403"
+      "modified": "2025-08-05T16:57:05.237654"
     },
     "572a3bb55e": {
       "original_id": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
@@ -3044,15 +3042,13 @@
             "molecular_properties": {},
             "targets": [],
             "activities": [],
-            "aliases": [
-              "CHEMBL521"
-            ]
+            "aliases": []
           },
-          "created": "2025-08-05T14:15:58.143450"
+          "created": "2025-08-05T16:43:24.014653"
         }
       },
       "created": "2025-08-05T14:10:05.066843",
-      "modified": "2025-08-05T14:15:58.143459"
+      "modified": "2025-08-05T16:43:24.014670"
     },
     "8ec935ebae": {
       "original_id": "COc1ccccc1OCCN",
@@ -3088,11 +3084,11 @@
               "CHEMBL304271"
             ]
           },
-          "created": "2025-08-05T15:13:10.536267"
+          "created": "2025-08-05T16:43:24.646520"
         }
       },
       "created": "2025-08-05T14:28:08.240274",
-      "modified": "2025-08-05T15:13:10.536275"
+      "modified": "2025-08-05T16:43:24.646547"
     },
     "468013095a": {
       "original_id": "N#CC(C#N)=Cc1cc(O)c(O)c(O)c1",
@@ -3113,6 +3109,140 @@
       },
       "created": "2025-08-05T14:28:08.258784",
       "modified": "2025-08-05T15:13:10.551231"
+    },
+    "693364cb16": {
+      "original_id": "Cn1c(=O)c2c(ncn2C)n(C)c1=O",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/Cn1c_lp__eq_O_rp_c2c_lp_ncn2C_rp_n_lp_C_rp_c1_eq_O.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": []
+          },
+          "created": "2025-08-05T17:00:18.074596"
+        }
+      },
+      "created": "2025-08-05T16:42:10.188329",
+      "modified": "2025-08-05T17:00:18.074613"
+    },
+    "ade4fcccdb": {
+      "original_id": "COc1ccccc1OCC(O)CNC(C)C",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/COc1ccccc1OCC_lp_O_rp_CNC_lp_C_rp_C.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": []
+          },
+          "created": "2025-08-05T16:43:24.058022"
+        }
+      },
+      "created": "2025-08-05T16:42:10.211369",
+      "modified": "2025-08-05T16:43:24.058043"
+    },
+    "44f879044f": {
+      "original_id": "CN(C)/N=N/c1ccc2ncnc(Nc3cccc(Cl)c3)c2c1",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/CN_lp_C_rp__fs_N_eq_N_fs_c1ccc2ncnc_lp_Nc3cccc_lp_Cl_rp_c3_rp_c2c1.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL136491"
+            ]
+          },
+          "created": "2025-08-05T16:43:24.667788"
+        }
+      },
+      "created": "2025-08-05T16:42:14.152762",
+      "modified": "2025-08-05T16:43:24.667802"
+    },
+    "edc0e7a06c": {
+      "original_id": "C/N=N/Nc1ccc2ncnc(Nc3cccc(Cl)c3)c2c1",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/C_fs_N_eq_N_fs_Nc1ccc2ncnc_lp_Nc3cccc_lp_Cl_rp_c3_rp_c2c1.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL133024"
+            ]
+          },
+          "created": "2025-08-05T16:43:24.686978"
+        }
+      },
+      "created": "2025-08-05T16:42:14.172808",
+      "modified": "2025-08-05T16:43:24.686991"
+    },
+    "133d774745": {
+      "original_id": "Brc1cccc(Nc2ncnc3ccc(N/N=N/CCN4CCOCC4)cc23)c1",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/Brc1cccc_lp_Nc2ncnc3ccc_lp_N_fs_N_eq_N_fs_CCN4CCOCC4_rp_cc23_rp_c1.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL137364"
+            ]
+          },
+          "created": "2025-08-05T16:43:24.707879"
+        }
+      },
+      "created": "2025-08-05T16:42:14.193201",
+      "modified": "2025-08-05T16:43:24.707909"
+    },
+    "ef849357dc": {
+      "original_id": "Nc1ncnc2c1ncn2C1OC(COP(=O)(O)OP(=O)(O)OP(=O)(O)O)C(O)C1O",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/Nc1ncnc2c1ncn2C1OC_lp_COP_lp__eq_O_rp__lp_O_rp_OP_lp__eq_O_rp__lp_O_rp_OP_lp__eq_O_rp__lp_O_rp_O_rp_C_lp_O_rp_C1O.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": [
+              "CHEMBL14249"
+            ]
+          },
+          "created": "2025-08-05T16:57:04.892139"
+        }
+      },
+      "created": "2025-08-05T16:57:04.892122",
+      "modified": "2025-08-05T16:57:04.892141"
+    },
+    "a3dab45fca": {
+      "original_id": "OCC1OC(O)C(O)C(O)C1O",
+      "aliases": [],
+      "formats": {
+        "ligand": {
+          "file_path": "ligand/sdf/OCC1OC_lp_O_rp_C_lp_O_rp_C_lp_O_rp_C1O.sdf",
+          "metadata": {
+            "molecular_properties": {},
+            "targets": [],
+            "activities": [],
+            "aliases": []
+          },
+          "created": "2025-08-05T16:57:05.336175"
+        }
+      },
+      "created": "2025-08-05T16:57:05.336159",
+      "modified": "2025-08-05T16:57:05.336177"
     }
   }
 }

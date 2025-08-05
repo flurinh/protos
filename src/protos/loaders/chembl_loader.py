@@ -71,6 +71,28 @@ GENE_ALIASES = {
     'CTLA4': 'CHEMBL4301',    # CTLA-4
 }
 
+# Common PDB to ChEMBL target mappings
+PDB_ALIASES = {
+    # EGFR structures
+    '1M17': 'CHEMBL203',      # EGFR kinase domain
+    '2ITY': 'CHEMBL203',      # EGFR with erlotinib
+    '4HJO': 'CHEMBL203',      # EGFR T790M with inhibitor
+    
+    # Other kinases
+    '1T46': 'CHEMBL267',      # SRC kinase
+    '3LXK': 'CHEMBL1862',     # ABL1 with dasatinib
+    '1M52': 'CHEMBL331',      # CDK4
+    
+    # GPCRs
+    '3EML': 'CHEMBL213',      # Adenosine A2A receptor
+    '4EJ4': 'CHEMBL210',      # β2 adrenergic receptor
+    '5C1M': 'CHEMBL1889',     # μ-opioid receptor
+    
+    # Other targets
+    '1CX2': 'CHEMBL230',      # COX-2
+    '4B0Q': 'CHEMBL2185',     # mTOR
+}
+
 
 def map_protein_to_chembl_target(protein_id: str, 
                                 protein_mapping_cache: Optional[Dict] = None) -> Optional[str]:
@@ -100,6 +122,10 @@ def map_protein_to_chembl_target(protein_id: str,
     if protein_id.upper() in GENE_ALIASES:
         return GENE_ALIASES[protein_id.upper()]
     
+    # Check PDB aliases
+    if protein_id.upper() in PDB_ALIASES:
+        return PDB_ALIASES[protein_id.upper()]
+    
     # Extract identifier type
     id_info = extract_protein_mapping(protein_id)
     
@@ -118,10 +144,21 @@ def map_protein_to_chembl_target(protein_id: str,
             if not list(targets):
                 targets = chembl.target.filter(pref_name__icontains=gene)
         elif id_info['type'] == 'pdb':
-            # Search via cross-references
-            targets = chembl.target.filter(
-                target_components__xrefs__xref_id=id_info['pdb_id']
-            )
+            # PDB codes are harder to map directly in ChEMBL
+            # Try to search by PDB code in target name/description
+            pdb_code = id_info['pdb_id'].upper()
+            
+            # First try exact match in pref_name
+            targets = chembl.target.filter(pref_name__icontains=pdb_code)
+            
+            # If no results, try searching in synonyms
+            if not list(targets):
+                targets = chembl.target.filter(synonyms__icontains=pdb_code)
+            
+            # If still no results, we might need to use a different approach
+            # For now, log a warning
+            if not list(targets):
+                logger.warning(f"Could not find ChEMBL target for PDB {pdb_code}")
         elif id_info['type'] == 'chembl':
             # Already a ChEMBL ID
             return id_info['chembl_id']

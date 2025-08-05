@@ -410,6 +410,83 @@ class GraphHandler(JSONHandler):
                     raise ValueError(f"Edge in {protein_id} must have 'source' and 'target'")
 
 
+class SDFHandler(FormatHandler):
+    """Handler for SDF (Structure Data Format) files."""
+    
+    def __init__(self, logger=None):
+        """Initialize the SDF handler."""
+        super().__init__(logger)
+        # Import sdf_utils here to check if RDKit is available
+        from protos.io import sdf_utils
+        self.sdf_utils = sdf_utils
+        
+    def _read_impl(self, file_path: str, **kwargs) -> Union[List[Dict], pd.DataFrame]:
+        """
+        Read an SDF file.
+        
+        Args:
+            file_path: Path to the SDF file
+            **kwargs: Additional arguments:
+                - as_dataframe: Return as DataFrame instead of list (default: False)
+                - include_properties: Include molecular properties (default: True)
+                - sanitize: Sanitize molecules (default: True)
+                
+        Returns:
+            List of molecule dictionaries or DataFrame
+        """
+        as_dataframe = kwargs.get('as_dataframe', False)
+        
+        if as_dataframe:
+            include_mol = kwargs.get('include_mol', False)
+            return self.sdf_utils.sdf_to_dataframe(file_path, include_mol=include_mol)
+        else:
+            include_properties = kwargs.get('include_properties', True)
+            sanitize = kwargs.get('sanitize', True)
+            return self.sdf_utils.read_sdf_file(file_path, 
+                                               include_properties=include_properties,
+                                               sanitize=sanitize)
+    
+    def _write_impl(self, file_path: str, data: Union[List[Dict], pd.DataFrame], **kwargs) -> None:
+        """
+        Write data to an SDF file.
+        
+        Args:
+            file_path: Output file path
+            data: List of molecule dictionaries or DataFrame
+            **kwargs: Additional arguments:
+                - smiles_col: Column name for SMILES in DataFrame (default: 'smiles')
+                - property_cols: Columns to include as properties (default: all)
+                - properties_to_write: Properties to write for list data (default: all)
+        """
+        if isinstance(data, pd.DataFrame):
+            smiles_col = kwargs.get('smiles_col', 'smiles')
+            property_cols = kwargs.get('property_cols', None)
+            self.sdf_utils.dataframe_to_sdf(data, file_path, 
+                                           smiles_col=smiles_col,
+                                           property_cols=property_cols)
+        else:
+            properties_to_write = kwargs.get('properties_to_write', None)
+            self.sdf_utils.write_sdf_file(file_path, data,
+                                         properties_to_write=properties_to_write)
+    
+    def _validate(self, data: Union[List[Dict], pd.DataFrame]) -> None:
+        """Validate data for SDF format."""
+        if not self.sdf_utils.HAS_RDKIT:
+            raise ValueError("RDKit is required for SDF file operations")
+            
+        if isinstance(data, pd.DataFrame):
+            if 'smiles' not in data.columns:
+                raise ValueError("DataFrame must have a 'smiles' column")
+        elif isinstance(data, list):
+            for item in data:
+                if not isinstance(item, dict):
+                    raise ValueError("List items must be dictionaries")
+                if 'smiles' not in item and 'mol' not in item:
+                    raise ValueError("Each molecule must have 'smiles' or 'mol' key")
+        else:
+            raise ValueError("Data must be a list of dictionaries or a DataFrame")
+
+
 class FormatRegistry:
     """Registry for file format handlers."""
     
@@ -430,7 +507,9 @@ class FormatRegistry:
             'graph': GraphHandler(),
             'cif': CifHandler(),
             'mmcif': CifHandler(),
-            'pdbx': CifHandler()
+            'pdbx': CifHandler(),
+            'sdf': SDFHandler(),
+            'mol': SDFHandler()  # Also register for .mol files
         }
     
     def get_handler(self, format_type: str) -> FormatHandler:
