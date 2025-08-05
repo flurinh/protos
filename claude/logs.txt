@@ -184,3 +184,5 @@
 [2025-08-05 17:50] [MODIFY] /src/protos/loaders/qm9_loader.py - Added tqdm progress bars for downloads and extraction
 [2025-08-05 17:50] [MODIFY] /src/protos/loaders/enamine_loader.py - Added tqdm progress bars for downloads and extraction
 [2025-08-05 17:50] [CREATE] /test_enamine_small.py - Example script showing Enamine small dataset usage
+[2025-08-05 18:14] [MODIFY] /src/protos/loaders/qm9_loader.py - Added convenience functions for automatic extraction
+[2025-08-05 18:15] [MODIFY] /src/protos/loaders/ccd_loader.py - Added convenience functions for safe CCD component loading

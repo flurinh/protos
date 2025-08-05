@@ -186,35 +186,86 @@ def parse_ccd_cif_block(block_lines: List[str]) -> Optional[Dict]:
         line = block_lines[i].strip()
         
         if line.startswith('_chem_comp.'):
-            key = line.split('.')[1].split()[0]
-            # Handle multi-line values
-            if "'" in line or '"' in line:
-                # Extract quoted value
-                if "'" in line:
-                    start = line.find("'")
-                    end = line.rfind("'")
-                else:
-                    start = line.find('"')
-                    end = line.rfind('"')
+            # Split into field name and value
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                i += 1
+                continue
                 
-                if start != end:
-                    value = line[start+1:end]
-                else:
-                    # Multi-line value
-                    value_lines = []
+            field_name = parts[0]
+            value_part = parts[1] if len(parts) > 1 else ''
+            key = field_name.split('.')[1]
+            
+            # Handle quoted values
+            if value_part.startswith('"') and value_part.endswith('"'):
+                value = value_part[1:-1]
+            elif value_part.startswith("'") and value_part.endswith("'"):
+                value = value_part[1:-1]
+            elif value_part.startswith('"') or value_part.startswith("'"):
+                # Multi-line quoted value
+                quote_char = value_part[0]
+                value_lines = [value_part[1:]]
+                i += 1
+                while i < len(block_lines) and not block_lines[i].strip().endswith(quote_char):
+                    value_lines.append(block_lines[i].rstrip())
                     i += 1
-                    while i < len(block_lines) and not block_lines[i].strip().endswith(("'", '"')):
-                        value_lines.append(block_lines[i])
-                        i += 1
-                    if i < len(block_lines):
-                        value_lines.append(block_lines[i].rstrip("'\""))
-                    value = '\n'.join(value_lines)
+                if i < len(block_lines):
+                    value_lines.append(block_lines[i].rstrip().rstrip(quote_char))
+                value = '\n'.join(value_lines)
             else:
-                # Simple value
-                parts = line.split(None, 1)
-                value = parts[1] if len(parts) > 1 else ''
+                # Simple unquoted value
+                value = value_part
             
             data[key] = value
+        
+        # Parse descriptor section for SMILES
+        elif data.get('id') and line.strip().startswith(data['id']) and 'SMILES' in line:
+            # Handle format: ATP SMILES_CANONICAL "OpenEye OEToolkits" 1.5.0 "smiles..."
+            parts = line.strip().split(None, 2)  # Split into 3 parts max
+            if len(parts) >= 3:
+                comp_id = parts[0]
+                smiles_type = parts[1]  # SMILES or SMILES_CANONICAL
+                rest = parts[2]
+                
+                # Extract SMILES value (last quoted string)
+                # Find the last quoted string which contains the SMILES
+                if '"' in rest:
+                    # Find all quoted sections
+                    quote_start = rest.rfind('"')
+                    # Find the matching opening quote by going backwards
+                    quote_count = 0
+                    for i in range(quote_start - 1, -1, -1):
+                        if rest[i] == '"':
+                            quote_count += 1
+                            if quote_count % 2 == 1:  # Found opening quote
+                                smiles_value = rest[i+1:quote_start]
+                                break
+                    else:
+                        # Fallback: take everything after last space
+                        smiles_value = rest.split()[-1].strip('"')
+                else:
+                    # No quotes, take last token
+                    smiles_value = rest.split()[-1]
+                
+                # Store different SMILES types
+                if smiles_type == "SMILES":
+                    data['smiles'] = smiles_value
+                elif smiles_type == "SMILES_CANONICAL":
+                    data['smiles_canonical'] = smiles_value
+        
+        # Parse InChI fields
+        elif data.get('id') and line.strip().startswith(data['id']) and 'InChI' in line:
+            parts = line.strip().split(None, 3)
+            if len(parts) >= 4:
+                comp_id = parts[0]
+                inchi_type = parts[1]
+                program = parts[2]
+                value = parts[3].strip('"')
+                
+                if inchi_type == "InChI":
+                    data['inchi'] = value
+                elif inchi_type == "InChIKey":
+                    data['inchi_key'] = value
         
         i += 1
     
@@ -613,3 +664,87 @@ def get_common_ligands() -> List[str]:
         'ZN', 'MG', 'CA', 'MN', 'FE', 'CU', 'NI',  # Metal ions
         'CL', 'NA', 'K',  # Common ions
     ]
+
+
+def ensure_ccd_ready(cache_dir: Path) -> bool:
+    """
+    Ensure CCD is downloaded and ready to use.
+    
+    CCD is read directly from gzip, so no extraction needed.
+    
+    Args:
+        cache_dir: Directory for CCD data
+        
+    Returns:
+        True if CCD is ready to use, False otherwise
+    """
+    cache_dir = Path(cache_dir)
+    components_path = cache_dir / "components.cif.gz"
+    
+    if components_path.exists():
+        return True
+    
+    logger.warning("CCD not found. Call download_ccd_components() first.")
+    return False
+
+
+def get_ccd_ligand_safe(cache_dir: Path, comp_id: str) -> Optional[Dict]:
+    """
+    Safely load a CCD component, ensuring CCD is ready.
+    Uses fast indexed access if available.
+    
+    Args:
+        cache_dir: Directory containing CCD data
+        comp_id: Component ID (e.g., "ATP", "HEM")
+        
+    Returns:
+        Dictionary with component data including SMILES, or None
+    """
+    if not ensure_ccd_ready(cache_dir):
+        return None
+    
+    # Try fast indexed access first
+    try:
+        from .ccd_index_builder import load_ccd_ligand_fast
+        ligand = load_ccd_ligand_fast(cache_dir, comp_id)
+        if ligand and (ligand.get('smiles') or ligand.get('smiles_canonical')):
+            # Return in expected format
+            return {
+                'id': comp_id.upper(),
+                'name': ligand.get('name', comp_id),
+                'formula': ligand.get('formula', ''),
+                'type': ligand.get('type', 'non-polymer'),
+                'smiles': ligand.get('smiles') or ligand.get('smiles_canonical'),
+                'inchi': ligand.get('inchi'),
+                'inchi_key': ligand.get('inchi_key')
+            }
+    except:
+        logger.debug("Fast CCD access not available, falling back to slow method")
+    
+    # Fall back to slow method
+    comp_data = load_ccd_component(cache_dir, comp_id)
+    if not comp_data:
+        return None
+    
+    # Get SMILES
+    smiles = get_ccd_smiles(cache_dir, comp_id)
+    if not smiles:
+        logger.warning(f"No SMILES found for {comp_id}")
+        return None
+    
+    # Build complete ligand data
+    result = {
+        'id': comp_id,
+        'name': comp_data.get('name', comp_id),
+        'formula': comp_data.get('formula', ''),
+        'type': comp_data.get('type', 'non-polymer'),
+        'smiles': smiles
+    }
+    
+    # Add InChI if available
+    if 'inchi' in comp_data:
+        result['inchi'] = comp_data['inchi']
+    if 'inchi_key' in comp_data:
+        result['inchi_key'] = comp_data['inchi_key']
+    
+    return result
