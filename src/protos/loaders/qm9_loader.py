@@ -452,3 +452,81 @@ def load_qm9_index(cache_dir: Path) -> Optional[Dict]:
     except Exception as e:
         logger.error(f"Failed to load QM9 index: {e}")
         return None
+
+
+def ensure_qm9_ready(cache_dir: Path) -> bool:
+    """
+    Ensure QM9 dataset is downloaded and extracted.
+    
+    This is a convenience function that handles the full workflow.
+    
+    Args:
+        cache_dir: Directory for QM9 data
+        
+    Returns:
+        True if QM9 is ready to use, False otherwise
+    """
+    cache_dir = Path(cache_dir)
+    dataset_path = cache_dir / QM9_FILENAME
+    extract_dir = cache_dir / "qm9_molecules"
+    
+    # Check if already extracted and ready
+    if extract_dir.exists() and any(extract_dir.glob("*.xyz")):
+        return True
+    
+    # Check if archive exists
+    if dataset_path.exists():
+        # Extract it
+        logger.info("QM9 archive found, extracting...")
+        return extract_qm9_dataset(cache_dir)
+    
+    # Need to download
+    logger.warning("QM9 not found. Call download_qm9_dataset() first.")
+    return False
+
+
+def get_qm9_molecule_with_extraction(cache_dir: Path, mol_id: str) -> Optional[Dict]:
+    """
+    Load a QM9 molecule, ensuring dataset is extracted first.
+    
+    Args:
+        cache_dir: Directory containing QM9 data
+        mol_id: Molecule ID (e.g., "dsgdb9nsd_000001" or just "1")
+        
+    Returns:
+        Dictionary with molecule data, or None if not found
+    """
+    # Ensure dataset is ready
+    if not ensure_qm9_ready(cache_dir):
+        return None
+    
+    # Handle different ID formats
+    if isinstance(mol_id, int) or mol_id.isdigit():
+        mol_id = f"dsgdb9nsd_{int(mol_id):06d}"
+    
+    return load_qm9_molecule(cache_dir, mol_id)
+
+
+def search_qm9_with_extraction(cache_dir: Path, 
+                              property_name: str,
+                              min_value: Optional[float] = None,
+                              max_value: Optional[float] = None,
+                              limit: Optional[int] = None) -> List[Dict]:
+    """
+    Search QM9 molecules by property, ensuring dataset is extracted first.
+    
+    Args:
+        cache_dir: Directory containing QM9 data
+        property_name: Name of property to search
+        min_value: Minimum property value
+        max_value: Maximum property value
+        limit: Maximum number of results
+        
+    Returns:
+        List of molecules matching criteria
+    """
+    # Ensure dataset is ready
+    if not ensure_qm9_ready(cache_dir):
+        return []
+    
+    return search_qm9_by_property(cache_dir, property_name, min_value, max_value, limit)

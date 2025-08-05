@@ -934,10 +934,10 @@ class LigandProcessor(BaseProcessor):
                 logger.error("QM9 database not found. Set download_if_missing=True to download.")
                 return []
         
-        # Search by each property
+        # Search by each property (uses extraction wrapper)
         results = None
         for prop_name, (min_val, max_val) in property_filters.items():
-            matches = qm9_loader.search_qm9_by_property(db_path, prop_name, min_val, max_val)
+            matches = qm9_loader.search_qm9_with_extraction(db_path, prop_name, min_val, max_val)
             
             if results is None:
                 results = matches
@@ -1000,8 +1000,8 @@ class LigandProcessor(BaseProcessor):
                 logger.error("QM9 database not found. Set download_if_missing=True to download.")
                 return None
         
-        # Load molecule
-        mol_data = qm9_loader.load_qm9_molecule(db_path, qm9_id)
+        # Load molecule (uses extraction wrapper)
+        mol_data = qm9_loader.get_qm9_molecule_with_extraction(db_path, qm9_id)
         if not mol_data:
             return None
         
