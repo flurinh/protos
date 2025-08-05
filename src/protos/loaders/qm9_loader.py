@@ -162,10 +162,11 @@ def parse_qm9_xyz(xyz_path: Path) -> Optional[Dict]:
     
     QM9 XYZ format:
     Line 1: Number of atoms
-    Line 2: Properties (separated by spaces)
-    Line 3+: Element x y z mulliken_charge
-    Last lines: Vibrational frequencies
-    Last line: SMILES InChI
+    Line 2: "gdb" <id> <properties> (tab-separated)
+    Line 3 to (n_atoms+2): Element x y z mulliken_charge
+    Following lines: Vibrational frequencies
+    Second to last line: SMILES (repeated twice)
+    Last line: InChI (repeated twice)
     
     Args:
         xyz_path: Path to XYZ file
@@ -183,17 +184,55 @@ def parse_qm9_xyz(xyz_path: Path) -> Optional[Dict]:
         # Parse number of atoms
         n_atoms = int(lines[0].strip())
         
-        # Parse properties
-        props = lines[1].strip().split()
-        if len(props) < len(QM9_PROPERTIES):
-            logger.warning(f"Incomplete properties in {xyz_path}")
+        # Parse properties line - it starts with "gdb" and molecule ID
+        # The format is: "gdb <id>\t<prop1>\t<prop2>..."
+        # First split by tab to get the main parts
+        props_line = lines[1].strip().split('\t')
+        
+        if len(props_line) < 2:
+            logger.warning(f"Invalid properties line format in {xyz_path}")
             return None
         
-        properties = {name: float(value) for name, value in zip(QM9_PROPERTIES, props)}
+        # The first part contains "gdb <id>"
+        first_part = props_line[0].split()
+        if len(first_part) != 2 or first_part[0] != 'gdb':
+            logger.warning(f"Invalid properties line format in {xyz_path}")
+            return None
+        
+        # Extract molecule ID from the first part
+        gdb_id = first_part[1]
+        
+        # Properties are the remaining tab-separated values
+        prop_values = props_line[1:]
+        
+        # The actual QM9 properties should be 16 values, but some files might have 15
+        # (omega1 might be missing in some files)
+        if len(prop_values) < 15:
+            logger.warning(f"Incomplete properties in {xyz_path}: found {len(prop_values)} values, expected at least 15")
+            return None
+        
+        # Map the property values to the property names
+        # Note: QM9_PROPERTIES list has 16 entries, but we need to match the actual order
+        # The actual order in QM9 files is:
+        # rcA, rcB, rcC, mu, alpha, homo, lumo, gap, r2, zpve, U0, U, H, G, Cv, [omega1]
+        properties = {}
+        for i, name in enumerate(QM9_PROPERTIES):
+            if i < len(prop_values):
+                try:
+                    properties[name] = float(prop_values[i])
+                except ValueError:
+                    logger.warning(f"Could not parse property {name} value: {prop_values[i]}")
+                    properties[name] = None
+            else:
+                # Property not present in file (e.g., omega1)
+                properties[name] = None
         
         # Parse atoms
         atoms = []
         for i in range(2, 2 + n_atoms):
+            if i >= len(lines):
+                logger.warning(f"Unexpected end of file while parsing atoms in {xyz_path}")
+                break
             parts = lines[i].strip().split()
             if len(parts) >= 5:
                 atom = {
@@ -205,16 +244,39 @@ def parse_qm9_xyz(xyz_path: Path) -> Optional[Dict]:
                 }
                 atoms.append(atom)
         
-        # Parse SMILES and InChI from last line
-        last_line = lines[-1].strip().split()
-        smiles = last_line[0] if len(last_line) > 0 else None
-        inchi = last_line[1] if len(last_line) > 1 else None
+        # Find SMILES and InChI
+        # They are in the last two non-empty lines
+        smiles = None
+        inchi = None
         
-        # Get molecule ID from filename
+        # Look for lines from the end
+        for i in range(len(lines) - 1, 2 + n_atoms - 1, -1):
+            line = lines[i].strip()
+            if not line:
+                continue
+            
+            # Check if it's an InChI line
+            if line.startswith('InChI='):
+                parts = line.split('\t')
+                if len(parts) >= 2:
+                    inchi = parts[0]
+                else:
+                    inchi = line.split()[0] if line else None
+            # Otherwise it might be SMILES
+            elif not line[0].isdigit() and inchi is not None:
+                # This should be the SMILES line
+                parts = line.split('\t')
+                if len(parts) >= 2:
+                    smiles = parts[0]
+                else:
+                    smiles = line.split()[0] if line else None
+        
+        # Get molecule ID from filename (as fallback)
         mol_id = xyz_path.stem
         
         return {
             'id': mol_id,
+            'gdb_id': gdb_id,  # ID from the file content
             'n_atoms': n_atoms,
             'atoms': atoms,
             'properties': properties,
