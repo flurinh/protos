@@ -849,28 +849,30 @@ class LigandProcessor(BaseProcessor):
             >>> print(atp['smiles'])
             >>> print(atp['name'])
         """
-        from protos.loaders import ccd_loader
+        from protos.loaders import ccd_loader_unified as ccd_loader
         
         # Get database path using ProtosPaths
-        db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'ccd'
+        db_path = Path(self.paths.get_subdir_path(self.processor_type, "cache_dir")) / 'databases' / 'ccd'
+        db_path.mkdir(parents=True, exist_ok=True)
         
-        # Check if CCD is downloaded
-        if not ccd_loader.is_ccd_downloaded(db_path):
-            if download_if_missing:
-                logger.info("CCD not found. Downloading PDB Chemical Component Dictionary...")
-                db_path.mkdir(parents=True, exist_ok=True)
-                ccd_loader.download_ccd_components(db_path)
-            else:
+        # Ensure CCD is ready (download and index if needed)
+        if download_if_missing:
+            if not ccd_loader.ensure_ccd_ready(db_path):
+                logger.error("Failed to prepare CCD database")
+                return None
+        else:
+            if not ccd_loader.is_ccd_ready(db_path):
                 logger.error("CCD database not found. Set download_if_missing=True to download.")
                 return None
         
         # Load component
-        component = ccd_loader.load_ccd_component(db_path, ccd_id)
+        component = ccd_loader.get_ccd_component(db_path, ccd_id)
         if not component:
+            logger.warning(f"CCD component {ccd_id} not found")
             return None
         
         # Get SMILES
-        smiles = ccd_loader.get_ccd_smiles(db_path, ccd_id)
+        smiles = component.get('smiles') or component.get('smiles_canonical')
         if not smiles:
             logger.warning(f"No SMILES found for CCD component {ccd_id}")
             return None
@@ -1183,17 +1185,20 @@ class LigandProcessor(BaseProcessor):
         Returns:
             Dictionary with database names and their statistics
         """
-        from protos.loaders import qm9_loader, ccd_loader, enamine_loader
+        from protos.loaders import qm9_loader, ccd_loader_unified as ccd_loader, enamine_loader
         
         stats = {}
         
         # Check CCD
-        ccd_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'ccd'
-        if ccd_loader.is_ccd_downloaded(ccd_path):
+        ccd_path = Path(self.paths.get_subdir_path(self.processor_type, "cache_dir")) / 'databases' / 'ccd'
+        if ccd_loader.is_ccd_ready(ccd_path):
+            ccd_stats = ccd_loader.get_ccd_statistics(ccd_path)
             stats['CCD'] = {
                 'downloaded': True,
                 'path': str(ccd_path),
-                'component_count': len(list(ccd_path.glob('*.cif'))),
+                'component_count': ccd_stats['total_components'],
+                'with_smiles': ccd_stats['with_smiles'],
+                'with_inchi': ccd_stats['with_inchi'],
                 'description': 'PDB Chemical Component Dictionary'
             }
         else:
