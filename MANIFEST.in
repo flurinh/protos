@@ -1,4 +1,0 @@
-include README.md
-include LICENSE
-recursive-include src/protos/reference_data *
-global-exclude *.py[cod] __pycache__ *.so

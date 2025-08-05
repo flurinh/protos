@@ -1,4 +1,0 @@
-[console_scripts]
-protos = protos.cli.cli:app
-protos-cleanup = protos.cli.cleanup_data:cleanup_data
-protos-init = protos.cli.init_data:init_data
