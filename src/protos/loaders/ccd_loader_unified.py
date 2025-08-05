@@ -248,21 +248,36 @@ def _extract_component_data_gemmi(block) -> Dict:
     
     # Get SMILES from descriptor table
     try:
-        desc_loop = block.find_loop('_pdbx_chem_comp_descriptor.comp_id')
-        if desc_loop:
-            for row in desc_loop:
-                desc_type = desc_loop.find_value('_pdbx_chem_comp_descriptor.type', row)
-                descriptor = desc_loop.find_value('_pdbx_chem_comp_descriptor.descriptor', row)
-                
-                if desc_type == 'SMILES':
-                    comp_data['smiles'] = descriptor
-                elif desc_type == 'SMILES_CANONICAL':
-                    comp_data['smiles_canonical'] = descriptor
-                elif desc_type == 'InChI':
-                    comp_data['inchi'] = descriptor
-                elif desc_type == 'InChIKey':
-                    comp_data['inchi_key'] = descriptor
-    except:
+        # Find the descriptor loop by iterating through block items
+        for item in block:
+            if hasattr(item, 'loop') and item.loop:
+                loop = item.loop
+                # Check if this is the descriptor loop by looking at tags
+                tags = [loop.tags[i] for i in range(len(loop.tags))]
+                if '_pdbx_chem_comp_descriptor.type' in tags:
+                    type_idx = tags.index('_pdbx_chem_comp_descriptor.type')
+                    desc_idx = tags.index('_pdbx_chem_comp_descriptor.descriptor')
+                    
+                    # Iterate through rows
+                    for row_idx in range(loop.length()):
+                        desc_type = loop[row_idx, type_idx]
+                        descriptor = loop[row_idx, desc_idx]
+                        
+                        # Strip quotes from descriptor values
+                        if descriptor and descriptor.startswith('"') and descriptor.endswith('"'):
+                            descriptor = descriptor[1:-1]
+                        
+                        if desc_type == 'SMILES':
+                            comp_data['smiles'] = descriptor
+                        elif desc_type == 'SMILES_CANONICAL':
+                            comp_data['smiles_canonical'] = descriptor
+                        elif desc_type == 'InChI':
+                            comp_data['inchi'] = descriptor
+                        elif desc_type == 'InChIKey':
+                            comp_data['inchi_key'] = descriptor
+                    break
+    except Exception as e:
+        # Ignore components without descriptors
         pass
     
     return comp_data

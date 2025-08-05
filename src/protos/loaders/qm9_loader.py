@@ -454,7 +454,7 @@ def load_qm9_index(cache_dir: Path) -> Optional[Dict]:
         return None
 
 
-def ensure_qm9_ready(cache_dir: Path) -> bool:
+def ensure_qm9_ready(cache_dir: Path, auto_download: bool = True) -> bool:
     """
     Ensure QM9 dataset is downloaded and extracted.
     
@@ -462,6 +462,7 @@ def ensure_qm9_ready(cache_dir: Path) -> bool:
     
     Args:
         cache_dir: Directory for QM9 data
+        auto_download: Automatically download if not present (default: True)
         
     Returns:
         True if QM9 is ready to use, False otherwise
@@ -481,8 +482,18 @@ def ensure_qm9_ready(cache_dir: Path) -> bool:
         return extract_qm9_dataset(cache_dir)
     
     # Need to download
-    logger.warning("QM9 not found. Call download_qm9_dataset() first.")
-    return False
+    if auto_download:
+        logger.info("QM9 not found. Downloading...")
+        if download_qm9_dataset(cache_dir):
+            # Now extract
+            logger.info("Download complete. Extracting...")
+            return extract_qm9_dataset(cache_dir)
+        else:
+            logger.error("Failed to download QM9 dataset")
+            return False
+    else:
+        logger.warning("QM9 not found. Set auto_download=True or call download_qm9_dataset() first.")
+        return False
 
 
 def get_qm9_molecule_with_extraction(cache_dir: Path, mol_id: str) -> Optional[Dict]:
