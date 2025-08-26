@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""
+Enhanced setup script to copy real reference data to test-data directory.
+
+This ensures tests have access to real data for rigorous testing.
+"""
+
+import os
+import shutil
+import json
+from pathlib import Path
+
+
+def copy_reference_data():
+    """Copy essential reference data files to test-data directory."""
+    
+    print("Copying reference data to test-data...")
+    
+    # Define paths
+    ref_data_dir = Path("src/protos/reference_data")
+    processing_dir = Path("src/protos/processing")
+    test_data_dir = Path("tests/test-data")
+    
+    if not ref_data_dir.exists():
+        print(f"Reference data directory not found: {ref_data_dir}")
+        return
+    
+    # Ensure test-data exists
+    test_data_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Copy essential files with directory structure
+    files_to_copy = [
+        # GRN reference tables
+        ("grn/ref/mo_ref.csv", "grn/ref/mo_ref.csv"),
+        ("grn/ref/mo_grn.csv", "grn/ref/mo_grn.csv"),
+        ("grn/ref/gpcrdb_ref.csv", "grn/ref/gpcrdb_ref.csv"),
+        
+        # GRN configs - copy from processing directory
+        ("../processing/grn/configs/motif.json", "grn/configs/motif.json"),
+        # Also copy from reference data if they exist
+        ("grn/configs/binding_domain.json", "grn/configs/binding_domain.json"),
+        ("grn/configs/binding_domain2.json", "grn/configs/binding_domain2.json"),
+        ("grn/configs/motif.json", "grn/configs/motif.json"),
+        
+        # Structure files - ONLY REAL DATA
+        ("structure/mmcif/1uaz.cif", "structure/mmcif/1uaz.cif"),
+        ("structure/mmcif/3ddl.cif", "structure/mmcif/3ddl.cif"),
+        ("structure/mmcif/4pxk.cif", "structure/mmcif/4pxk.cif"),
+        
+        # Dataset definitions - should go to datasets/ not structure_dataset/
+        ("structure/structure_dataset/microbial_opsins.json", "structure/datasets/microbial_opsins.json"),
+        ("structure/structure_dataset/test_mo.json", "structure/datasets/test_mo.json"),
+        
+        # Sequence data - ONLY REAL DATA
+        ("sequence/fasta/test_mo.fasta", "sequence/fasta/test_mo.fasta"),
+        ("sequence/fasta/opsin_sequences_from_yaml.fasta", "sequence/fasta/opsin_sequences_from_yaml.fasta"),
+    ]
+    
+    copied_count = 0
+    
+    # First, copy the main GRN config from processing directory
+    grn_config_src = processing_dir / "grn/configs/motif.json"
+    grn_config_dst = test_data_dir / "grn/configs/motif.json"
+    if grn_config_src.exists():
+        grn_config_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(grn_config_src, grn_config_dst)
+        print(f"  ✓ Copied GRN config from processing directory")
+        copied_count += 1
+    
+    # Then copy other files from reference data
+    for src_rel, dst_rel in files_to_copy:
+        if src_rel == "../processing/grn/configs/motif.json":
+            continue  # Already handled above
+            
+        src_path = ref_data_dir / src_rel
+        dst_path = test_data_dir / dst_rel
+        
+        if src_path.exists():
+            # Create parent directories
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Copy file
+            shutil.copy2(src_path, dst_path)
+            print(f"  ✓ Copied {src_rel}")
+            copied_count += 1
+        else:
+            print(f"  ⚠ Source not found: {src_rel}")
+    
+    print(f"\nCopied {copied_count} files from reference data to test-data")
+    
+    # Update registries to reflect new data
+    update_test_registries(test_data_dir)
+
+
+def update_test_registries(test_data_dir: Path):
+    """Update registry files to include copied reference data."""
+    
+    print("\nUpdating registry files...")
+    
+    # Update GRN registry
+    grn_registry = test_data_dir / "grn" / "registry.json"
+    grn_data = {}
+    if grn_registry.exists():
+        with open(grn_registry) as f:
+            grn_data = json.load(f)
+    
+    grn_data.update({
+        "mo_ref": {
+            "path": "grn/ref/mo_ref.csv",
+            "format": "csv",
+            "description": "Microbial opsin reference GRN table",
+            "metadata": {
+                "processor_type": "grn",
+                "family": "microbial_opsins"
+            }
+        },
+        "gpcrdb_ref": {
+            "path": "grn/ref/gpcrdb_ref.csv",
+            "format": "csv",
+            "description": "GPCR reference GRN table",
+            "metadata": {
+                "processor_type": "grn",
+                "family": "phylogeny"
+            }
+        }
+    })
+    
+    with open(grn_registry, 'w') as f:
+        json.dump(grn_data, f, indent=2)
+    print("  ✓ Updated grn/registry.json")
+    
+    # Update structure registry
+    struct_registry = test_data_dir / "structure" / "registry.json"
+    struct_data = {}
+    if struct_registry.exists():
+        with open(struct_registry) as f:
+            struct_data = json.load(f)
+    
+    struct_data.update({
+        "1uaz": {
+            "path": "structure/mmcif/1uaz.cif",
+            "format": "cif",
+            "description": "Test structure 1UAZ",
+            "metadata": {
+                "processor_type": "structure",
+                "pdb_id": "1uaz"
+            }
+        },
+        "3ddl": {
+            "path": "structure/mmcif/3ddl.cif",
+            "format": "cif",
+            "description": "Test structure 3DDL",
+            "metadata": {
+                "processor_type": "structure",
+                "pdb_id": "3ddl"
+            }
+        }
+    })
+    
+    with open(struct_registry, 'w') as f:
+        json.dump(struct_data, f, indent=2)
+    print("  ✓ Updated structure/registry.json")
+
+
+if __name__ == "__main__":
+    copy_reference_data()
