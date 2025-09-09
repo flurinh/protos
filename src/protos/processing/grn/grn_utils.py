@@ -590,8 +590,9 @@ class GRNConfigManager:
             logger.warning(f"Config directory not found: {self.config_dir}")
             return
             
-        # Check for main motif.json with multiple families
-        main_config = self.config_dir / 'motif.json'
+        # Check for main config.json with multiple families
+        main_config = self.config_dir / 'config.json'
+        print("hello main config", main_config)
         if main_config.exists():
             try:
                 with open(main_config, 'r') as f:
@@ -601,20 +602,11 @@ class GRNConfigManager:
                         for family_name, family_config in all_configs.items():
                             if isinstance(family_config, dict):
                                 self.configs[family_name] = family_config
+
             except Exception as e:
                 logger.error(f"Error loading main config {main_config}: {e}")
-        
-        # Also load individual config files
-        for config_file in self.config_dir.glob('*.json'):
-            if config_file.name == 'motif.json':
-                continue  # Already handled above
-            family_name = config_file.stem
-            try:
-                with open(config_file, 'r') as f:
-                    self.configs[family_name] = json.load(f)
-            except Exception as e:
-                logger.error(f"Error loading config {config_file}: {e}")
-    
+        print(self.configs)
+
     def get_intervals(self, protein_family):
         """Get GRN intervals for a specific protein family."""
         if protein_family not in self.configs:
@@ -624,7 +616,7 @@ class GRNConfigManager:
         config = self.configs[protein_family]
         intervals = {}
         
-        # Handle the structure from motif.json (with standard/strict subdivisions)
+        # Handle the structure from config.json (with standard/strict subdivisions)
         if 'standard' in config or 'strict' in config:
             # Use standard intervals by default
             interval_data = config.get('standard', config.get('strict', {}))

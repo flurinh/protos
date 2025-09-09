@@ -2,7 +2,7 @@
 """
 Revised implementation of assign_grns method for StructureProcessor.
 
-This follows the exact pattern from test_grn_assignment.py and annotate_microbial_opsins_proper.py
+This follows the exact pattern from test_grn_assignment.py and annotate_microbial_opsins_structures.py
 but stores results in the 'grn' column of structure data.
 """
 

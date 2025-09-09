@@ -152,6 +152,7 @@ def main():
     else:
         grns_str_str = []
         for region_name, (start_grn, end_grn) in grn_config_str.items():
+            print(f"GRN interval: {region_name}: {start_grn} - {end_grn}")
             region_grns = get_grn_interval(start_grn, end_grn, grns_str=None)
             grns_str_str.extend(region_grns)
         grns_str_str = list(set(grns_str_str))
@@ -273,3 +274,4 @@ def main():
 if __name__ == "__main__":
     df = main()
     print("\nDone!")
+

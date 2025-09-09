@@ -67,7 +67,7 @@ def main():
     grn_assignments = struct_proc.assign_grns(
         protein_family='microbial_opsins',
         reference_table='mo_ref',  # This will be loaded by the processor
-        similarity_threshold=0.20,  # 20% as used in annotate_microbial_opsins_proper.py
+        similarity_threshold=0.20,  # 20% as used in annotate_microbial_opsins_structures.py
         verbose=True
     )
     

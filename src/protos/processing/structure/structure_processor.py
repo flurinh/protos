@@ -1142,11 +1142,11 @@ class StructureProcessor(BaseProcessor):
         if verbose:
             self.logger.info(f"Processing {len(queries)} unique queries")
         
-        # Initialize aligner and config (following annotate_microbial_opsins_proper.py)
+        # Initialize aligner and config (following annotate_microbial_opsins_structures.py)
         aligner = init_aligner()
         config = GRNConfigManager(paths=self.paths)
         
-        # First try with strict=True (same as annotate_microbial_opsins_proper.py line 184)
+        # First try with strict=True (same as annotate_microbial_opsins_structures.py line 184)
         grn_config_str = config.get_config(protein_family=protein_family, strict=True)
         
         # If no specific config, use all GRN positions from reference
@@ -1166,7 +1166,7 @@ class StructureProcessor(BaseProcessor):
             self.logger.info(f"strict {len(grns_str_str_strict)} GRN positions for annotation: {grns_str_str_strict}")
         
         # Now try with strict=False to get all positions including loops
-        # (same as annotate_microbial_opsins_proper.py line 201)
+        # (same as annotate_microbial_opsins_structures.py line 201)
         grn_config_str = config.get_config(protein_family=protein_family, strict=False)
         
         # If no specific config, use all GRN positions from reference
@@ -1189,7 +1189,7 @@ class StructureProcessor(BaseProcessor):
         if 'grn' not in self.data.columns:
             self.data['grn'] = None
         
-        # Process each query (following annotate_microbial_opsins_proper.py line 218)
+        # Process each query (following annotate_microbial_opsins_structures.py line 218)
         rows = {}
         if verbose:
             self.logger.info("\nAnnotating sequences...")
