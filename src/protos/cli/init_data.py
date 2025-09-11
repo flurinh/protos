@@ -70,7 +70,7 @@ def create_directory_structure(data_root: Path) -> int:
         
         # GRN directories
         "grn",
-        "grn/ref",
+        "grn/reference",
         "grn/tables",
         "grn/configs",
         "grn/assignments",

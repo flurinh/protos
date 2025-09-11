@@ -185,7 +185,7 @@ def get_reference_annotation_dfs(ref_table):
         del df
     return ref_dict
 
-def save_grn_dicts(ref_dict, path='data/grn/ref/'):
+def save_grn_dicts(ref_dict, path='data/grn/reference/'):
     for ref in ref_dict.keys():
         df = ref_dict[ref]
         df.to_pickle(path+ref.replace(' ', '_')+'.pkl')
@@ -197,7 +197,7 @@ def get_grn_seq(ref_dict, idx=0):
     df = ref_dict[list(ref_dict.keys())[idx]]
     return df['res_type'].to_list()
     
-def load_grn_dicts(path='data/grn/ref/'):
+def load_grn_dicts(path='data/grn/reference/'):
     """
     Loads all reference dictionaries containing generic residue numbers
     """

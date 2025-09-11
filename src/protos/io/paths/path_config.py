@@ -44,7 +44,7 @@ class ProtosPaths:
 
         self.subdirs = {
             'structure': DEFAULT_STRUCTURE_SUBDIRS.copy(),
-            'grn': {**DEFAULT_GRN_SUBDIRS.copy(), 'ref': 'ref', 'ref_dir': 'ref'},
+            'grn': {**DEFAULT_GRN_SUBDIRS.copy(), 'reference': 'reference'},  # Maintain backward compatibility
             'sequence': DEFAULT_SEQUENCE_SUBDIRS.copy(),
             'property': DEFAULT_PROPERTY_SUBDIRS.copy(),
             'embedding': DEFAULT_EMBEDDING_SUBDIRS.copy(),

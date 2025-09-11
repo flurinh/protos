@@ -106,7 +106,7 @@ class GRNProcessor(BaseProcessor):
     @property
     def path_ref_dir(self):
         """Get path to reference GRN tables directory."""
-        # Use ProtosPaths to get the ref directory
+        # Use ProtosPaths to get the reference directory
         return Path(self.paths.get_subdir_path('grn', 'ref_dir'))
     
     @property
@@ -115,9 +115,15 @@ class GRNProcessor(BaseProcessor):
         # Use ProtosPaths to get the configs directory
         return Path(self.paths.get_subdir_path('grn', 'configs_dir'))
     
+    @property
+    def path_temp_dir(self):
+        """Get path to GRN temp directory."""
+        # Use ProtosPaths to get the temp directory
+        return Path(self.paths.get_subdir_path('grn', 'temp_dir'))
+    
     def load_reference_table(self, ref_name: str) -> pd.DataFrame:
         """
-        Load a reference GRN table from the ref/ directory.
+        Load a reference GRN table from the reference/ directory.
         
         Reference tables are used for GRN assignment and contain
         curated alignments for specific protein families.
@@ -137,6 +143,35 @@ class GRNProcessor(BaseProcessor):
         # Normalize column names to standard format (e.g., '1.5' -> '1.50')
         df.columns = [normalize_grn_format(str(col)) for col in df.columns.tolist()]
         return df
+    
+    def save_reference_table(self, ref_name: str, reference_data: pd.DataFrame, 
+                           metadata: Optional[dict] = None):
+        """
+        Save a reference GRN table to the reference/ directory.
+        
+        Reference tables are typically curated alignments used for
+        GRN assignment to new sequences.
+        
+        Args:
+            ref_name: Name for the reference table (without .csv extension)
+            reference_data: DataFrame with reference GRN alignment
+            metadata: Optional metadata about the reference
+        """
+        # Ensure reference directory exists
+        ref_path = self.path_ref_dir / f"{ref_name}.csv"
+        
+        # Save the reference table
+        reference_data.to_csv(ref_path, index=True, na_rep='-')
+        
+        # Save metadata if provided
+        if metadata:
+            meta_path = self.path_ref_dir / f"{ref_name}_metadata.json"
+            metadata['created'] = datetime.now().isoformat()
+            metadata['reference_name'] = ref_name
+            with open(meta_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
+                
+        self.logger.info(f"Saved reference table to {ref_path}")
     
     def load_grn_config(self, config_name: str) -> dict:
         """
@@ -973,6 +1008,56 @@ class GRNProcessor(BaseProcessor):
         else:
             self.logger.warning(f"No valid IDs found in {ids_to_keep}")
     
+    def save_temp_table(self, temp_name: str, temp_data: pd.DataFrame) -> Path:
+        """
+        Save a temporary GRN table to the temp/ directory.
+        
+        Temporary tables are used for intermediate results during
+        processing and can be automatically cleaned up.
+        
+        Args:
+            temp_name: Name for the temporary file
+            temp_data: DataFrame to save
+            
+        Returns:
+            Path to the saved temporary file
+        """
+        # Add timestamp to temp file name to avoid conflicts
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        temp_file = f"{temp_name}_{timestamp}.csv"
+        temp_path = self.path_temp_dir / temp_file
+        
+        # Save the temp table
+        temp_data.to_csv(temp_path, index=True, na_rep='-')
+        self.logger.info(f"Saved temporary table to {temp_path}")
+        
+        return temp_path
+    
+    def clean_temp_files(self, older_than_hours: int = 24):
+        """
+        Clean up old temporary files.
+        
+        Args:
+            older_than_hours: Remove files older than this many hours
+        """
+        import time
+        
+        temp_dir = self.path_temp_dir
+        if not temp_dir.exists():
+            return
+            
+        current_time = time.time()
+        cutoff_time = current_time - (older_than_hours * 3600)
+        
+        removed_count = 0
+        for temp_file in temp_dir.glob("*.csv"):
+            if temp_file.stat().st_mtime < cutoff_time:
+                temp_file.unlink()
+                removed_count += 1
+                
+        if removed_count > 0:
+            self.logger.info(f"Removed {removed_count} old temporary files")
+    
     def get_grn_dict(self, reset_data=False, notation=None):
         """
         Get GRN dictionary mapping proteins to GRN positions.
@@ -1400,7 +1485,7 @@ class GRNProcessor(BaseProcessor):
                 except:
                     pass
         
-        # List GRN tables in ref directory
+        # List GRN tables in reference directory
         ref_dir = Path(self.paths.get_subdir_path('grn', 'ref_dir'))
         if ref_dir.exists():
             for table_file in ref_dir.glob("*.csv"):

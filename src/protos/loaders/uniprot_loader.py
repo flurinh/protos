@@ -612,7 +612,7 @@ class UniprotDL:
 
 # ======================================================================================================================
 
-def load_grn_dicts(path='data/grn/ref/'):
+def load_grn_dicts(path='data/grn/reference/'):
     """
     Loads all reference dictionaries containing generic residue numbers. Note that the reference dictionary-generating
     functions are implemented under data_utils/gpcrdb/gpcrdb_loader.py \!

@@ -81,6 +81,26 @@ class SequenceProcessor(BaseProcessor):
         return self.get_subdirectory_path('alignment_dir')
         
     @property
+    def path_pairwise_alignments_dir(self):
+        """Get path to pairwise alignments subdirectory."""
+        return self.get_subdirectory_path('pairwise_alignment_dir')
+        
+    @property
+    def path_multiple_alignments_dir(self):
+        """Get path to multiple alignments subdirectory."""
+        return self.get_subdirectory_path('multiple_alignment_dir')
+        
+    @property
+    def path_mmseqs_alignments_dir(self):
+        """Get path to MMseqs2 alignments subdirectory."""
+        return self.get_subdirectory_path('mmseqs_alignment_dir')
+        
+    @property
+    def path_databases_dir(self):
+        """Get path to MMseqs2 databases directory."""
+        return self.get_subdirectory_path('databases_dir')
+        
+    @property
     def path_metadata_dir(self):
         """Get path to metadata directory."""
         return self.get_subdirectory_path('metadata_dir')
@@ -347,12 +367,17 @@ class SequenceProcessor(BaseProcessor):
         # Store if requested
         if store_alignment:
             key = f"{seq1_id}_vs_{seq2_id}"
-            self.alignments[key] = {
+            alignment_data = {
                 'seq1_id': seq1_id,
                 'seq2_id': seq2_id,
                 'score': alignment.score,
-                'alignment': formatted
+                'alignment': formatted,
+                'timestamp': pd.Timestamp.now().isoformat()
             }
+            self.alignments[key] = alignment_data
+            
+            # Also save to file for persistence
+            self.save_alignment(alignment_data, f"{key}.json", alignment_type="pairwise")
             
         return alignment.score, formatted
     
@@ -507,21 +532,72 @@ class SequenceProcessor(BaseProcessor):
                 
         return variants
     
-    def save_alignment(self, alignment_data: Dict, output_file: str):
-        """Save alignment data to file."""
-        output_path = self.path_alignments_dir / output_file
-        # ProtosPaths handles directory creation
+    def save_alignment(self, alignment_data: Dict, output_file: str, 
+                      alignment_type: str = "pairwise"):
+        """
+        Save alignment data to appropriate subdirectory.
         
+        Args:
+            alignment_data: Alignment data to save
+            output_file: Output filename
+            alignment_type: Type of alignment ("pairwise", "multiple", "mmseqs")
+        """
+        # Determine appropriate directory based on alignment type
+        if alignment_type == "pairwise":
+            output_path = self.path_pairwise_alignments_dir / output_file
+        elif alignment_type == "multiple":
+            output_path = self.path_multiple_alignments_dir / output_file
+        elif alignment_type == "mmseqs":
+            output_path = self.path_mmseqs_alignments_dir / output_file
+        else:
+            # Default to general alignments directory
+            output_path = self.path_alignments_dir / output_file
+        
+        # ProtosPaths handles directory creation
         save_json(alignment_data, str(output_path))
-        logger.info(f"Saved alignment to {output_path}")
+        logger.info(f"Saved {alignment_type} alignment to {output_path}")
     
-    def load_alignment(self, alignment_file: str) -> Dict:
-        """Load alignment data from file."""
-        alignment_path = self.path_alignments_dir / alignment_file
-        if not alignment_path.exists():
-            raise FileNotFoundError(f"Alignment file not found: {alignment_path}")
+    def load_alignment(self, alignment_file: str, alignment_type: Optional[str] = None) -> Dict:
+        """
+        Load alignment data from file.
+        
+        Args:
+            alignment_file: Alignment filename
+            alignment_type: Type of alignment (if None, searches all subdirectories)
             
-        return load_json(str(alignment_path))
+        Returns:
+            Alignment data dictionary
+        """
+        # If alignment type specified, look in specific directory
+        if alignment_type:
+            if alignment_type == "pairwise":
+                alignment_path = self.path_pairwise_alignments_dir / alignment_file
+            elif alignment_type == "multiple":
+                alignment_path = self.path_multiple_alignments_dir / alignment_file
+            elif alignment_type == "mmseqs":
+                alignment_path = self.path_mmseqs_alignments_dir / alignment_file
+            else:
+                alignment_path = self.path_alignments_dir / alignment_file
+                
+            if alignment_path.exists():
+                return load_json(str(alignment_path))
+            else:
+                raise FileNotFoundError(f"Alignment file not found: {alignment_path}")
+        
+        # Otherwise, search all alignment directories
+        search_dirs = [
+            self.path_alignments_dir,
+            self.path_pairwise_alignments_dir,
+            self.path_multiple_alignments_dir,
+            self.path_mmseqs_alignments_dir
+        ]
+        
+        for dir_path in search_dirs:
+            alignment_path = dir_path / alignment_file
+            if alignment_path.exists():
+                return load_json(str(alignment_path))
+                
+        raise FileNotFoundError(f"Alignment file not found in any alignment directory: {alignment_file}")
     
     def get_sequence_metadata(self, sequence_ids: Optional[List[str]] = None) -> pd.DataFrame:
         """
@@ -589,6 +665,48 @@ class SequenceProcessor(BaseProcessor):
             composition[aa] = round(count / seq_len * 100, 1) if seq_len > 0 else 0
             
         return composition
+    
+    def create_mmseqs_database(self, sequences: Dict[str, str], db_name: str) -> str:
+        """
+        Create MMseqs2 database from sequences.
+        
+        Args:
+            sequences: Dictionary of sequence_id -> sequence
+            db_name: Name for the database
+            
+        Returns:
+            Path to the created database
+        """
+        # Save sequences to temporary FASTA
+        temp_fasta = self.path_databases_dir / f"{db_name}_temp.fasta"
+        write_fasta(sequences, str(temp_fasta))
+        
+        # Create MMseqs2 database
+        db_path = self.path_databases_dir / db_name
+        
+        try:
+            # Import mmseqs_helper if available
+            from .mmseqs_helper import create_database
+            create_database(str(temp_fasta), str(db_path))
+            logger.info(f"Created MMseqs2 database: {db_path}")
+        except ImportError:
+            logger.warning("MMseqs2 helper not available. Database creation skipped.")
+        finally:
+            # Clean up temporary file
+            if temp_fasta.exists():
+                temp_fasta.unlink()
+                
+        return str(db_path)
+    
+    def list_mmseqs_databases(self) -> List[str]:
+        """List available MMseqs2 databases."""
+        db_dir = self.path_databases_dir
+        if not db_dir.exists():
+            return []
+            
+        # MMseqs2 databases have multiple files, look for .dbtype files
+        db_files = list(db_dir.glob("*.dbtype"))
+        return [f.stem for f in db_files]
     
     def get_sequence(self, identifier: str) -> Optional[str]:
         """

@@ -90,15 +90,20 @@ working_dir/
     │   └── registry.json   # Structure processor registry
     ├── sequence/           # Sequence data
     │   ├── fasta/         # FASTA files (human-readable names)
-    │   ├── alignments/    # Sequence alignments
+    │   ├── alignments/    # All alignment results
+    │   │   ├── pairwise/  # Pairwise alignments
+    │   │   ├── multiple/  # Multiple sequence alignments
+    │   │   └── mmseqs/    # MMseqs2 alignments
+    │   ├── databases/     # MMseqs2 databases
     │   ├── metadata/      # Sequence metadata
     │   ├── datasets/      # Dataset JSON definitions
     │   └── registry.json  # Sequence processor registry
     ├── grn/               # GRN data
-    │   ├── tables/        # GRN alignment tables
-    │   ├── ref/           # Reference GRN tables
+    │   ├── tables/        # GRN annotation tables
+    │   ├── reference/     # Reference GRN tables
     │   ├── configs/       # GRN configurations
     │   ├── assignments/   # GRN assignment results
+    │   ├── temp/          # Temporary files
     │   ├── datasets/      # Dataset JSON definitions
     │   └── registry.json  # GRN processor registry
     ├── property/          # Property data

@@ -102,7 +102,7 @@ if __name__ == '__main__':
     grnp = GRNProcessor(name='grn_assignment')
     
     if protein_family == 'gpcr_a':
-        grnp.load_grn_table('ref')
+        grnp.load_grn_table('reference')
     else:
         grnp.load_grn_table('mo_ref')
 

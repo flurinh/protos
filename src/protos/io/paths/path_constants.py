@@ -54,9 +54,11 @@ DEFAULT_TEST_SUBDIRS = {
 # Default GRN subdirectories
 DEFAULT_GRN_SUBDIRS = {
     "table_dir": "tables",           # Directory for GRN mapping tables
-    "ref_dir": "ref",                # Directory for reference GRN tables
+    "ref_dir": "reference",          # Directory for reference GRN tables (changed from 'reference' to 'reference')
+    "reference_dir": "reference",    # Alias for ref_dir
     "configs_dir": "configs",        # Directory for GRN configuration files
     "assignment_dir": "assignments", # Directory for GRN assignments
+    "temp_dir": "temp",             # Directory for temporary files
     "datasets_dir": "datasets"       # Directory for dataset definitions
 }
 
@@ -64,6 +66,10 @@ DEFAULT_GRN_SUBDIRS = {
 DEFAULT_SEQUENCE_SUBDIRS = {
     "fasta_dir": "fasta",           # Directory for FASTA files
     "alignment_dir": "alignments",   # Directory for sequence alignments
+    "pairwise_alignment_dir": "alignments/pairwise",  # Directory for pairwise alignments
+    "multiple_alignment_dir": "alignments/multiple",  # Directory for multiple alignments
+    "mmseqs_alignment_dir": "alignments/mmseqs",      # Directory for MMseqs2 alignments
+    "databases_dir": "databases",    # Directory for MMseqs2 databases
     "metadata_dir": "metadata",      # Directory for sequence metadata
     "datasets_dir": "datasets"       # Directory for dataset definitions
 }

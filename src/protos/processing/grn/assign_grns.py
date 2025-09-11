@@ -99,9 +99,9 @@ if __name__ == '__main__':
     grns_str_strict = init_grn_intervals(grn_config_strict)
 
     if protein_family == 'gpcr_a':
-        grnp = GRNProcessor('ref', 'data/grn/ref/')
+        grnp = GRNProcessor('reference', 'data/grn/reference/')
     else:
-        grnp = GRNProcessor('mo_ref', 'data/grn/ref/')
+        grnp = GRNProcessor('mo_ref', 'data/grn/reference/')
 
     ref_dict = {k: v.replace('-', '') for k, v in grnp.get_seq_dict().items()}
     query_dict = read_fasta(f"data/fasta/processed/{dataset}.fasta")
