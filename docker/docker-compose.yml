@@ -1,0 +1,185 @@
+version: '3.8'
+
+services:
+  # ESM-2 Model Service
+  esm2:
+    build:
+      context: ./models/esm2
+      dockerfile: Dockerfile
+    image: protos/esm2:latest
+    container_name: protos-esm2
+    ports:
+      - "8001:8001"
+    environment:
+      - MODEL_VARIANT=${ESM2_VARIANT:-esm2_t33_650M}
+      - DEVICE=${DEVICE:-cuda}
+    volumes:
+      - ${MODEL_PATH:-./data}/models/esm2:/models
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Ankh Model Service
+  ankh:
+    build:
+      context: ./models/ankh
+      dockerfile: Dockerfile
+    image: protos/ankh:latest
+    container_name: protos-ankh
+    ports:
+      - "8002:8002"
+    environment:
+      - MODEL_PATH=/models/ankh_large
+      - DEVICE=${DEVICE:-cuda}
+    volumes:
+      - ${MODEL_PATH:-./data}/models/ankh:/models
+    deploy:
+      resources:
+        limits:
+          memory: 16g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Lambda Model Service (v2 with specific dependencies)
+  lambda:
+    build:
+      context: ./models/lambda
+      dockerfile: Dockerfile
+    image: protos/lambda:v2
+    container_name: protos-lambda
+    ports:
+      - "8003:8003"
+    environment:
+      - MODEL_CONFIG=/models/config.json
+      - CHECKPOINT=/models/lambda_checkpoint.pt
+      - DEVICE=${DEVICE:-cuda}
+      - PYTHONPATH=/app
+    volumes:
+      - ${MODEL_PATH:-./data}/models/lambda:/models
+    deploy:
+      resources:
+        limits:
+          memory: 12g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Boltz-1 Model Service (requires specific CUDA/PyTorch versions)
+  boltz1:
+    build:
+      context: ./models/boltz1
+      dockerfile: Dockerfile
+    image: protos/boltz:1.0
+    container_name: protos-boltz1
+    ports:
+      - "8004:8004"
+    environment:
+      - MODEL_PATH=/models/boltz1
+      - DEVICE=${DEVICE:-cuda}
+      - TORCH_VERSION=2.0.1
+      - CUDA_VERSION=11.8
+    volumes:
+      - ${MODEL_PATH:-./data}/models/boltz:/models
+    deploy:
+      resources:
+        limits:
+          memory: 24g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ESMFold Service
+  esmfold:
+    build:
+      context: ./models/esmfold
+      dockerfile: Dockerfile
+    image: protos/esmfold:latest
+    container_name: protos-esmfold
+    ports:
+      - "8005:8005"
+    environment:
+      - MODEL_PATH=/models/esmfold_v1
+      - DEVICE=${DEVICE:-cuda}
+      - OPENMM_CPU_THREADS=4
+    volumes:
+      - ${MODEL_PATH:-./data}/models/esmfold:/models
+    deploy:
+      resources:
+        limits:
+          memory: 16g
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Model registry service (optional, for model discovery)
+  registry:
+    build:
+      context: ./models/registry
+      dockerfile: Dockerfile
+    image: protos/registry:latest
+    container_name: protos-registry
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${MODEL_PATH:-./data}/models:/models:ro
+      - ./model_registry.json:/app/registry.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  default:
+    name: protos-models
+    driver: bridge
+
+volumes:
+  model-cache:
+    driver: local
