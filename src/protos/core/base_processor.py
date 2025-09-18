@@ -67,7 +67,7 @@ class BaseProcessor(ABC):
         
         # Initialize data storage
         self.data = None
-        self.metadata = {
+        self.processor_metadata = {
             "processor_type": self.__class__.__name__,
             "name": name,
             "created_at": datetime.now().isoformat(),
@@ -178,16 +178,26 @@ class BaseProcessor(ABC):
         """
         # Find entity
         entity_info = self.entity_registry.find_entity(name, self.processor_type)
-        if entity_info:
-            # Delete file
+        if not entity_info:
+            return False
+        
+        # Remove from registry first
+        self.entity_registry.remove_format(name, self.processor_type)
+        
+        # Try to delete physical file
+        try:
             file_path = Path(entity_info.file_path)
             if not file_path.is_absolute():
                 file_path = Path(self.paths.data_root) / file_path
-            file_path.unlink(missing_ok=True)
-            # Update registry
-            self.entity_registry.remove_format(name, self.processor_type)
-            return True
-        return False
+            
+            # Only delete if within our managed directories
+            if file_path.exists() and str(file_path).startswith(str(self.paths.data_root)):
+                file_path.unlink()
+                self.logger.info(f"Deleted file for entity '{name}': {file_path}")
+        except Exception as e:
+            self.logger.warning(f"Could not delete file for entity '{name}': {e}")
+        
+        return True
     
     # ========== Dataset Operations (DATA_MANAGEMENT_UNIFIED.md) ==========
     
@@ -225,18 +235,18 @@ class BaseProcessor(ABC):
             >>> for name, structure in structures.items():
             ...     print(f"Processing {name}")
         """
-        # Get dataset info
-        dataset = self.dataset_manager.load_dataset(dataset_name)
+        # Get current entity names (handles renames/deletes)
+        entity_names = self.dataset_manager.get_dataset_entities(dataset_name)
         
         # Load each entity
         result = {}
-        for entity_name in dataset['entities']:
+        for entity_name in entity_names:
             try:
                 data = self.load_entity(entity_name)
                 if data is not None:
                     result[entity_name] = data
             except Exception as e:
-                print(f"Error loading {entity_name}: {e}")
+                self.logger.warning(f"Could not load entity '{entity_name}': {e}")
         
         return result
     
@@ -330,7 +340,8 @@ class BaseProcessor(ABC):
             data: Data to save
             file_format: Format to save in
         """
-        file_path = self.data_path / f"{name}.{file_format}"
+        safe_name = self._sanitize_filename(name)
+        file_path = self.data_path / f"{safe_name}.{file_format}"
         
         if file_format == 'pkl':
             with open(file_path, 'wb') as f:
@@ -357,7 +368,8 @@ class BaseProcessor(ABC):
         Returns:
             Loaded data
         """
-        file_path = self.data_path / f"{name}.{file_format}"
+        safe_name = self._sanitize_filename(name)
+        file_path = self.data_path / f"{safe_name}.{file_format}"
         
         if not file_path.exists():
             return None
@@ -386,3 +398,140 @@ class BaseProcessor(ABC):
             True if dataset exists
         """
         return self.dataset_manager.dataset_exists(name)
+    
+    # ========== Bulk Registration Operations ==========
+    
+    def register_directory(self, directory: Path,
+                          extensions: Optional[List[str]] = None,
+                          recursive: bool = False,
+                          dry_run: bool = False) -> Dict[str, Any]:
+        """
+        Register all valid files in a directory.
+        
+        Args:
+            directory: Directory to scan
+            extensions: List of valid extensions (e.g., ['.cif', '.pdb'])
+            recursive: Whether to scan subdirectories
+            dry_run: Preview without making changes
+            
+        Returns:
+            Report with registration results
+        """
+        from protos.io.conflict_resolver import ConflictResolutionStrategy
+        
+        report = {
+            'registered': [],
+            'skipped': [],
+            'errors': [],
+            'total': 0
+        }
+        
+        # Get valid extensions for this processor
+        if not extensions:
+            extensions = self._get_valid_extensions()
+        
+        # Find files
+        pattern = '**/*' if recursive else '*'
+        for ext in extensions:
+            for file_path in directory.glob(f"{pattern}{ext}"):
+                if file_path.is_file():
+                    report['total'] += 1
+                    
+                    try:
+                        # Extract entity name
+                        entity_name = file_path.stem
+                        
+                        # Check if already exists
+                        if self.entity_exists(entity_name):
+                            report['skipped'].append({
+                                'file': str(file_path),
+                                'name': entity_name,
+                                'reason': 'already_exists'
+                            })
+                            continue
+                        
+                        if not dry_run:
+                            # Register the entity
+                            self.save_entity(entity_name, file_path)
+                            report['registered'].append({
+                                'file': str(file_path),
+                                'name': entity_name
+                            })
+                        else:
+                            # Dry run - just add to would register
+                            report['registered'].append({
+                                'file': str(file_path),
+                                'name': entity_name,
+                                'action': 'would_register'
+                            })
+                            
+                    except Exception as e:
+                        report['errors'].append({
+                            'file': str(file_path),
+                            'error': str(e)
+                        })
+        
+        return report
+    
+    def validate_before_registration(self, file_path: Path) -> Dict[str, Any]:
+        """
+        Validate file before attempting registration.
+        Subclasses should override for format-specific validation.
+        
+        Args:
+            file_path: Path to file
+            
+        Returns:
+            Validation result with 'valid' bool and 'errors' list
+        """
+        result = {
+            'valid': True,
+            'errors': [],
+            'warnings': []
+        }
+        
+        # Basic checks
+        if not file_path.exists():
+            result['valid'] = False
+            result['errors'].append("File does not exist")
+            return result
+        
+        if not file_path.is_file():
+            result['valid'] = False
+            result['errors'].append("Path is not a file")
+            return result
+        
+        if file_path.stat().st_size == 0:
+            result['valid'] = False
+            result['errors'].append("File is empty")
+            return result
+        
+        # Subclasses add format-specific validation
+        return result
+    
+    def _get_valid_extensions(self) -> List[str]:
+        """
+        Get list of valid file extensions for this processor.
+        
+        Returns:
+            List of extensions (e.g., ['.cif', '.pdb'])
+        """
+        from protos.io.format_registry import format_registry, ProcessorType
+        
+        # Map processor types to ProcessorType enum
+        type_map = {
+            'structure': ProcessorType.STRUCTURE,
+            'sequence': ProcessorType.SEQUENCE,
+            'grn': ProcessorType.GRN,
+            'property': ProcessorType.PROPERTY,
+            'embedding': ProcessorType.EMBEDDING,
+            'ligand': ProcessorType.LIGAND,
+            'graph': ProcessorType.GRAPH
+        }
+        
+        processor_type = type_map.get(self.processor_type)
+        if processor_type:
+            return list(format_registry.get_extensions_for_processor(processor_type))
+        else:
+            # Fallback for unknown processor types
+            return []

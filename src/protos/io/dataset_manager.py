@@ -58,20 +58,29 @@ class DatasetManager:
         """
         metadata = metadata or {}
         
-        # Validate all entities exist
+        # Validate all entities exist and get their IDs
+        entity_ids = []
+        entity_names = []
         missing_entities = []
+        
         for entity in entities:
-            if not self.entity_registry.entity_exists(entity):
+            entity_info = self.entity_registry.find_entity(entity)
+            if entity_info:
+                entity_ids.append(entity_info.entity_id)
+                entity_names.append(entity)
+            else:
                 missing_entities.append(entity)
         
         if missing_entities:
-            print(f"Warning: The following entities are not registered: {missing_entities}")
+            import warnings
+            warnings.warn(f"The following entities are not registered: {missing_entities}")
         
-        # Create dataset structure
+        # Create dataset structure with both IDs and names
         dataset = {
             "name": name,
             "processor_type": self.processor_type,
-            "entities": entities,  # Store human-readable names
+            "entities": entity_names,  # Keep for backward compatibility
+            "entity_ids": entity_ids,  # New: store stable IDs
             "metadata": metadata,
             "created": datetime.now().isoformat(),
             "modified": datetime.now().isoformat()
@@ -143,11 +152,24 @@ class DatasetManager:
         # Load existing dataset
         dataset = self.load_dataset(dataset_name)
         
-        # Add new entities (avoid duplicates)
-        existing = set(dataset['entities'])
-        for entity in entities:
-            if entity not in existing:
-                dataset['entities'].append(entity)
+        # Handle both old and new dataset formats
+        if 'entity_ids' in dataset:
+            # New format: work with IDs
+            existing_ids = set(dataset['entity_ids'])
+            existing_names = set(dataset.get('entities', []))
+            
+            for entity in entities:
+                entity_info = self.entity_registry.find_entity(entity)
+                if entity_info and entity_info.entity_id not in existing_ids:
+                    dataset['entity_ids'].append(entity_info.entity_id)
+                    if entity not in existing_names:
+                        dataset['entities'].append(entity)
+        else:
+            # Old format: work with names only
+            existing = set(dataset['entities'])
+            for entity in entities:
+                if entity not in existing:
+                    dataset['entities'].append(entity)
         
         # Update modified time
         dataset['modified'] = datetime.now().isoformat()
@@ -168,9 +190,24 @@ class DatasetManager:
         # Load existing dataset
         dataset = self.load_dataset(dataset_name)
         
-        # Remove entities
-        entity_set = set(entities)
-        dataset['entities'] = [e for e in dataset['entities'] if e not in entity_set]
+        # Get IDs of entities to remove
+        ids_to_remove = set()
+        for entity in entities:
+            entity_info = self.entity_registry.find_entity(entity)
+            if entity_info:
+                ids_to_remove.add(entity_info.entity_id)
+        
+        if 'entity_ids' in dataset:
+            # New format: remove by ID
+            dataset['entity_ids'] = [eid for eid in dataset['entity_ids'] 
+                                   if eid not in ids_to_remove]
+            # Also update names for backward compatibility
+            entity_set = set(entities)
+            dataset['entities'] = [e for e in dataset['entities'] if e not in entity_set]
+        else:
+            # Old format: remove by name
+            entity_set = set(entities)
+            dataset['entities'] = [e for e in dataset['entities'] if e not in entity_set]
         
         # Update modified time
         dataset['modified'] = datetime.now().isoformat()
@@ -194,24 +231,49 @@ class DatasetManager:
         
         # Add entity information
         entity_info = []
-        for entity_name in dataset['entities']:
-            info = self.entity_registry.find_entity(entity_name)
-            if info:
-                entity_info.append({
-                    'name': entity_name,
-                    'formats': self.entity_registry.get_entity_formats(entity_name)
-                })
-            else:
-                entity_info.append({
-                    'name': entity_name,
-                    'formats': [],
-                    'missing': True
-                })
+        
+        if 'entity_ids' in dataset:
+            # New format: resolve IDs to current info
+            for entity_id in dataset['entity_ids']:
+                entity_data = self.entity_registry._registry.get(entity_id)
+                if entity_data:
+                    entity_name = entity_data['original_id']
+                    entity_info.append({
+                        'name': entity_name,
+                        'formats': self.entity_registry.get_entity_formats(entity_name)
+                    })
+                else:
+                    # Entity was deleted
+                    # Try to get historic name from dataset
+                    historic_idx = dataset['entity_ids'].index(entity_id)
+                    historic_name = (dataset.get('entities', [])[historic_idx] 
+                                   if historic_idx < len(dataset.get('entities', [])) 
+                                   else 'Unknown')
+                    entity_info.append({
+                        'name': historic_name,
+                        'formats': [],
+                        'missing': True
+                    })
+        else:
+            # Old format: use stored names
+            for entity_name in dataset['entities']:
+                info = self.entity_registry.find_entity(entity_name)
+                if info:
+                    entity_info.append({
+                        'name': entity_name,
+                        'formats': self.entity_registry.get_entity_formats(entity_name)
+                    })
+                else:
+                    entity_info.append({
+                        'name': entity_name,
+                        'formats': [],
+                        'missing': True
+                    })
         
         return {
             'name': dataset['name'],
             'processor_type': dataset['processor_type'],
-            'entity_count': len(dataset['entities']),
+            'entity_count': len(dataset.get('entity_ids', dataset['entities'])),
             'entities': entity_info,
             'metadata': dataset.get('metadata', {}),
             'created': dataset.get('created'),
@@ -238,10 +300,29 @@ class DatasetManager:
             name: Dataset name
             
         Returns:
-            List of entity names
+            List of entity names (current names if entities exist, historic if deleted)
         """
         dataset = self.load_dataset(name)
-        return dataset['entities']
+        
+        # If dataset has entity_ids, resolve to current names
+        if 'entity_ids' in dataset:
+            current_names = []
+            for idx, entity_id in enumerate(dataset['entity_ids']):
+                # Find entity by ID
+                entity_data = self.entity_registry._registry.get(entity_id)
+                if entity_data:
+                    current_names.append(entity_data['original_id'])
+                else:
+                    # Entity was deleted - use historic name if available
+                    if idx < len(dataset.get('entities', [])):
+                        current_names.append(dataset['entities'][idx])
+                    else:
+                        # No historic name available
+                        current_names.append(f"<deleted:{entity_id[:8]}>")
+            return current_names
+        else:
+            # Backward compatibility: return stored names
+            return dataset['entities']
     
     def update_metadata(self, name: str, metadata: Dict[str, Any]):
         """
@@ -311,3 +392,58 @@ class DatasetManager:
             list(all_entities),
             merged_metadata
         )
+    
+    def refresh_dataset_entities(self, name: str):
+        """
+        Refresh cached entity names in a dataset from the registry.
+        
+        This updates the 'entities' array to match current entity names
+        based on the entity IDs. Useful after entity renames.
+        
+        Args:
+            name: Dataset name
+        """
+        dataset = self.load_dataset(name)
+        
+        # Only refresh if dataset has entity_ids
+        if 'entity_ids' not in dataset:
+            return  # Old format, nothing to refresh
+            
+        # Rebuild entities array from current registry state
+        current_names = []
+        for entity_id in dataset['entity_ids']:
+            entity_data = self.entity_registry._registry.get(entity_id)
+            if entity_data:
+                current_names.append(entity_data['original_id'])
+            else:
+                # Keep historic name if entity was deleted
+                # Find corresponding historic name
+                try:
+                    idx = dataset['entity_ids'].index(entity_id)
+                    if idx < len(dataset.get('entities', [])):
+                        current_names.append(dataset['entities'][idx])
+                    else:
+                        current_names.append(f"<deleted:{entity_id[:8]}>")
+                except (ValueError, IndexError):
+                    current_names.append(f"<deleted:{entity_id[:8]}>")
+        
+        # Update dataset
+        dataset['entities'] = current_names
+        dataset['modified'] = datetime.now().isoformat()
+        
+        # Save updated dataset
+        dataset_path = Path(self.paths.get_dataset_path(self.processor_type, name))
+        with open(dataset_path, 'w') as f:
+            json.dump(dataset, f, indent=2)
+    
+    def refresh_all_datasets(self):
+        """
+        Refresh entity names in all datasets for this processor.
+        
+        Useful after bulk entity renames or registry updates.
+        """
+        for dataset_name in self.list_datasets():
+            try:
+                self.refresh_dataset_entities(dataset_name)
+            except Exception as e:
+                print(f"Warning: Could not refresh dataset '{dataset_name}': {e}")

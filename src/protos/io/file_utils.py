@@ -1,32 +1,70 @@
+"""
+File utility functions for Protos.
+
+This module provides simple utility functions for common file operations.
+For more complex format handling, use the handlers in formats.py.
+"""
+
 import os
 import json
 import pickle
 import pandas as pd
 from pathlib import Path
+from typing import Any, Dict, List
 
-def ensure_dir(directory):
+def ensure_dir(directory: str) -> None:
     """Ensure that a directory exists; if it doesn't, create it."""
     Path(directory).mkdir(parents=True, exist_ok=True)
     
-def save_json(data, filepath):
-    """Save data as a JSON file."""
+def save_json(data: Any, filepath: str, **kwargs) -> None:
+    """
+    Save data as a JSON file.
+    
+    Args:
+        data: Data to save
+        filepath: Path to save to
+        **kwargs: Additional arguments for json.dump
+    """
     ensure_dir(os.path.dirname(filepath))
     with open(filepath, 'w') as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=kwargs.get('indent', 2))
         
-def load_json(filepath):
-    """Load data from a JSON file."""
+def load_json(filepath: str) -> Any:
+    """
+    Load data from a JSON file.
+    
+    Args:
+        filepath: Path to load from
+        
+    Returns:
+        Loaded data
+    """
     with open(filepath, 'r') as f:
         return json.load(f)
         
-def save_pickle(data, filepath):
-    """Save data as a pickle file."""
+def save_pickle(data: Any, filepath: str, protocol: int = None) -> None:
+    """
+    Save data as a pickle file.
+    
+    Args:
+        data: Data to save
+        filepath: Path to save to
+        protocol: Pickle protocol version
+    """
     ensure_dir(os.path.dirname(filepath))
     with open(filepath, 'wb') as f:
-        pickle.dump(data, f)
+        pickle.dump(data, f, protocol=protocol or pickle.HIGHEST_PROTOCOL)
         
-def load_pickle(filepath):
-    """Load data from a pickle file."""
+def load_pickle(filepath: str) -> Any:
+    """
+    Load data from a pickle file.
+    
+    Args:
+        filepath: Path to load from
+        
+    Returns:
+        Loaded data
+    """
     with open(filepath, 'rb') as f:
         return pickle.load(f)
 
