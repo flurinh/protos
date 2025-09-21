@@ -503,10 +503,7 @@ def sort_grns_str(grn_strs: List[str], notation_type: str = None) -> List[str]:
         for f in sorted_floats:
             orig = float_to_orig.get(f, '')
             if orig:
-                if 'x' in orig and '.' not in orig:
-                    sorted_strs.append(parse_grn_float2str(f, notation_type='x'))
-                else:
-                    sorted_strs.append(parse_grn_float2str(f, notation_type='dot'))
+                sorted_strs.append(str(orig))
             else:
                 # Fallback if original not found
                 sorted_strs.append(parse_grn_float2str(f, notation_type='dot'))

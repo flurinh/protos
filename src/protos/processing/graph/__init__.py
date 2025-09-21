@@ -1,2 +1,3 @@
-from protos.processing.graph.graph_processor import *
-from protos.processing.graph.graph_utils import *
+from protos.processing.graph.graph_processor import GraphProcessor
+
+__all__ = ["GraphProcessor"]

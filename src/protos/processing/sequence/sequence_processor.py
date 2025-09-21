@@ -29,6 +29,7 @@ from protos.analysis.sequence import (
     run_mmseqs_alignment,
     MMseqsUnavailableError,
 )
+from protos.analysis.sequence.alignment_engine import SequenceAlignmentEngine
 from protos.processing.sequence.seq_alignment import (
     mmseqs2_align,
     mmseqs2_align2,
@@ -40,6 +41,7 @@ from protos.processing.sequence.seq_alignment import (
 )
 from protos.analysis.sequence.alignment_engine import SequenceAlignmentEngine
 from protos.processing.grn import GRNProcessor
+from protos.processing.grn.assign_grns import assign_grns_to_sequences
 from protos.processing.grn.grn_utils import get_seq, GRN_GAP_SYMBOL, GRN_UNKNOWN_SYMBOL
 from .seq_mutation_utils import (
     parse_mutation_str, apply_mutations_to_seq,
@@ -1061,118 +1063,95 @@ class SequenceProcessor(BaseProcessor):
 
     def annotate_with_grn_reference(
         self,
-        dataset_name: str,
+        dataset_name: Optional[str],
         reference_table: str,
         *,
+        protein_family: str,
+        entity_name: Optional[str] = None,
+        sequence_map: Optional[Dict[str, str]] = None,
         output_table_name: Optional[str] = None,
         allow_create: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
+        use_mmseqs: bool = True,
+        verbose: int = 0,
     ) -> pd.DataFrame:
-        """Align sequences to a GRN reference table and record the resulting GRN annotations."""
+        """Assign GRNs for a dataset, entity, or explicit sequence map."""
 
-        sequences = self.load_dataset(dataset_name)
+        sequences: Dict[str, str] = {}
+
+        if sequence_map:
+            sequences.update(sequence_map)
+
+        if dataset_name:
+            dataset_sequences = self.load_dataset(dataset_name)
+            sequences.update(dataset_sequences)
+
+        if entity_name:
+            entity_data = self.load_entity(entity_name)
+            if entity_data is None:
+                raise ValueError(f"Entity '{entity_name}' is not available")
+            if isinstance(entity_data, dict):
+                sequences.update(entity_data)
+            else:
+                sequences[entity_name] = entity_data
+
         if not sequences:
-            raise ValueError(f"Dataset '{dataset_name}' contained no sequences")
+            raise ValueError(
+                "No sequences provided for GRN annotation. "
+                "Specify a dataset, entity, or explicit sequence_map."
+            )
 
         grn_proc = GRNProcessor()
         reference_df = grn_proc.load_reference_table(reference_table)
         if reference_df.empty:
             raise ValueError(f"Reference table '{reference_table}' is empty")
 
-        ref_sequences: Dict[str, str] = {}
-        ref_valid_columns: Dict[str, List[str]] = {}
-        for ref_id in reference_df.index:
-            seq = get_seq(ref_id, reference_df)
-            if not seq:
-                continue
-            ref_sequences[ref_id] = seq
-            valid_cols = [
-                col
-                for col, val in reference_df.loc[ref_id].items()
-                if val not in {GRN_GAP_SYMBOL, GRN_UNKNOWN_SYMBOL, '-', 'X'}
-            ]
-            ref_valid_columns[ref_id] = valid_cols
+        family_key = protein_family
 
-        if not ref_sequences:
-            raise ValueError("Reference table did not contain valid sequences")
+        annotation_table, match_details = assign_grns_to_sequences(
+            sequences,
+            reference_df,
+            protein_family=family_key,
+            use_mmseqs=use_mmseqs,
+            aligner=self.aligner,
+            temp_folder=str(self.path_mmseqs_alignments_dir),
+            verbose=verbose,
+        )
 
-        engine = SequenceAlignmentEngine()
-        table_rows: Dict[str, pd.Series] = {}
+        if annotation_table.empty:
+            raise ValueError("No GRN annotations were produced")
 
-        for seq_id, sequence in sequences.items():
-            best_ref = None
-            best_result = None
-            best_score = float('-inf')
+        if not output_table_name:
+            components = []
+            if dataset_name:
+                components.append(dataset_name)
+            if entity_name:
+                components.append(entity_name)
+            components.append(family_key)
+            components.append('grn')
+            output_table_name = "_".join(components)
 
-            for ref_id, ref_seq in ref_sequences.items():
-                result = engine.align_pairwise(ref_id, ref_seq, seq_id, sequence)
-                score = result.score / max(len(sequence), 1)
-                if score > best_score:
-                    best_score = score
-                    best_ref = ref_id
-                    best_result = result
-
-            if best_ref is None or best_result is None:
-                continue
-
-            reference_row = reference_df.loc[best_ref]
-            valid_columns = ref_valid_columns.get(best_ref, [])
-            if not valid_columns:
-                continue
-
-            row = pd.Series('-', index=reference_row.index, dtype=object)
-            ref_chars = best_result.alignment[0]
-            query_chars = best_result.alignment[2]
-
-            ref_positions = [
-                (col, reference_row[col])
-                for col in reference_row.index
-                if reference_row[col] not in {GRN_GAP_SYMBOL, GRN_UNKNOWN_SYMBOL, '-', 'X'}
-            ]
-
-            ref_pointer = 0
-            query_position = 0
-
-            for ref_char, query_char in zip(ref_chars, query_chars):
-                if ref_char != '-':
-                    if ref_pointer >= len(ref_positions):
-                        break
-                    grn_col, _ = ref_positions[ref_pointer]
-                    ref_pointer += 1
-                    if query_char != '-':
-                        query_position += 1
-                        row[grn_col] = f"{query_char}{query_position}"
-                    else:
-                        row[grn_col] = '-'
-                else:
-                    if query_char != '-':
-                        query_position += 1
-
-            table_rows[seq_id] = row
-
-        if not table_rows:
-            raise ValueError("No sequences could be annotated against the reference table")
-
-        table_df = pd.DataFrame(table_rows).T
-        table_df.index.name = 'entity_name'
-
-        output_name = output_table_name or f"{dataset_name}_{reference_table}_grn"
-        table_metadata = {
-            'dataset_name': dataset_name,
+        table_metadata: Dict[str, Any] = {
             'reference': reference_table,
-            'best_match_count': len(table_df),
+            'protein_family': family_key,
+            'sequence_count': len(annotation_table),
+            'match_summary': match_details,
         }
+        if dataset_name:
+            table_metadata['source_dataset'] = dataset_name
+        if entity_name:
+            table_metadata['source_entity'] = entity_name
         if metadata:
             table_metadata.update(metadata)
 
         grn_proc.record_table(
-            output_name,
-            table_df,
+            output_table_name,
+            annotation_table,
             metadata=table_metadata,
             allow_create=allow_create,
         )
 
-        return table_df
+        return annotation_table
 
     def save_alignment(self, alignment_data: Dict, output_file: str, 
                       alignment_type: str = "pairwise"):
@@ -1417,4 +1396,3 @@ class SequenceProcessor(BaseProcessor):
             List of dataset names
         """
         return BaseProcessor.list_datasets(self)
-from protos.analysis.sequence.alignment_engine import SequenceAlignmentEngine

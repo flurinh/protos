@@ -14,16 +14,18 @@ For CPU-only support:
     pip install -e ".[embedding]"
 """
 
-import os
 import json
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Union, Optional, Any, Literal
+import os
+import pickle
 import warnings
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+
+import numpy as np
+import pandas as pd
 
 from protos.io.core.base_processor import BaseProcessor
-from protos.io.data_access import generate_entity_id
+from protos.io.formats.fasta_utils import read_fasta
 
 # Check for optional dependencies
 _TORCH_AVAILABLE = False
@@ -45,14 +47,8 @@ except ImportError as e:
     else:
         _DEPENDENCIES_ERROR = "Transformers not installed. Install with: pip install transformers"
 
-# Import sequence processor for loading sequences
-try:
-    from protos.processing.sequence import SequenceProcessor
-except ImportError:
-    SequenceProcessor = None
-
 # Embedding type options
-EmbeddingType = Literal["mean", "cls", "per_residue"]
+EmbeddingType = Literal["mean", "sum", "cls", "per_residue"]
 
 
 class EmbeddingProcessor(BaseProcessor):
@@ -64,6 +60,8 @@ class EmbeddingProcessor(BaseProcessor):
     
     Note: Requires torch and transformers libraries to be installed.
     """
+
+    processor_type = "embedding"
     
     # Model registry with configurations
     MODEL_REGISTRY = {
@@ -108,6 +106,18 @@ class EmbeddingProcessor(BaseProcessor):
             "description": "Ankh large model"
         }
     }
+
+    @classmethod
+    def available_models(cls) -> Dict[str, Dict[str, Any]]:
+        """Return the registry of available transformer models."""
+
+        return {
+            name: {
+                "embedding_dim": config["embedding_dim"],
+                "description": config.get("description", "")
+            }
+            for name, config in cls.MODEL_REGISTRY.items()
+        }
     
     def __init__(self,
                  name: str = "embedding_processor",
@@ -127,6 +137,16 @@ class EmbeddingProcessor(BaseProcessor):
             processor_data_dir: Directory for embedding data
         """
         super().__init__(name=name)
+
+        # Ensure processor directories exist
+        self.embeddings_dir = self.get_subdirectory_path('embeddings_dir')
+        self.datasets_dir = self.get_subdirectory_path('datasets_dir')
+        self.embeddings_dir.mkdir(parents=True, exist_ok=True)
+        self.datasets_dir.mkdir(parents=True, exist_ok=True)
+
+        # Cache for loaded datasets
+        self._loaded_embeddings: Dict[str, Dict[str, Any]] = {}
+        self.metadata: Dict[str, Any] = {}
         
         # Check dependencies
         self._check_dependencies()
@@ -230,7 +250,7 @@ class EmbeddingProcessor(BaseProcessor):
         
         Args:
             sequences: Single sequence, list of sequences, or dict mapping IDs to sequences
-            embedding_type: Type of embedding ('mean', 'cls', 'per_residue')
+            embedding_type: Type of embedding ('mean', 'sum', 'cls', 'per_residue')
             save_dataset: If provided, save embeddings as a dataset
             register_entities: Whether to register embeddings as entities
             
@@ -259,14 +279,22 @@ class EmbeddingProcessor(BaseProcessor):
         # Generate embeddings
         embeddings = self._generate_embeddings(seq_dict, embedding_type)
         
-        # Save if requested
+        # Persist as dataset if requested
         if save_dataset:
-            self._save_embeddings_dataset(embeddings, seq_dict, save_dataset, embedding_type, 
-                                        register_entities=register_entities)
-        
-        # Register entities if requested (even without saving dataset)
+            self._save_embeddings_dataset(
+                embeddings,
+                seq_dict,
+                save_dataset,
+                embedding_type,
+                register_entities=True,
+            )
         elif register_entities:
-            self._register_embedding_entities(embeddings, seq_dict, embedding_type)
+            self._persist_embeddings(
+                embeddings,
+                seq_dict,
+                embedding_type,
+                dataset_name=None,
+            )
         
         # Return appropriate format
         return embeddings["seq_0"] if is_single else embeddings
@@ -327,6 +355,9 @@ class EmbeddingProcessor(BaseProcessor):
             summed = torch.sum(masked, dim=1)
             lengths = torch.sum(attention_mask, dim=1, keepdim=True)
             return summed / lengths
+        if embedding_type == "sum":
+            masked = hidden_states * attention_mask.unsqueeze(-1)
+            return torch.sum(masked, dim=1)
         elif embedding_type == "cls":
             # CLS token (first position)
             return hidden_states[:, 0, :]
@@ -336,78 +367,180 @@ class EmbeddingProcessor(BaseProcessor):
         else:
             raise ValueError(f"Unknown embedding type: {embedding_type}")
     
-    def _save_embeddings_dataset(self,
-                                embeddings: Dict[str, "torch.Tensor"],
-                                sequences: Dict[str, str],
-                                dataset_name: str,
-                                embedding_type: str,
-                                register_entities: bool = True):
-        """Save embeddings as a dataset with entity support."""
-        # Create dataset directory
-        dataset_path = os.path.join(self.data_path, "datasets", dataset_name)
-        os.makedirs(dataset_path, exist_ok=True)
-        
-        # Save embeddings
-        embeddings_file = os.path.join(dataset_path, "embeddings.pt")
-        torch.save(embeddings, embeddings_file)
-        
-        # Save sequences
-        sequences_file = os.path.join(dataset_path, "sequences.json")
-        with open(sequences_file, 'w') as f:
-            json.dump(sequences, f, indent=2)
-        
-        # Save metadata
-        metadata = {
-            "model_name": self.model_name,
-            "embedding_type": embedding_type,
-            "num_sequences": len(sequences),
-            "embedding_dim": self.model_config["embedding_dim"],
-            "created_at": pd.Timestamp.now().isoformat()
-        }
-        metadata_file = os.path.join(dataset_path, "metadata.json")
-        with open(metadata_file, 'w') as f:
-            json.dump(metadata, f, indent=2)
-        
-        # Register dataset
-        self._register_dataset(dataset_name, {
-            "type": "embeddings",
+    def _to_numpy(self, tensor: Any) -> np.ndarray:
+        """Convert an embedding tensor to a NumPy array."""
+
+        if _TORCH_AVAILABLE and torch.is_tensor(tensor):
+            return tensor.detach().cpu().numpy()
+        if isinstance(tensor, np.ndarray):
+            return tensor
+        return np.asarray(tensor)
+
+    def _build_entity_name(
+        self,
+        sequence_id: str,
+        embedding_type: str,
+        dataset_name: Optional[str] = None,
+    ) -> str:
+        """Construct a unique, human-readable embedding entity name."""
+
+        parts = [sequence_id, self.model_name, embedding_type]
+        if dataset_name:
+            parts.append(dataset_name)
+        raw_name = "__".join(parts)
+        return self._sanitize_filename(raw_name.replace(os.sep, "_"))
+
+    def _persist_embeddings(
+        self,
+        embeddings: Dict[str, "torch.Tensor"],
+        sequences: Dict[str, str],
+        embedding_type: str,
+        dataset_name: Optional[str] = None,
+        entity_name_map: Optional[Dict[str, str]] = None,
+    ) -> Tuple[Path, List[str]]:
+        """Persist embeddings to disk and register entities."""
+
+        target_base = self.embeddings_dir / self.model_name
+        target_dir = target_base / (dataset_name or "_entities")
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        entity_names: List[str] = []
+
+        for seq_id, tensor in embeddings.items():
+            if entity_name_map and seq_id in entity_name_map:
+                entity_name = self._sanitize_filename(entity_name_map[seq_id])
+            else:
+                entity_name = self._build_entity_name(seq_id, embedding_type, dataset_name)
+            file_path = target_dir / f"{entity_name}.pkl"
+            array = self._to_numpy(tensor)
+
+            payload = {
+                "embedding": array,
+                "model": self.model_name,
+                "embedding_type": embedding_type,
+                "source_sequence": seq_id,
+                "dataset": dataset_name,
+            }
+            with open(file_path, "wb") as handle:
+                pickle.dump(payload, handle)
+
+            relative_path = str(file_path.relative_to(self.paths.data_root))
+            metadata = {
+                "model": self.model_name,
+                "embedding_type": embedding_type,
+                "shape": list(array.shape),
+                "dtype": str(array.dtype),
+                "source_sequence": seq_id,
+            }
+            if dataset_name:
+                metadata["dataset"] = dataset_name
+
+            self.entity_registry.register_entity(
+                name=entity_name,
+                format_type=self.processor_type,
+                file_path=relative_path,
+                metadata=metadata,
+            )
+
+            try:
+                self.entity_registry.add_relationship(
+                    source_name=entity_name,
+                    target_name=seq_id,
+                    rel_type="derived_from",
+                    metadata={
+                        "model": self.model_name,
+                        "embedding_type": embedding_type,
+                    },
+                )
+            except ValueError:
+                # Source sequence not registered; skip relationship silently
+                pass
+
+            entity_names.append(entity_name)
+
+        return target_dir, entity_names
+
+    def _save_embeddings_dataset(
+        self,
+        embeddings: Dict[str, "torch.Tensor"],
+        sequences: Dict[str, str],
+        dataset_name: str,
+        embedding_type: str,
+        register_entities: bool = True,
+    ) -> None:
+        """Persist embeddings and register a dataset via the DatasetManager."""
+
+        dataset_dir, entity_names = self._persist_embeddings(
+            embeddings,
+            sequences,
+            embedding_type,
+            dataset_name=dataset_name,
+        )
+
+        dataset_metadata = {
             "model": self.model_name,
             "embedding_type": embedding_type,
-            "num_sequences": len(sequences),
-            "path": dataset_path
-        })
-        
-        # Register entities if requested
+            "entity_count": len(entity_names),
+            "embedding_dim": self.model_config["embedding_dim"],
+            "artifact_path": str(dataset_dir.relative_to(self.paths.data_root)),
+            "sequence_ids": list(sequences.keys()),
+        }
+
+        if self.dataset_manager.dataset_exists(dataset_name):
+            self.dataset_manager.delete_dataset(dataset_name)
+
+        self.create_dataset(dataset_name, entity_names, dataset_metadata)
+
         if register_entities:
-            self._register_embedding_entities(embeddings, sequences, embedding_type, dataset_name)
-        
-        self.logger.info(f"Saved embeddings dataset: {dataset_name}")
+            # Entities already registered during persistence. Nothing more to do.
+            pass
+
+        cached = {}
+        for seq_id, tensor in embeddings.items():
+            if _TORCH_AVAILABLE and torch.is_tensor(tensor):
+                cached[seq_id] = tensor.detach().cpu()
+            else:
+                cached[seq_id] = tensor
+
+        self._loaded_embeddings[dataset_name] = cached
+
+        self.logger.info(
+            "Saved embeddings dataset '%s' with %d entities", dataset_name, len(entity_names)
+        )
     
     def load_embeddings(self, dataset_name: str) -> Dict[str, "torch.Tensor"]:
         """
         Load embeddings from a saved dataset.
-        
+
         Note: Requires torch to be installed to load the tensors.
         """
-        if not _TORCH_AVAILABLE:
-            raise RuntimeError(
-                "Cannot load embeddings - PyTorch not installed.\n"
-                "Install with: pip install torch"
-            )
-        
         dataset_info = self.get_dataset_info(dataset_name)
         if not dataset_info:
             raise ValueError(f"Dataset not found: {dataset_name}")
-        
-        dataset_path = dataset_info["path"]
-        embeddings_file = os.path.join(dataset_path, "embeddings.pt")
-        
-        if not os.path.exists(embeddings_file):
-            raise FileNotFoundError(f"Embeddings file not found: {embeddings_file}")
-        
-        embeddings = torch.load(embeddings_file, map_location='cpu')
-        self.logger.info(f"Loaded {len(embeddings)} embeddings from {dataset_name}")
-        
+
+        embeddings: Dict[str, "torch.Tensor"] = {}
+
+        for entity in dataset_info.get("entities", []):
+            entity_name = entity.get("name")
+            if not entity_name:
+                continue
+            tensor = self.load_entity(entity_name)
+            if tensor is None:
+                continue
+
+            source_sequence = entity.get("metadata", {}).get("source_sequence")
+            # metadata isn't attached in dataset_info; fallback to registry lookup
+            if not source_sequence:
+                entity_info = self.entity_registry.find_entity(entity_name, self.processor_type)
+                if entity_info:
+                    source_sequence = entity_info.metadata.get("source_sequence")
+
+            key = source_sequence or entity_name
+            embeddings[key] = tensor
+
+        self._loaded_embeddings[dataset_name] = embeddings
+        self.logger.info("Loaded %d embeddings from dataset '%s'", len(embeddings), dataset_name)
+
         return embeddings
     
     def embed_from_fasta(self,
@@ -425,12 +558,10 @@ class EmbeddingProcessor(BaseProcessor):
         Returns:
             Dictionary mapping sequence IDs to embeddings
         """
-        if SeqProcessor is None:
-            raise ImportError("SeqProcessor not available. Cannot load FASTA files.")
-        
-        # Load sequences using SeqProcessor
-        seq_proc = SeqProcessor(name="temp_seq_loader")
-        sequences = seq_proc.load_sequences(fasta_path)
+        if not Path(fasta_path).exists():
+            raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
+
+        sequences = read_fasta(fasta_path)
         
         # Generate embeddings
         return self.embed_sequences(sequences, embedding_type, save_dataset)
@@ -441,13 +572,7 @@ class EmbeddingProcessor(BaseProcessor):
     
     def list_available_models(self) -> Dict[str, Dict[str, Any]]:
         """List all available models with their configurations."""
-        return {
-            name: {
-                "embedding_dim": config["embedding_dim"],
-                "description": config.get("description", "")
-            }
-            for name, config in self.MODEL_REGISTRY.items()
-        }
+        return self.available_models()
     
     def check_dependencies(self) -> Dict[str, bool]:
         """Check which dependencies are available."""
@@ -492,10 +617,30 @@ class EmbeddingProcessor(BaseProcessor):
         """
         if include_special_tokens:
             return embeddings
-        
+
         # Skip first (CLS) and last (EOS) tokens
         return embeddings[1:-1]
-    
+
+    def collapse_per_residue(
+        self,
+        per_residue_embedding: Any,
+        reduction: str = "mean",
+    ) -> Any:
+        """Aggregate per-residue embeddings into a single vector."""
+
+        array = self._to_numpy(per_residue_embedding)
+
+        if reduction == "mean":
+            aggregated = array.mean(axis=0)
+        elif reduction == "sum":
+            aggregated = array.sum(axis=0)
+        else:
+            raise ValueError(f"Unsupported reduction: {reduction}")
+
+        if _TORCH_AVAILABLE:
+            return torch.from_numpy(aggregated)
+        return aggregated
+
     def clear_cache(self):
         """Clear model from memory."""
         if self._model is not None:
@@ -508,124 +653,59 @@ class EmbeddingProcessor(BaseProcessor):
             torch.cuda.empty_cache()
         self.logger.info("Cleared model cache")
     
-    # Entity support methods
-    def _register_embedding_entities(self, 
-                                   embeddings: Dict[str, "torch.Tensor"],
-                                   sequences: Dict[str, str],
-                                   embedding_type: str,
-                                   dataset_name: Optional[str] = None):
-        """Register embeddings as entities."""
-        try:
-            from protos.io.data_access import GlobalRegistry
-            global_registry = GlobalRegistry()
-            
-            for seq_id in embeddings.keys():
-                # Use same entity ID as the source sequence
-                entity_id = generate_entity_id(seq_id)
-                
-                # Get embedding info
-                embedding = embeddings[seq_id]
-                if _TORCH_AVAILABLE:
-                    embedding_shape = list(embedding.shape)
-                else:
-                    embedding_shape = []
-                
-                # Register entity
-                global_registry.entity_registry.register_entity(
-                    entity_id=entity_id,
-                    entity_type="embedding",
-                    original_id=seq_id,
-                    file_path=None,  # Embeddings are in datasets/memory
-                    metadata={
-                        "model": self.model_name,
-                        "embedding_type": embedding_type,
-                        "shape": embedding_shape,
-                        "dataset": dataset_name,
-                        "sequence_length": len(sequences.get(seq_id, ""))
-                    },
-                    datasets=[dataset_name] if dataset_name else []
-                )
-            
-            self.logger.info(f"Registered {len(embeddings)} embedding entities")
-        except Exception as e:
-            self.logger.warning(f"Could not register embedding entities: {e}")
-    
     def load_embedding_entity(self, identifier: str) -> Optional["torch.Tensor"]:
         """
         Load a single embedding entity.
-        
+
         Args:
             identifier: Sequence identifier (name or entity hash)
-            
+
         Returns:
             Embedding tensor or None if not found
         """
         if not _TORCH_AVAILABLE:
             raise RuntimeError("Cannot load embeddings without torch installed")
-        
-        # Resolve identifier
-        try:
-            from protos.io.data_access import GlobalRegistry
-            global_registry = GlobalRegistry()
-            entity_id = global_registry.entity_registry.resolve_identifier(identifier, format_type="embedding")
-            
-            # Get original ID
-            original_id = global_registry.entity_registry.get_original_id(entity_id)
-            if not original_id:
-                original_id = identifier
-        except:
-            original_id = identifier
-        
-        # Check if we have embeddings loaded
-        if hasattr(self, '_loaded_embeddings'):
-            for dataset_embeddings in self._loaded_embeddings.values():
-                if original_id in dataset_embeddings:
-                    return dataset_embeddings[original_id]
-        
-        # Try to find which dataset contains this embedding
-        try:
-            global_registry = GlobalRegistry()
-            entity_info = global_registry.entity_registry.get_entity(entity_id)
-            if entity_info and 'embedding' in entity_info.get('formats', {}):
-                dataset = entity_info['formats']['embedding']['metadata'].get('dataset')
-                if dataset:
-                    # Load the dataset
-                    embeddings = self.load_embeddings(dataset)
-                    if original_id in embeddings:
-                        return embeddings[original_id]
-        except:
-            pass
-        
-        self.logger.warning(f"Embedding entity not found: {identifier}")
-        return None
+
+        entity_info = self.entity_registry.find_entity(identifier, self.processor_type)
+
+        if entity_info is None:
+            # Try resolving by source sequence metadata
+            for name in self.entity_registry.list_entities(self.processor_type):
+                info = self.entity_registry.find_entity(name, self.processor_type)
+                if info and info.metadata.get("source_sequence") == identifier:
+                    entity_info = info
+                    break
+
+        if entity_info is None:
+            self.logger.warning("Embedding entity not found: %s", identifier)
+            return None
+
+        file_path = Path(self.paths.data_root) / entity_info.file_path
+        if not file_path.exists():
+            self.logger.warning("Embedding file missing on disk: %s", file_path)
+            return None
+
+        with open(file_path, "rb") as handle:
+            payload = pickle.load(handle)
+
+        array = payload.get("embedding") if isinstance(payload, dict) else payload
+        if _TORCH_AVAILABLE:
+            return torch.from_numpy(np.asarray(array))
+        return np.asarray(array)
     
     def list_entities(self, dataset: Optional[str] = None) -> List[str]:
         """
         List all embedding entities.
-        
+
         Args:
             dataset: Optional dataset to filter by
-            
+
         Returns:
-            List of sequence IDs (not hash IDs!)
+            List of registered embedding entity names
         """
-        try:
-            from protos.io.data_access import GlobalRegistry
-            global_registry = GlobalRegistry()
-            entity_ids = global_registry.entity_registry.list_entities(
-                format_type="embedding",
-                dataset=dataset
-            )
-            
-            # Convert to original IDs
-            original_ids = []
-            for entity_id in entity_ids:
-                original_id = global_registry.entity_registry.get_original_id(entity_id)
-                if original_id:
-                    original_ids.append(original_id)
-            return original_ids
-        except:
-            return []
+        if dataset:
+            return self.dataset_manager.get_dataset_entities(dataset)
+        return self.entity_registry.list_entities(self.processor_type)
     
     def list_embedding_entities(self, dataset: Optional[str] = None) -> List[str]:
         """
@@ -641,63 +721,10 @@ class EmbeddingProcessor(BaseProcessor):
         """
         return self.list_entities(dataset=dataset)
     
-    def list_datasets(self) -> List[Dict[str, Any]]:
-        """
-        List available embedding datasets.
-        
-        Embedding datasets are collections of embeddings, typically organized by:
-        - Model type (ESM-2, ProtTrans, etc.)
-        - Embedding purpose (structural, functional, etc.)
-        - Source dataset (sequences from specific experiments)
-        
-        Returns:
-            List of dataset information dictionaries
-        """
-        datasets = []
-        
-        # Check dataset manager first
-        if self.dataset_manager:
-            return self.dataset_manager.list_datasets()
-        
-        # Otherwise, scan for embedding collections
-        embeddings_dir = self.get_subdirectory_path('embeddings')
-        
-        # Look for organized embedding directories
-        if embeddings_dir.exists():
-            # Check for model-based organization
-            for model_dir in embeddings_dir.iterdir():
-                if model_dir.is_dir():
-                    embedding_files = list(model_dir.glob("*.pkl")) + list(model_dir.glob("*.pt"))
-                    if embedding_files:
-                        datasets.append({
-                            'id': model_dir.name,
-                            'type': 'embedding_dataset',
-                            'model': model_dir.name,
-                            'embedding_count': len(embedding_files),
-                            'path': str(model_dir)
-                        })
-        
-        # Look for dataset JSON definitions
-        dataset_file = embeddings_dir / 'datasets.json'
-        if dataset_file.exists():
-            try:
-                with open(dataset_file, 'r') as f:
-                    dataset_defs = json.load(f)
-                    for dataset_id, dataset_info in dataset_defs.items():
-                        datasets.append({
-                            'id': dataset_id,
-                            'type': 'embedding_dataset',
-                            **dataset_info
-                        })
-            except:
-                pass
-        
-        return datasets
-    
     def load_entity(self, entity_id: str, format_type: str = "embedding") -> Optional[Any]:
         """
         Load an embedding entity by ID.
-        
+
         Args:
             entity_id: Human-readable entity ID (e.g., 'P12345')
             format_type: Format type (default: 'embedding')
@@ -705,26 +732,27 @@ class EmbeddingProcessor(BaseProcessor):
         Returns:
             Embedding tensor/array or None if not found
         """
-        if format_type != "embedding":
+        if format_type != self.processor_type:
             return None
-            
-        # Look for embedding file
-        embeddings_dir = self.get_subdirectory_path('embeddings')
-        
-        # Try different file formats
-        for ext in ['.npy', '.pkl', '.pt']:
-            embedding_file = embeddings_dir / f"{entity_id}{ext}"
-            if embedding_file.exists():
-                if ext == '.npy':
-                    return np.load(embedding_file)
-                elif ext == '.pkl':
-                    import pickle
-                    with open(embedding_file, 'rb') as f:
-                        return pickle.load(f)
-                elif ext == '.pt' and _TORCH_AVAILABLE:
-                    return torch.load(embedding_file)
-        
-        return None
+
+        entity_info = self.entity_registry.find_entity(entity_id, self.processor_type)
+        if entity_info is None:
+            return None
+
+        file_path = Path(self.paths.data_root) / entity_info.file_path
+        if not file_path.exists():
+            self.logger.warning("Embedding file missing on disk: %s", file_path)
+            return None
+
+        with open(file_path, "rb") as handle:
+            payload = pickle.load(handle)
+
+        array = payload.get("embedding") if isinstance(payload, dict) else payload
+        array = np.asarray(array)
+
+        if _TORCH_AVAILABLE:
+            return torch.from_numpy(array)
+        return array
     
     def save_entity(self, entity_id: str, data: Any, format_type: str = "embedding") -> bool:
         """
@@ -738,32 +766,16 @@ class EmbeddingProcessor(BaseProcessor):
         Returns:
             True if saved successfully
         """
-        if format_type != "embedding":
+        if format_type != self.processor_type:
             return False
-            
-        # Ensure embeddings directory exists
-        embeddings_dir = self.get_subdirectory_path('embeddings')
-        embeddings_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Convert to numpy array if torch tensor
-        if _TORCH_AVAILABLE and torch.is_tensor(data):
-            data = data.cpu().numpy()
-        
-        # Save as numpy array
-        embedding_file = embeddings_dir / f"{entity_id}.npy"
-        np.save(embedding_file, data)
-        
-        # Register entity if registry available
-        if self.entity_registry:
-            self.entity_registry.register_entity(
-                original_id=entity_id,
-                format_type="embedding",
-                file_path=embedding_file,
-                metadata={
-                    "shape": data.shape,
-                    "dtype": str(data.dtype),
-                    "model": self.model_name
-                }
-            )
-        
+
+        tensor_dict = {entity_id: data}
+        sequence_stub = {entity_id: ""}
+        self._persist_embeddings(
+            tensor_dict,
+            sequence_stub,
+            embedding_type="custom",
+            dataset_name=None,
+            entity_name_map={entity_id: entity_id},
+        )
         return True

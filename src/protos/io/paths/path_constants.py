@@ -79,7 +79,7 @@ DEFAULT_LIGAND_SUBDIRS = {
 
 # Default graph subdirectories
 DEFAULT_GRAPH_SUBDIRS = {
-    "networks_dir": "networks",      # Directory for network files
+    "graphs_dir": "graphs",          # Directory for persisted graph entities
     "analysis_dir": "analysis",      # Directory for graph analysis results
     "datasets_dir": "datasets"       # Directory for dataset definitions
 }
