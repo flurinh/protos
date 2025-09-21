@@ -97,8 +97,8 @@ def main():
             info = grn_embedding_map[grn]
             print(f"   GRN {grn}: {info['amino_acid']} at position {info['position']}")
     
-    # Step 7: Demonstrate batch processing
-    print("\n5. Batch processing multiple sequences...")
+    # Step 7: Demonstrate batch analysis
+    print("\n5. Batch analysis multiple sequences...")
     sequences = {
         "protein1": sequence[:20],
         "protein2": "ACDEFGHIKLMNPQRSTVWY",

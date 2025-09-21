@@ -27,9 +27,9 @@ import requests
 from tqdm import tqdm
 
 from protos.io import cif_utils
-from protos.core.base_processor import BaseProcessor
-from protos.processing.structure.struct_utils import (
-    load_structure as load_structure_util,
+from protos.io.core.base_processor import BaseProcessor
+from protos.io.formats.cif_utils import load_structure_from_cif
+from protos.io.formats.structure_schema import (
     STRUCT_COLUMNS,
     STRUCT_COLUMN_DTYPE,
     SORTED_STRUCT_COLUMNS,
@@ -72,7 +72,7 @@ class StructureProcessor(BaseProcessor):
             limit: Maximum number of PDB files to process
             preload: Whether to load pdb_ids on initialization
             remove_hetatm: Whether to remove HETATM records
-            allow_exception: Whether to allow exceptions during processing
+            allow_exception: Whether to allow exceptions during analysis
         """
         # Initialize BaseProcessor with ProtosPaths
         super().__init__(name=name, paths=paths)
@@ -83,7 +83,7 @@ class StructureProcessor(BaseProcessor):
         # Set up parameters
         self.pdb_ids_file = pdb_ids_file
             
-        # Configure processing options
+        # Configure analysis options
         self.limit = limit
         self.remove_hetatm = remove_hetatm
         self.allow_exception = allow_exception

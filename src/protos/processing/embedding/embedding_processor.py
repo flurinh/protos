@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Union, Optional, Any, Literal
 import warnings
 
-from protos.core.base_processor import BaseProcessor
+from protos.io.core.base_processor import BaseProcessor
 from protos.io.data_access import generate_entity_id
 
 # Check for optional dependencies

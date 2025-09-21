@@ -1,62 +1,63 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple, TYPE_CHECKING, Iterable, Set
 
 import pandas as pd
 import numpy as np
-import requests
 
-from protos.core.base_processor import BaseProcessor
-from protos.io.cif_utils import write_cif_file
-from protos.processing.structure.struct_utils import load_structure as load_structure_util, STRUCT_COLUMN_DTYPE
+from protos.io.core.base_processor import BaseProcessor
+from protos.io.formats.structure_schema import STRUCT_COLUMN_DTYPE, SORTED_STRUCT_COLUMNS
+
+if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
+    from .alignment_engine import StructureAlignmentEngine, AlignmentResult
 
 
 class StructureProcessor(BaseProcessor):
     """
     Structure processor with PKL-canonical architecture.
-    
+
     Key principles:
-    - PKL is the only canonical format (CIF is transient for ingest/export)
+    - PKL is the canonical on-disk format handled by the processor
     - Per-entity storage with MultiIndex (structure_id, atom_id)
     - Lazy stacking with frames dict and dirty flag
     - All paths via ProtosPaths, no hardcoding
     """
     
-    def __init__(
-        self,
-        name: str = "structure_processor",
-        paths=None,
-        processor_type: str = "structure",
-        **kwargs
-    ):
-        super().__init__(
-            name=name,
-            paths=paths,
-            processor_type=processor_type,
-            **kwargs
-        )
+    # Define processor type
+    processor_type = "structure"
+    
+    def __init__(self, name: str = "structure_processor"):
+        """
+        Initialize StructureProcessor - NO PATH PARAMETERS!
+        
+        Args:
+            name: Processor instance name
+        """
+        super().__init__(name=name)
         
         # Storage: dict of DataFrames with lazy stacking
         self.frames: Dict[str, pd.DataFrame] = {}
         self._data: Optional[pd.DataFrame] = None
         self._dirty: bool = False
-        
+        self._alignment_engine: Optional["StructureAlignmentEngine"] = None
+        self._sequence_loader = None
+
     # ---------- Path Properties ----------
-    
+
     @property
     def path_pkl_dir(self) -> Path:
         """Get PKL directory from ProtosPaths"""
         return Path(self.paths.get_subdir_path('structure', 'cache_dir'))
-    
+
     @property
     def path_cif_dir(self) -> Path:
         """Get CIF directory from ProtosPaths"""
         return Path(self.paths.get_subdir_path('structure', 'structure_dir'))
+
     
     @property
     def path_dataset_dir(self) -> Path:
@@ -67,13 +68,20 @@ class StructureProcessor(BaseProcessor):
     def path_temp_dir(self) -> Path:
         """Get temp directory from ProtosPaths"""
         return Path(self.paths.get_subdir_path('structure', 'temp_dir'))
-    
+
+    def _get_sequence_loader(self):
+        if self._sequence_loader is None:
+            from protos.io.ingest.sequence_loader import SequenceLoader
+
+            self._sequence_loader = SequenceLoader(name=f"{self.name}_chain_loader")
+        return self._sequence_loader
+
     # ---------- Core Methods ----------
     
     def _ensure_canonical(self, df: pd.DataFrame, structure_id: str) -> pd.DataFrame:
         """
         Transform any DataFrame to canonical form.
-        
+
         - Remove pdb_id column if exists (map to structure_id first)
         - Ensure structure_id and atom_id columns
         - Set MultiIndex (structure_id, atom_id)
@@ -83,46 +91,78 @@ class StructureProcessor(BaseProcessor):
         """
         df = df.copy()
         
+        # If DataFrame already stored in canonical form (MultiIndex), expose index as columns
+        if isinstance(df.index, pd.MultiIndex):
+            index_names = set(name or '' for name in df.index.names)
+            if {'structure_id', 'atom_id'}.issubset(index_names):
+                df = df.reset_index()
+
         # Map pdb_id to structure_id if needed
         if 'pdb_id' in df.columns and 'structure_id' not in df.columns:
             df['structure_id'] = df['pdb_id']
-        
+
         # Ensure structure_id column
         if 'structure_id' not in df.columns:
             df['structure_id'] = structure_id
-        
-        # Drop pdb_id if exists
-        if 'pdb_id' in df.columns:
-            df = df.drop(columns=['pdb_id'])
-        
-        # Ensure atom_id column
+
+        df['structure_id'] = df['structure_id'].fillna(structure_id).astype(str)
+
+        # Drop legacy columns we no longer track in canonical form
+        legacy_drop = {'pdb_id'}
+        existing_drop = [col for col in legacy_drop if col in df.columns]
+        if existing_drop:
+            df = df.drop(columns=existing_drop)
+
+        # Ensure atom_id column exists and is numeric
         if 'atom_id' not in df.columns:
             raise ValueError("DataFrame must contain 'atom_id' column")
-        
-        # Apply data types
-        for col, dtype in STRUCT_COLUMN_DTYPE.items():
-            if col in df.columns:
-                try:
-                    # Handle nullable integers
-                    if dtype == 'int' or dtype == int:
-                        df[col] = pd.array(df[col], dtype='Int64')
-                    else:
-                        df[col] = df[col].astype(dtype)
-                except Exception:
-                    pass
-        
-        # Ensure numeric coordinates
-        for coord in ['x', 'y', 'z']:
-            if coord in df.columns:
-                df[coord] = pd.to_numeric(df[coord], errors='coerce')
-        
-        # Ensure optional columns have defaults
+
+        atom_ids = pd.to_numeric(df['atom_id'], errors='coerce')
+        if atom_ids.isna().any():
+            raise ValueError("'atom_id' column contains non-numeric values")
+        df['atom_id'] = atom_ids.astype('Int64')
+
+        # Ensure all expected columns exist with sensible defaults
+        for column, dtype in STRUCT_COLUMN_DTYPE.items():
+            if column in ('structure_id', 'atom_id'):
+                continue
+            if column not in df.columns:
+                if dtype in (int, 'int'):
+                    df[column] = pd.Series(pd.NA, index=df.index, dtype='Int64')
+                elif dtype is float:
+                    df[column] = np.nan
+                else:
+                    df[column] = ''
+
+        # Apply dtypes consistently
+        for column, dtype in STRUCT_COLUMN_DTYPE.items():
+            if column not in df.columns:
+                continue
+            try:
+                if dtype in (int, 'int'):
+                    df[column] = pd.to_numeric(df[column], errors='coerce').astype('Int64')
+                elif dtype is float:
+                    df[column] = pd.to_numeric(df[column], errors='coerce')
+                else:
+                    df[column] = df[column].fillna('').astype(str)
+            except Exception:
+                # Leave column as-is if conversion fails; data will be handled upstream
+                pass
+
+        # Default values for optional textual columns
         if 'grn' in df.columns:
             df['grn'] = df['grn'].fillna('')
-        
-        # Set MultiIndex
+
+        # Reorder columns to canonical order before setting index
+        base_cols = ['structure_id', 'atom_id']
+        ordered_cols = [col for col in SORTED_STRUCT_COLUMNS if col not in base_cols and col in df.columns]
+        remaining_cols = [col for col in df.columns if col not in base_cols and col not in ordered_cols]
+        column_order = [col for col in base_cols if col in df.columns] + ordered_cols + remaining_cols
+        df = df[column_order]
+
+        # Set MultiIndex and ensure deterministic ordering
         df = df.set_index(['structure_id', 'atom_id']).sort_index()
-        
+
         return df
     
     def compute_content_hash(self, df: pd.DataFrame) -> str:
@@ -149,15 +189,14 @@ class StructureProcessor(BaseProcessor):
         content = df_hash.to_csv(index=False).encode('utf-8')
         return hashlib.sha256(content).hexdigest()
     
-    def load_entity(self, structure_id: str, *, auto_ingest: bool = True) -> Optional[pd.DataFrame]:
+    def load_entity(self, structure_id: str) -> Optional[pd.DataFrame]:
         """
-        PKL-first loading with auto-ingest fallback.
-        
+        Load a structure exclusively from registered PKL storage.
+
         1. Check if already in memory
         2. Try registry lookup (format_type="structure")
         3. Try PKL in cache dir (auto-register if found)
-        4. If auto_ingest and CIF exists: ingest_cif()
-        5. Update frames storage
+        4. Return None if nothing found
         """
         # Check memory first
         if structure_id in self.frames:
@@ -189,22 +228,13 @@ class StructureProcessor(BaseProcessor):
             except Exception as e:
                 self.logger.warning(f"Failed to load PKL from cache for {structure_id}: {e}")
         
-        # Try auto-ingest from CIF
-        if auto_ingest:
-            cif_path = self.path_cif_dir / f"{structure_id}.cif"
-            if cif_path.exists():
-                try:
-                    return self.ingest_cif(structure_id, cif_path)
-                except Exception as e:
-                    self.logger.error(f"Failed to auto-ingest CIF for {structure_id}: {e}")
-        
         return None
     
     def save_entity(
-        self, 
-        structure_id: str, 
-        df: pd.DataFrame, 
-        format: str = 'pkl', 
+        self,
+        structure_id: str,
+        df: pd.DataFrame,
+        format: str = 'pkl',
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """
@@ -218,7 +248,7 @@ class StructureProcessor(BaseProcessor):
         - Include metadata: source, hash, schema version
         """
         if format != 'pkl':
-            raise ValueError("Only 'pkl' format is allowed for save_entity. Use export_entity for other formats.")
+            raise ValueError("Only 'pkl' format is allowed for save_entity.")
         
         # Canonicalize
         df = self._ensure_canonical(df, structure_id)
@@ -241,81 +271,36 @@ class StructureProcessor(BaseProcessor):
         
         # Register
         self._register_entity(structure_id, pkl_path, entity_metadata)
-        
+
         # Update storage
         self._set_frame(structure_id, df)
-    
-    def ingest_cif(self, structure_id: str, cif_path: Optional[Path] = None) -> pd.DataFrame:
-        """
-        One-time CIF to PKL conversion.
-        
-        - Find CIF (provided path or use load_structure_util with folder)
-        - Parse using existing CIF parser
-        - Canonicalize DataFrame
-        - Save as PKL via save_entity()
-        - Update storage
-        """
-        if cif_path is not None:
-            # Use specific path provided
-            if not cif_path.exists():
-                raise FileNotFoundError(f"CIF file not found: {cif_path}")
-            # Extract folder and filename parts for load_structure_util
-            folder = str(cif_path.parent)
-            # Remove .cif extension for pdb_id
-            pdb_id = cif_path.stem
-            df = load_structure_util(pdb_id, folder=folder + '/')
-        else:
-            # Use standard location via ProtosPaths
-            folder = str(self.path_cif_dir) + '/'
-            df = load_structure_util(structure_id, folder=folder)
-        
-        # Save as PKL (will canonicalize and register)
-        self.save_entity(
-            structure_id, 
-            df, 
-            format='pkl',
-            metadata={
-                'source': 'cif_ingest',
-                'source_folder': folder
-            }
-        )
-        
-        return self.frames[structure_id]
-    
+
     def export_entity(
-        self, 
-        structure_id: str, 
-        format: str = 'cif', 
-        out_path: Optional[Path] = None
+        self,
+        name: str,
+        out_path: Path,
+        format: Optional[str] = None,
+        overwrite: bool = False
     ) -> Path:
-        """
-        Export PKL to other formats (no registration).
-        
-        - Load from PKL (must exist)
-        - Reset index for CIF compatibility
-        - Write CIF to structure dir
-        - Return path (no registry update)
-        """
-        if format != 'cif':
-            raise ValueError("Only 'cif' format is supported for export")
-        
-        # Load entity
-        df = self.load_entity(structure_id, auto_ingest=False)
-        if df is None:
-            raise ValueError(f"Structure {structure_id} not found in PKL storage")
-        
-        # Determine output path
-        if out_path is None:
-            out_path = self.path_cif_dir / f"{structure_id}.cif"
-        
-        # Reset index for CIF format
-        df_cif = df.reset_index()
-        
-        # Write CIF
-        write_cif_file(str(out_path), df_cif)
-        
-        return out_path
-    
+        exporter = self._get_exporter()
+        return exporter.export_entity(name, out_path, format=format, overwrite=overwrite)
+
+    def export_dataset(
+        self,
+        dataset_name: str,
+        output_dir: Path,
+        format: Optional[str] = None,
+        overwrite: bool = False,
+        name_pattern: Optional[str] = None,
+    ) -> Dict[str, Path]:
+        exporter = self._get_exporter()
+        return exporter.export_dataset(
+            dataset_name,
+            output_dir,
+            format=format,
+            overwrite=overwrite,
+            name_pattern=name_pattern,
+        )
     # ---------- Frame Management ----------
     
     def _set_frame(self, structure_id: str, df: pd.DataFrame):
@@ -338,35 +323,39 @@ class StructureProcessor(BaseProcessor):
         return self._data
     
     # ---------- Dataset Operations ----------
-    
+
+    def get_dataset(self, dataset_name: str) -> Dict[str, Any]:
+        """Return the raw dataset definition stored on disk."""
+        return self.dataset_manager.load_dataset(dataset_name)
+
+    def get_dataset_entities(self, dataset_name: str) -> List[str]:
+        """Expose dataset entity resolution with current human-readable names."""
+        return self.dataset_manager.get_dataset_entities(dataset_name)
+
     def load_dataset(self, dataset_name: str, return_format: str = 'stacked') -> Union[pd.DataFrame, Dict[str, pd.DataFrame]]:
         """
         Load all dataset members from individual PKLs.
-        
+
         - Get member list from dataset
-        - Load each via load_entity(auto_ingest=False)
+        - Load each via load_entity()
         - Update frames in bulk
         - Return stacked or dict format
         """
-        dataset = self.get_dataset(dataset_name)
-        if not dataset:
-            raise ValueError(f"Dataset '{dataset_name}' not found")
-        
-        structure_ids = dataset.get('entities', [])
-        
+        structure_ids = self.get_dataset_entities(dataset_name)
+
         # Load all structures
         for structure_id in structure_ids:
-            self.load_entity(structure_id, auto_ingest=False)
-        
+            self.load_entity(structure_id)
+
         if return_format == 'dict':
             return {sid: self.frames[sid] for sid in structure_ids if sid in self.frames}
         else:  # 'stacked'
             return self.data
     
     def save_dataset(
-        self, 
-        dataset_name: str, 
-        structure_ids: List[str], 
+        self,
+        dataset_name: str,
+        structure_ids: List[str],
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """
@@ -389,10 +378,22 @@ class StructureProcessor(BaseProcessor):
                 if not entity_info:
                     self.logger.warning(f"Structure {structure_id} not found for dataset {dataset_name}")
         
-        # Create logical dataset
+        # Create logical dataset definition via DatasetManager
         self.create_dataset(dataset_name, structure_ids, metadata or {})
-    
+
+    def delete_entity(self, name: str) -> bool:
+        """Delete entity and clear any cached frame."""
+        removed = super().delete_entity(name)
+        if removed:
+            self._remove_frame(name)
+        return removed
+
     # ---------- Utility Methods ----------
+
+    def _get_exporter(self):
+        from protos.io.export.structure_exporter import StructureExporter
+
+        return StructureExporter(self)
     
     def _register_entity(self, structure_id: str, file_path: Path, metadata: Dict[str, Any]) -> None:
         """Register entity with generic 'structure' format type"""
@@ -408,112 +409,1260 @@ class StructureProcessor(BaseProcessor):
     def structure_ids(self) -> List[str]:
         """Get list of loaded structure IDs"""
         return list(self.frames.keys())
+
+    @property
+    def alignment_engine(self) -> "StructureAlignmentEngine":
+        """Lazily instantiate the structure alignment engine."""
+
+        if self._alignment_engine is None:
+            from .alignment_engine import StructureAlignmentEngine
+
+            self._alignment_engine = StructureAlignmentEngine(self)
+        return self._alignment_engine
+
+    # ---------- Data Modification Methods ----------
     
-    # ---------- Download Method ----------
+    def delete_atoms(self, structure_id: str, atom_ids: List[int]) -> pd.DataFrame:
+        """
+        Delete specific atoms from structure.
+        
+        Args:
+            structure_id: Structure identifier
+            atom_ids: List of atom IDs to delete
+            
+        Returns:
+            Modified structure DataFrame
+        """
+        # Get structure from frames
+        if structure_id not in self.frames:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        else:
+            df = self.frames[structure_id].copy()
+        
+        # Delete atoms by filtering out the specified atom_ids
+        df = df[~df.index.get_level_values('atom_id').isin(atom_ids)]
+        
+        # Update frames
+        self._set_frame(structure_id, df)
+        
+        return df
     
-    def download_structure(
+    def delete_residues(self, structure_id: str, chain_id: str, residue_ids: List[int]) -> pd.DataFrame:
+        """
+        Delete specific residues from structure.
+        
+        Args:
+            structure_id: Structure identifier
+            chain_id: Chain identifier
+            residue_ids: List of residue IDs (auth_seq_id) to delete
+            
+        Returns:
+            Modified structure DataFrame
+        """
+        # Get structure
+        if structure_id not in self.frames:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        else:
+            df = self.frames[structure_id].copy()
+        
+        # Reset index to access columns
+        df_reset = df.reset_index()
+        
+        # Filter out specified residues
+        mask = ~((df_reset['auth_chain_id'] == chain_id) & 
+                 (df_reset['auth_seq_id'].isin(residue_ids)))
+        df_filtered = df_reset[mask]
+        
+        # Re-canonicalize
+        df_canonical = self._ensure_canonical(df_filtered, structure_id)
+        
+        # Update frames
+        self._set_frame(structure_id, df_canonical)
+        
+        return df_canonical
+    
+    def delete_chain(self, structure_id: str, chain_id: str) -> pd.DataFrame:
+        """
+        Delete entire chain from structure.
+        
+        Args:
+            structure_id: Structure identifier
+            chain_id: Chain ID to delete
+            
+        Returns:
+            Modified structure DataFrame
+        """
+        # Get structure
+        if structure_id not in self.frames:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        else:
+            df = self.frames[structure_id].copy()
+        
+        # Reset index to access chain column
+        df_reset = df.reset_index()
+        
+        # Filter out the specified chain
+        df_filtered = df_reset[df_reset['auth_chain_id'] != chain_id]
+        
+        # Re-canonicalize
+        df_canonical = self._ensure_canonical(df_filtered, structure_id)
+        
+        # Update frames
+        self._set_frame(structure_id, df_canonical)
+        
+        return df_canonical
+    
+    def filter_by_chain(
+        self,
+        structure_id: str,
+        chain_ids: List[str],
+        new_id: Optional[str] = None,
+        *,
+        register: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> pd.DataFrame:
+        """
+        Filter structure to keep only specified chains.
+        Creates a new structure entity.
+        
+        Args:
+            structure_id: Source structure identifier
+            chain_ids: List of chain IDs to keep
+            new_id: ID for filtered structure (auto-generated if not provided)
+            
+        Returns:
+            Filtered structure DataFrame
+        """
+        # Get structure
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
+        else:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        
+        # Reset index to filter
+        df_reset = df.reset_index()
+        
+        # Filter by chains
+        df_filtered = df_reset[df_reset['auth_chain_id'].isin(chain_ids)]
+        
+        if df_filtered.empty:
+            raise ValueError(f"No atoms found for chains {chain_ids}")
+        
+        # Create new structure ID if not provided
+        if new_id is None:
+            new_id = f"{structure_id}_chains_{''.join(sorted(chain_ids))}"
+        
+        # Ensure canonical form with new ID
+        df_canonical = self._ensure_canonical(df_filtered, new_id)
+        
+        # Save as new entity
+        self._set_frame(new_id, df_canonical)
+
+        if register:
+            self.save_entity(new_id, df_canonical, metadata=metadata)
+
+        return df_canonical
+
+    def filter_by_residue_range(
+        self,
+        structure_id: str,
+        chain_id: str,
+        start: int,
+        end: int,
+        new_id: Optional[str] = None,
+        *,
+        register: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> pd.DataFrame:
+        """
+        Filter structure to residue range.
+        Creates a new structure entity.
+        
+        Args:
+            structure_id: Source structure identifier
+            chain_id: Chain to filter
+            start: Start residue number (auth_seq_id)
+            end: End residue number (auth_seq_id)
+            new_id: ID for filtered structure
+            
+        Returns:
+            Filtered structure DataFrame
+        """
+        # Get structure
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
+        else:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        
+        # Reset index to filter
+        df_reset = df.reset_index()
+        
+        # Filter by residue range
+        mask = ((df_reset['auth_chain_id'] == chain_id) & 
+                (df_reset['auth_seq_id'] >= start) & 
+                (df_reset['auth_seq_id'] <= end))
+        df_filtered = df_reset[mask]
+        
+        if df_filtered.empty:
+            raise ValueError(f"No atoms found in range {start}-{end} for chain {chain_id}")
+        
+        # Create new ID if not provided
+        if new_id is None:
+            new_id = f"{structure_id}_{chain_id}_{start}_{end}"
+        
+        # Ensure canonical form
+        df_canonical = self._ensure_canonical(df_filtered, new_id)
+        
+        # Save as new entity
+        self._set_frame(new_id, df_canonical)
+
+        if register:
+            self.save_entity(new_id, df_canonical, metadata=metadata)
+
+        return df_canonical
+
+    def filter_structure(
         self,
         structure_id: str,
         *,
-        source: str = "rcsb",
-        save_to_cache: bool = True,
-        overwrite: bool = False,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Optional[pd.DataFrame]:
+        filters: Optional[Dict[str, Union[Any, Iterable[Any]]]] = None,
+        query: Optional[str] = None,
+        new_id: Optional[str] = None,
+        register: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> pd.DataFrame:
+        """Generic column-based filtering helper."""
+
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
+        else:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+
+        df_reset = df.reset_index()
+
+        if filters:
+            for column, value in filters.items():
+                if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+                    df_reset = df_reset[df_reset[column].isin(list(value))]
+                else:
+                    df_reset = df_reset[df_reset[column] == value]
+
+        if query:
+            df_reset = df_reset.query(query)
+
+        if df_reset.empty:
+            raise ValueError("Filtering removed all atoms; adjust filters or query")
+
+        target_id = new_id or structure_id
+        df_canonical = self._ensure_canonical(df_reset, target_id)
+        self._set_frame(target_id, df_canonical)
+
+        if register:
+            self.save_entity(target_id, df_canonical, metadata=metadata)
+
+        return df_canonical
+
+    def add_atoms(
+        self,
+        structure_id: str,
+        atoms: List[Dict[str, Any]],
+        *,
+        assign_new_ids: bool = True,
+        new_id: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Append atom records to the structure."""
+
+        if not atoms:
+            raise ValueError("No atoms provided")
+
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
+        else:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+
+        df_reset = df.reset_index()
+
+        target_id = new_id or structure_id
+        if target_id != structure_id:
+            df_reset = df_reset.copy()
+            df_reset['structure_id'] = target_id
+
+        next_atom_id = int(df_reset['atom_id'].max()) + 1 if not df_reset.empty else 1
+        prepared_rows = []
+        for atom in atoms:
+            row = dict(atom)
+            row['structure_id'] = target_id
+            if assign_new_ids or 'atom_id' not in row or pd.isna(row['atom_id']):
+                row['atom_id'] = next_atom_id
+                next_atom_id += 1
+            prepared_rows.append(row)
+
+        new_rows = pd.DataFrame(prepared_rows)
+        combined = pd.concat([df_reset, new_rows], ignore_index=True, sort=False)
+
+        df_canonical = self._ensure_canonical(combined, target_id)
+        self._set_frame(target_id, df_canonical)
+
+        return df_canonical
+
+    def annotate_structure(
+        self,
+        structure_id: str,
+        annotations: Dict[str, Any],
+        *,
+        new_id: Optional[str] = None,
+        register: bool = False,
+    ) -> pd.DataFrame:
+        """Apply structured annotations across structure/chain/residue/atom scopes.
+
+        The ``annotations`` payload supports the following optional keys:
+
+        * ``structure`` → {column: value} applied to all atoms.
+        * ``chains`` → {chain_id: {column: value}} scoped to chain identifiers.
+        * ``residues`` → {(chain_id, auth_seq_id) | "chain:res": {column: value}}.
+        * ``atoms`` → {atom_id: {column: value}} targeting specific atoms.
+
+        Unknown targets are ignored, allowing callers to pass best-effort data
+        without pre-validating against the structure.
         """
-        Download structure from remote source.
-        
-        Following the PKL-canonical approach:
-        - Download CIF to structure directory
-        - Ingest to PKL if save_to_cache=True
-        - Otherwise just parse and return canonicalized
+
+        if not annotations:
+            raise ValueError("No annotations provided")
+
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
+        else:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+
+        target_id = new_id or structure_id
+        df_reset = df.reset_index()
+        if target_id != structure_id:
+            df_reset = df_reset.copy()
+            df_reset['structure_id'] = target_id
+
+        def ensure_column(column: str) -> None:
+            if column not in df_reset.columns:
+                df_reset[column] = pd.NA
+
+        structure_payload = annotations.get('structure') or {}
+        for column, value in structure_payload.items():
+            ensure_column(column)
+            df_reset[column] = value
+
+        chain_payload = annotations.get('chains') or annotations.get('chain') or {}
+        for chain_id, column_map in chain_payload.items():
+            mask = df_reset['auth_chain_id'] == chain_id
+            if not mask.any():
+                continue
+            for column, value in column_map.items():
+                ensure_column(column)
+                df_reset.loc[mask, column] = value
+
+        residue_payload = annotations.get('residues') or annotations.get('residue') or {}
+        for key, column_map in residue_payload.items():
+            if isinstance(key, tuple):
+                if len(key) != 2:
+                    raise ValueError(f"Residue key tuple must have length 2: {key}")
+                chain_id, resid = key
+            else:
+                if ':' not in str(key):
+                    raise ValueError(f"Residue key '{key}' must be tuple or 'chain:resid'")
+                chain_id, resid = str(key).split(':', 1)
+            try:
+                resid_int = int(resid)
+            except ValueError as exc:
+                raise ValueError(f"Residue identifier must be integer: {resid}") from exc
+
+            mask = (
+                (df_reset['auth_chain_id'] == chain_id)
+                & (df_reset['auth_seq_id'] == resid_int)
+            )
+            if not mask.any():
+                continue
+            for column, value in column_map.items():
+                ensure_column(column)
+                df_reset.loc[mask, column] = value
+
+        atom_payload = annotations.get('atoms') or annotations.get('atom') or {}
+        for atom_id, column_map in atom_payload.items():
+            try:
+                atom_id_int = int(atom_id)
+            except ValueError as exc:
+                raise ValueError(f"Atom identifier must be integer: {atom_id}") from exc
+
+            mask = df_reset['atom_id'] == atom_id_int
+            if not mask.any():
+                continue
+            for column, value in column_map.items():
+                ensure_column(column)
+                df_reset.loc[mask, column] = value
+
+        df_canonical = self._ensure_canonical(df_reset, target_id)
+        self._set_frame(target_id, df_canonical)
+
+        if register:
+            self.save_entity(target_id, df_canonical)
+
+        return df_canonical
+
+    def add_ligand(
+        self,
+        structure_id: str,
+        ligand_code: str,
+        atoms: List[Dict[str, Any]],
+        *,
+        chain_id: str = 'L',
+        residue_id: Optional[int] = None,
+        insertion_code: str = '',
+    ) -> pd.DataFrame:
+        """Convenience wrapper for adding ligand atoms."""
+
+        if residue_id is None:
+            residue_id = self._next_residue_id(structure_id, chain_id)
+
+        ligand_atoms: List[Dict[str, Any]] = []
+        for atom in atoms:
+            row = dict(atom)
+            row.setdefault('auth_chain_id', chain_id)
+            row.setdefault('label_chain_id', chain_id)
+            row.setdefault('auth_seq_id', residue_id)
+            row.setdefault('label_seq_id', residue_id)
+            row.setdefault('res_name', ligand_code)
+            row.setdefault('res_name3l', ligand_code)
+            row.setdefault('group', 'HETATM')
+            row.setdefault('pdb_ins_code', insertion_code)
+            ligand_atoms.append(row)
+
+        return self.add_atoms(structure_id, ligand_atoms)
+
+    def _next_residue_id(self, structure_id: str, chain_id: str) -> int:
+        df = self.frames.get(structure_id)
+        if df is None:
+            df = self.load_entity(structure_id)
+            if df is None:
+                return 1
+        df_reset = df.reset_index()
+        mask = df_reset['auth_chain_id'] == chain_id
+        return int(df_reset[mask]['auth_seq_id'].max()) + 1 if mask.any() else 1
+
+    def reindex_atom_ids(
+        self,
+        structure_id: str,
+        *,
+        start: int = 1,
+        new_id: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Renumber atom_id sequentially starting from ``start``."""
+
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
+        else:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+
+        df_reset = df.reset_index()
+        df_reset['atom_id'] = range(start, start + len(df_reset))
+
+        target_id = new_id or structure_id
+        df_canonical = self._ensure_canonical(df_reset, target_id)
+        self._set_frame(target_id, df_canonical)
+
+        return df_canonical
+
+    def annotate_chain(
+        self,
+        structure_id: str,
+        chain_id: str,
+        column: str,
+        value: Any,
+        *,
+        default_value: Optional[Any] = None,
+        new_id: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Add or update a column for all atoms of ``chain_id``."""
+
+        annotations = {
+            'chains': {
+                chain_id: {column: value},
+            }
+        }
+
+        if default_value is not None:
+            annotations.setdefault('structure', {})[column] = default_value
+
+        return self.annotate_structure(
+            structure_id,
+            annotations,
+            new_id=new_id,
+            register=False,
+        )
+    
+    def remove_hetatm(self, structure_id: str) -> pd.DataFrame:
+        """
+        Remove HETATM records, keeping only ATOM records.
+        Modifies structure in place.
         
         Args:
-            structure_id: Structure identifier (PDB ID or UniProt ID)
-            source: 'rcsb' or 'alphafold'
-            save_to_cache: If True, save as PKL (default)
-            overwrite: If True, overwrite existing files
-            metadata: Additional metadata to store
+            structure_id: Structure identifier
             
         Returns:
-            DataFrame with structure data or None if download failed
+            Modified structure DataFrame
         """
-        # Check if already exists and not overwriting
-        if not overwrite and save_to_cache:
-            existing = self.load_entity(structure_id, auto_ingest=False)
-            if existing is not None:
-                self.logger.info(f"Structure {structure_id} already exists in cache")
-                return existing
+        # Get structure
+        if structure_id not in self.frames:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        else:
+            df = self.frames[structure_id].copy()
         
-        # Download to CIF directory
-        cif_path = self.path_cif_dir / f"{structure_id}.cif"
+        # Reset index to filter
+        df_reset = df.reset_index()
         
-        # Check if CIF exists and not overwriting
-        if cif_path.exists() and not overwrite:
-            if save_to_cache:
-                # Ingest existing CIF
-                return self.ingest_cif(structure_id, cif_path)
+        # Keep only ATOM records
+        df_filtered = df_reset[df_reset['group'] == 'ATOM']
+        
+        # Re-canonicalize
+        df_canonical = self._ensure_canonical(df_filtered, structure_id)
+        
+        # Update frames
+        self._set_frame(structure_id, df_canonical)
+        
+        return df_canonical
+    
+    def apply_transformation(
+        self, 
+        structure_id: str, 
+        rotation: Optional[np.ndarray] = None,
+        translation: Optional[np.ndarray] = None
+    ) -> pd.DataFrame:
+        """
+        Apply rotation and/or translation to structure coordinates.
+        
+        Args:
+            structure_id: Structure identifier
+            rotation: 3x3 rotation matrix (optional)
+            translation: 3D translation vector (optional)
+            
+        Returns:
+            Transformed structure DataFrame
+        """
+        # Get structure
+        if structure_id not in self.frames:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        else:
+            df = self.frames[structure_id].copy()
+        
+        # Get coordinates
+        coords = df[['x', 'y', 'z']].values
+        
+        # Apply rotation if provided
+        if rotation is not None:
+            if rotation.shape != (3, 3):
+                raise ValueError("Rotation must be a 3x3 matrix")
+            coords = coords @ rotation.T
+        
+        # Apply translation if provided
+        if translation is not None:
+            if translation.shape != (3,):
+                raise ValueError("Translation must be a 3D vector")
+            coords += translation
+        
+        # Update coordinates
+        df.loc[:, 'x'] = coords[:, 0]
+        df.loc[:, 'y'] = coords[:, 1]
+        df.loc[:, 'z'] = coords[:, 2]
+        
+        # Update frames
+        self._set_frame(structure_id, df)
+        
+        return df
+    
+    def assign_grns(self, structure_id: str, grn_mapping: Dict[Tuple[str, int], str]) -> pd.DataFrame:
+        """
+        Assign Generic Residue Numbers to structure residues.
+        
+        Args:
+            structure_id: Structure identifier
+            grn_mapping: Dict mapping (chain_id, auth_seq_id) to GRN string
+            
+        Returns:
+            Structure DataFrame with GRN assignments
+        """
+        # Get structure
+        if structure_id not in self.frames:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        else:
+            df = self.frames[structure_id].copy()
+        
+        # Reset index to access residue info
+        df_reset = df.reset_index()
+        
+        # Initialize grn column if not exists
+        if 'grn' not in df_reset.columns:
+            df_reset['grn'] = ''
+        
+        # Apply GRN mappings
+        for (chain_id, auth_seq_id), grn in grn_mapping.items():
+            mask = ((df_reset['auth_chain_id'] == chain_id) & 
+                    (df_reset['auth_seq_id'] == auth_seq_id))
+            df_reset.loc[mask, 'grn'] = grn
+        
+        # Re-canonicalize
+        df_canonical = self._ensure_canonical(df_reset, structure_id)
+        
+        # Update frames
+        self._set_frame(structure_id, df_canonical)
+        
+        return df_canonical
+    
+    def merge_structures(
+        self,
+        structure_ids: List[str],
+        new_id: str,
+        chain_mapping: Optional[Dict[str, str]] = None
+    ) -> pd.DataFrame:
+        """
+        Combine multiple structures into single multi-chain structure.
+        
+        Args:
+            structure_ids: List of structure IDs to merge
+            new_id: ID for the merged structure
+            chain_mapping: Optional mapping of original chain IDs to new chain IDs
+                          Format: {f"{structure_id}:{chain_id}": "new_chain_id"}
+            
+        Returns:
+            Merged structure DataFrame
+        """
+        if not structure_ids:
+            raise ValueError("No structures provided to merge")
+        
+        merged_dfs = []
+        used_chains = set()
+        
+        for struct_id in structure_ids:
+            # Load structure
+            if struct_id in self.frames:
+                df = self.frames[struct_id].copy()
             else:
-                # Just parse and return
-                folder = str(self.path_cif_dir) + '/'
-                df = load_structure_util(structure_id, folder=folder)
-                return self._ensure_canonical(df, structure_id)
+                df = self.load_entity(struct_id)
+                if df is None:
+                    raise ValueError(f"Structure {struct_id} not found")
+            
+            # Reset index to manipulate
+            df_reset = df.reset_index()
+            
+            # Apply chain mapping if provided
+            if chain_mapping:
+                for (chain_id, auth_seq_id), group in df_reset.groupby(['auth_chain_id', 'auth_seq_id']):
+                    mapping_key = f"{struct_id}:{chain_id}"
+                    if mapping_key in chain_mapping:
+                        new_chain = chain_mapping[mapping_key]
+                        df_reset.loc[group.index, 'auth_chain_id'] = new_chain
+                        df_reset.loc[group.index, 'label_chain_id'] = new_chain
+            else:
+                # Auto-rename chains to avoid conflicts
+                chains = df_reset['auth_chain_id'].unique()
+                for chain in chains:
+                    if chain in used_chains:
+                        # Find new chain name
+                        for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+                            if c not in used_chains:
+                                mask = df_reset['auth_chain_id'] == chain
+                                df_reset.loc[mask, 'auth_chain_id'] = c
+                                df_reset.loc[mask, 'label_chain_id'] = c
+                                used_chains.add(c)
+                                break
+                    else:
+                        used_chains.add(chain)
+            
+            merged_dfs.append(df_reset)
         
-        # Download URL mapping
-        if source == "rcsb":
-            # Use existing download_structures utility
-            from protos.loaders.download_structures import download_structures_with_processor
-            successful, failed = download_structures_with_processor(
-                pdb_ids=[structure_id],
-                processor=self,
-                overwrite=overwrite
-            )
-            
-            if structure_id.lower() in failed:
-                self.logger.error(f"Failed to download {structure_id} from RCSB")
-                return None
-                
-        elif source == "alphafold":
-            # Use existing alphafold_utils
-            from protos.loaders.alphafold_utils import download_alphafold_with_processor
-            download_alphafold_with_processor(
-                uid=structure_id,
-                processor=self,
-                max_models=1  # Just get v4 model
-            )
-            
-            # Check if download succeeded
-            expected_file = self.path_cif_dir / f"AF-{structure_id}-F1-model_v4.cif"
-            if not expected_file.exists():
-                self.logger.error(f"Failed to download {structure_id} from AlphaFold")
-                return None
-            # Use the AlphaFold filename
-            cif_path = expected_file
-            
+        # Concatenate all structures
+        merged_df = pd.concat(merged_dfs, ignore_index=True)
+        
+        # Ensure canonical form with new structure ID
+        df_canonical = self._ensure_canonical(merged_df, new_id)
+        
+        # Save merged structure
+        self._set_frame(new_id, df_canonical)
+
+        return df_canonical
+
+    # ---------- Sequence Extraction & Registration ----------
+
+    def collect_chain_sequences(
+        self,
+        structure_ids: Union[str, Iterable[str]],
+        *,
+        chain_filter: Optional[Union[Iterable[str], Dict[str, Iterable[str]]]] = None,
+        one_letter: bool = True,
+        min_length: int = 1,
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Collect per-chain sequences for the provided structures without registering them."""
+
+        from protos.analysis.structure.sequence import extract_all_sequences
+
+        if isinstance(structure_ids, str):
+            structure_list = [structure_ids]
         else:
-            raise ValueError(f"Unknown source: {source}")
-        
-        # Process the downloaded file
-        if save_to_cache:
-            # Parse and save with download metadata
-            folder = str(self.path_cif_dir) + '/'
-            df = load_structure_util(structure_id, folder=folder)
-            self.save_entity(
-                structure_id,
-                df,
-                metadata={
-                    'source': source,
-                    'source_file': str(cif_path),
-                    'downloaded_at': datetime.utcnow().isoformat(),
-                    **(metadata or {})
+            structure_list = list(structure_ids)
+
+        filter_map: Dict[str, Optional[Set[str]]] = {}
+        if chain_filter is None:
+            filter_map = {sid: None for sid in structure_list}
+        elif isinstance(chain_filter, dict):
+            for sid, chains in chain_filter.items():
+                if isinstance(chains, str):
+                    filter_map[sid] = {chains}
+                elif chains is None:
+                    filter_map[sid] = None
+                else:
+                    filter_map[sid] = set(chains)
+        else:
+            if isinstance(chain_filter, str):
+                chain_set = {chain_filter}
+            else:
+                chain_set = set(chain_filter)
+            filter_map = {sid: chain_set for sid in structure_list}
+
+        collected: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+        for structure_id in structure_list:
+            df = self.frames.get(structure_id)
+            if df is None:
+                df = self.load_entity(structure_id)
+            if df is None:
+                self.logger.warning(f"Structure {structure_id} not found while collecting chain sequences")
+                continue
+
+            sequences = extract_all_sequences(df, one_letter=one_letter, min_length=min_length)
+
+            allowed_chains = filter_map.get(structure_id)
+            if allowed_chains is not None:
+                sequences = {cid: seq for cid, seq in sequences.items() if cid in allowed_chains}
+
+            df_reset = df.reset_index()
+            chain_payloads: Dict[str, Dict[str, Any]] = {}
+
+            for chain_id, sequence in sequences.items():
+                chain_df = df_reset[df_reset['auth_chain_id'] == chain_id]
+                residue_series = chain_df['auth_seq_id'].dropna()
+                start_res = int(residue_series.min()) if not residue_series.empty else None
+                end_res = int(residue_series.max()) if not residue_series.empty else None
+
+                entity_name = self._make_chain_entity_name(structure_id, chain_id)
+                residue_span = [start_res, end_res] if start_res is not None and end_res is not None else None
+
+                chain_payloads[chain_id] = {
+                    'entity_name': entity_name,
+                    'sequence': sequence,
+                    'length': len(sequence),
+                    'residue_span': residue_span,
+                    'metadata': {
+                        'structure_id': structure_id,
+                        'chain_id': chain_id,
+                        'sequence_length': len(sequence),
+                        'residue_span': residue_span,
+                    },
                 }
+
+            collected[structure_id] = chain_payloads
+
+        return collected
+
+    def register_chain_sequences(
+        self,
+        structure_ids: Union[str, Iterable[str]],
+        *,
+        chain_filter: Optional[Union[Iterable[str], Dict[str, Iterable[str]]]] = None,
+        one_letter: bool = True,
+        min_length: int = 1,
+        semantic_role: str = 'chain_sequence',
+        dataset_prefix: Optional[str] = None,
+        create_dataset: bool = True,
+        overwrite: bool = False,
+    ) -> Dict[str, Dict[str, Any]]:
+        """Register chain sequences for the selected structures and emit relationships."""
+
+        collected = self.collect_chain_sequences(
+            structure_ids,
+            chain_filter=chain_filter,
+            one_letter=one_letter,
+            min_length=min_length,
+        )
+
+        structure_list = [structure_ids] if isinstance(structure_ids, str) else list(structure_ids)
+
+        loader = self._get_sequence_loader()
+        summary: Dict[str, Dict[str, Any]] = {}
+
+        for structure_id in structure_list:
+            chains = collected.get(structure_id, {})
+            if not chains:
+                summary[structure_id] = {
+                    'chains': {},
+                    'registered_entities': [],
+                    'dataset': None,
+                }
+                continue
+
+            records = []
+            for chain_id, payload in chains.items():
+                metadata = dict(payload['metadata'])
+                metadata['semantic_role'] = semantic_role
+                metadata['source_processor'] = self.processor_type
+
+                records.append({
+                    'name': payload['entity_name'],
+                    'sequence': payload['sequence'],
+                    'metadata': metadata,
+                })
+
+            dataset_name = None
+            if create_dataset:
+                if dataset_prefix:
+                    dataset_name = f"{dataset_prefix}_{structure_id}"
+                else:
+                    dataset_name = f"{structure_id}_chains"
+
+            dataset_metadata = {
+                'structure_id': structure_id,
+                'semantic_role': semantic_role,
+                'chain_count': len(records),
+            }
+
+            registration = loader.register_sequence_records(
+                records,
+                dataset_name=dataset_name,
+                dataset_metadata=dataset_metadata,
+                overwrite=overwrite,
             )
-            return self.frames[structure_id]
+
+            for chain_id, payload in chains.items():
+                seq_name = payload['entity_name']
+                rel_metadata = {
+                    'chain_id': chain_id,
+                    'structure_id': structure_id,
+                    'sequence_length': payload['length'],
+                    'residue_span': payload['residue_span'],
+                    'semantic_role': semantic_role,
+                }
+                self.entity_registry.add_relationship(
+                    seq_name,
+                    structure_id,
+                    'derived_from',
+                    metadata=rel_metadata,
+                )
+
+            summary[structure_id] = {
+                'chains': chains,
+                'registered_entities': registration.get('entities', []),
+                'dataset': registration.get('dataset'),
+            }
+
+        return summary
+
+    def _make_chain_entity_name(self, structure_id: str, chain_id: str) -> str:
+        sanitized_chain = chain_id.replace(' ', '_')
+        return f"{structure_id}_chain_{sanitized_chain}"
+
+    def list_related_sequences(
+        self,
+        structure_ids: Optional[Union[str, Iterable[str]]] = None,
+        *,
+        rel_type: str = 'derived_from',
+        direction: str = 'incoming',
+        include_unloaded: bool = False,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Expose related sequence entities for the given structures."""
+
+        if structure_ids is None:
+            if include_unloaded:
+                structure_ids = self.list_entities()
+            else:
+                structure_ids = self.structure_ids
+
+        return self.resolve_related_entities(
+            structure_ids,
+            rel_type=rel_type,
+            direction=direction,
+            format_type='sequence',
+        )
+
+    def list_dataset_related_sequences(
+        self,
+        dataset_name: str,
+        *,
+        rel_type: str = 'derived_from',
+        direction: str = 'incoming',
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """List related sequence entities for every structure in a dataset."""
+
+        return self.resolve_related_entities_for_dataset(
+            dataset_name,
+            rel_type=rel_type,
+            direction=direction,
+            format_type='sequence',
+        )
+
+    def align_structures(
+        self,
+        structure_ids: List[str],
+        reference_id: str,
+        method: str = 'cealign',
+        atom_selection: str = 'CA',
+        apply_transform: bool = True,
+        chain_id: Optional[str] = None,
+        cealign_window: int = 8,
+        cealign_max_gap: int = 30,
+    ) -> Tuple[Dict[str, Dict[str, float]], Dict[str, 'AlignmentResult']]:
+        """Align ``structure_ids`` against ``reference_id``.
+
+        Returns a nested dictionary mapping target→reference→RMSD along with
+        the detailed :class:`AlignmentResult` objects.
+        """
+
+        mobile_ids = [sid for sid in structure_ids if sid != reference_id]
+        rmsd_map, results = self.align_all_to_reference(
+            reference_id,
+            mobile_ids,
+            method=method,
+            atom_selection=atom_selection,
+            apply_transform=apply_transform,
+            chain_id=chain_id,
+            cealign_window=cealign_window,
+            cealign_max_gap=cealign_max_gap,
+        )
+        return rmsd_map, results
+
+    def align_pair(
+        self,
+        reference_id: str,
+        mobile_id: str,
+        *,
+        method: str = 'cealign',
+        atom_selection: str = 'CA',
+        apply_transform: bool = True,
+        chain_id: Optional[str] = None,
+        cealign_window: int = 8,
+        cealign_max_gap: int = 30,
+    ) -> Optional['AlignmentResult']:
+        """Align a single mobile structure against a reference."""
+
+        results = self.alignment_engine.align(
+            [mobile_id],
+            reference_id,
+            method=method,
+            atom_selection=atom_selection,
+            chain_id=chain_id,
+            apply_transform=apply_transform,
+            cealign_window=cealign_window,
+            cealign_max_gap=cealign_max_gap,
+        )
+        return results.get(mobile_id)
+
+    def align_all_to_reference(
+        self,
+        reference_id: str,
+        structure_ids: List[str],
+        *,
+        method: str = 'cealign',
+        atom_selection: str = 'CA',
+        apply_transform: bool = True,
+        chain_id: Optional[str] = None,
+        cealign_window: int = 8,
+        cealign_max_gap: int = 30,
+    ) -> Tuple[Dict[str, Dict[str, float]], Dict[str, 'AlignmentResult']]:
+        """Align every structure in ``structure_ids`` to the reference."""
+
+        targets = [sid for sid in structure_ids if sid != reference_id]
+        raw_results = self.alignment_engine.align(
+            targets,
+            reference_id,
+            method=method,
+            atom_selection=atom_selection,
+            chain_id=chain_id,
+            apply_transform=apply_transform,
+            cealign_window=cealign_window,
+            cealign_max_gap=cealign_max_gap,
+        )
+
+        rmsd_map: Dict[str, Dict[str, float]] = {}
+        for struct_id, result in raw_results.items():
+            rmsd = result.rmsd if result.error is None else float('nan')
+            rmsd_map.setdefault(struct_id, {})[reference_id] = rmsd
+
+        return rmsd_map, raw_results
+
+    def align_one_vs_all(
+        self,
+        reference_id: str,
+        candidates: List[str],
+        **kwargs: Any,
+    ) -> Tuple[Optional[str], Optional['AlignmentResult'], Dict[str, 'AlignmentResult']]:
+        """Align reference against candidates and return the best match."""
+
+        rmsd_map, results = self.align_all_to_reference(
+            reference_id,
+            candidates,
+            **kwargs,
+        )
+
+        best_id: Optional[str] = None
+        best_result: Optional['AlignmentResult'] = None
+        for struct_id, result in results.items():
+            if result.error:
+                continue
+            if best_result is None or result.rmsd < best_result.rmsd:
+                best_id = struct_id
+                best_result = result
+
+        return best_id, best_result, results
+
+    def align_all_vs_reference(
+        self,
+        reference_id: str,
+        structure_ids: List[str],
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Dict[str, float]], Dict[str, 'AlignmentResult']]:
+        """Alias for :meth:`align_all_to_reference` for readability."""
+
+        return self.align_all_to_reference(reference_id, structure_ids, **kwargs)
+
+    def align_all_vs_all(
+        self,
+        structure_ids: List[str],
+        *,
+        method: str = 'cealign',
+        atom_selection: str = 'CA',
+        apply_transform: bool = False,
+        chain_id: Optional[str] = None,
+        cealign_window: int = 8,
+        cealign_max_gap: int = 30,
+    ) -> Tuple[Dict[str, Dict[str, float]], Dict[Tuple[str, str], 'AlignmentResult']]:
+        """Perform all-vs-all alignments and return an RMSD mapping."""
+
+        order = list(structure_ids)
+        rmsd_map: Dict[str, Dict[str, float]] = {sid: {} for sid in order}
+        pair_results: Dict[Tuple[str, str], 'AlignmentResult'] = {}
+
+        for i, reference_id in enumerate(order):
+            rmsd_map[reference_id][reference_id] = 0.0
+            for j in range(i + 1, len(order)):
+                mobile_id = order[j]
+                result = self.align_pair(
+                    reference_id,
+                    mobile_id,
+                    method=method,
+                    atom_selection=atom_selection,
+                    apply_transform=apply_transform,
+                    chain_id=chain_id,
+                    cealign_window=cealign_window,
+                    cealign_max_gap=cealign_max_gap,
+                )
+                pair_results[(mobile_id, reference_id)] = result
+                pair_results[(reference_id, mobile_id)] = result
+                rmsd = float('nan')
+                if result is not None and result.error is None:
+                    rmsd = result.rmsd
+                rmsd_map[mobile_id][reference_id] = rmsd
+                rmsd_map[reference_id][mobile_id] = rmsd
+
+        return rmsd_map, pair_results
+    
+    def orient_structure(
+        self,
+        structure_id: str,
+        method: str = 'principal_axes',
+        axis_order: Optional[List[int]] = None
+    ) -> pd.DataFrame:
+        """
+        Orient structure using standard methods.
+        
+        Args:
+            structure_id: Structure identifier
+            method: Orientation method:
+                   - 'principal_axes': Align to principal axes of inertia
+                   - 'membrane_normal': Orient with membrane normal as Z axis
+            axis_order: For principal_axes, order of axes mapping [0,1,2]
+            
+        Returns:
+            Oriented structure DataFrame
+        """
+        # Get structure
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
         else:
-            # Just parse and return canonicalized
-            folder = str(self.path_cif_dir) + '/'
-            df = load_structure_util(structure_id, folder=folder)
-            return self._ensure_canonical(df, structure_id)
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        
+        if method == 'principal_axes':
+            # Calculate center of mass
+            from protos.analysis.structure.geometry import calculate_center_of_mass
+            com = calculate_center_of_mass(df)
+            
+            # Center structure
+            coords = df[['x', 'y', 'z']].values
+            centered_coords = coords - com
+            
+            # Calculate inertia tensor
+            I = np.zeros((3, 3))
+            for coord in centered_coords:
+                I[0, 0] += coord[1]**2 + coord[2]**2
+                I[1, 1] += coord[0]**2 + coord[2]**2
+                I[2, 2] += coord[0]**2 + coord[1]**2
+                I[0, 1] -= coord[0] * coord[1]
+                I[0, 2] -= coord[0] * coord[2]
+                I[1, 2] -= coord[1] * coord[2]
+            
+            I[1, 0] = I[0, 1]
+            I[2, 0] = I[0, 2]
+            I[2, 1] = I[1, 2]
+            
+            # Get principal axes (eigenvectors)
+            eigenvalues, eigenvectors = np.linalg.eig(I)
+            
+            # Sort by eigenvalue (largest to smallest)
+            idx = eigenvalues.argsort()[::-1]
+            eigenvalues = eigenvalues[idx]
+            eigenvectors = eigenvectors[:, idx]
+            
+            # Apply axis ordering if specified
+            if axis_order:
+                eigenvectors = eigenvectors[:, axis_order]
+            
+            # Create rotation matrix to align principal axes with coordinate axes
+            rotation = eigenvectors.T
+            
+            # Apply transformation (translate to origin, rotate, translate back)
+            df_oriented = self.apply_transformation(
+                structure_id, rotation=rotation, translation=-com
+            )
+            
+            # Translate back to original COM position
+            df_oriented = self.apply_transformation(
+                structure_id, translation=com
+            )
+            
+        elif method == 'membrane_normal':
+            from protos.analysis.structure.membrane import calculate_membrane_normal
+            
+            # Calculate membrane normal
+            normal = calculate_membrane_normal(df)
+            
+            # Create rotation to align normal with Z axis
+            z_axis = np.array([0, 0, 1])
+            from protos.analysis.structure.geometry import calculate_rotation_matrix
+            rotation = calculate_rotation_matrix(normal, z_axis)
+            
+            # Apply rotation
+            df_oriented = self.apply_transformation(structure_id, rotation=rotation)
+            
+        else:
+            raise ValueError(f"Unknown orientation method: {method}")
+        
+        # Update frames
+        self._set_frame(structure_id, df_oriented)
+        
+        return df_oriented
+    
+    def renumber_residues(
+        self,
+        structure_id: str,
+        start: int = 1,
+        by_chain: bool = True,
+        keep_mapping: bool = True
+    ) -> pd.DataFrame:
+        """
+        Renumber residues sequentially.
+        
+        Args:
+            structure_id: Structure identifier
+            start: Starting residue number
+            by_chain: If True, restart numbering for each chain
+            keep_mapping: If True, stores old->new mapping in metadata
+            
+        Returns:
+            Structure with renumbered residues
+        """
+        # Get structure
+        if structure_id in self.frames:
+            df = self.frames[structure_id]
+        else:
+            df = self.load_entity(structure_id)
+            if df is None:
+                raise ValueError(f"Structure {structure_id} not found")
+        
+        # Reset index to access all data
+        df_reset = df.reset_index()
+        
+        # Create mapping
+        residue_mapping = {}
+        
+        if by_chain:
+            # Renumber each chain separately
+            for chain_id in df_reset['auth_chain_id'].unique():
+                chain_mask = df_reset['auth_chain_id'] == chain_id
+                chain_residues = df_reset[chain_mask]['auth_seq_id'].unique()
+                chain_residues = sorted(chain_residues)
+                
+                # Create mapping for this chain
+                for i, old_resid in enumerate(chain_residues):
+                    new_resid = start + i
+                    residue_mapping[(chain_id, old_resid)] = new_resid
+                    
+                    # Apply to dataframe
+                    mask = chain_mask & (df_reset['auth_seq_id'] == old_resid)
+                    df_reset.loc[mask, 'auth_seq_id'] = new_resid
+                    df_reset.loc[mask, 'label_seq_id'] = new_resid
+        else:
+            # Global renumbering
+            all_residues = df_reset.groupby(['auth_chain_id', 'auth_seq_id']).size()
+            
+            for i, (chain_id, old_resid) in enumerate(all_residues.index):
+                new_resid = start + i
+                residue_mapping[(chain_id, old_resid)] = new_resid
+                
+                # Apply to dataframe
+                mask = ((df_reset['auth_chain_id'] == chain_id) & 
+                        (df_reset['auth_seq_id'] == old_resid))
+                df_reset.loc[mask, 'auth_seq_id'] = new_resid
+                df_reset.loc[mask, 'label_seq_id'] = new_resid
+        
+        # Re-canonicalize
+        df_canonical = self._ensure_canonical(df_reset, structure_id)
+        
+        # Update frames
+        self._set_frame(structure_id, df_canonical)
+        
+        # Store mapping in metadata if requested
+        if keep_mapping:
+            self.logger.info(f"Residue renumbering mapping: {residue_mapping}")
+        
+        return df_canonical
     
     # ---------- Deprecation Warnings ----------
     
@@ -531,8 +1680,5 @@ class StructureProcessor(BaseProcessor):
     def save_structure(self, name: str, structure_df: pd.DataFrame, **kwargs) -> None:
         """Deprecated: use save_entity or export_entity"""
         warnings.warn("save_structure is deprecated, use save_entity or export_entity", DeprecationWarning, stacklevel=2)
-        # Check if user wants non-PKL format
-        if 'format' in kwargs and kwargs['format'] != 'pkl':
-            self.export_entity(name, format=kwargs['format'])
-        else:
-            self.save_entity(name, structure_df, metadata=kwargs.get('metadata'))
+        # Always save as PKL (no other formats supported)
+        self.save_entity(name, structure_df, metadata=kwargs.get('metadata'))

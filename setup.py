@@ -64,7 +64,7 @@ setup(
     version="0.1.0",
     author="flurinh",
     author_email="hidberf@gmail.com",
-    description="A protein data processing library",
+    description="A protein data analysis library",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="[Repository URL]",

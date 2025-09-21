@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import Optional
 
 from protos.io.paths import ProtosPaths
-from protos.io.entity_registry import EntityRegistry
-from protos.io.dataset_manager import DatasetManager
+from protos.io.core.entity_registry import EntityRegistry
+from protos.io.core.dataset_manager import DatasetManager
 
 
 class MigrationTestBase(unittest.TestCase):

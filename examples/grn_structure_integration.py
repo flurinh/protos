@@ -47,7 +47,7 @@ from protos.processing.grn.grn_utils import (
 from protos.processing.grn.grn_table_utils import (
     init_row_from_alignment, expand_annotation
 )
-from protos.loaders.download_structures import download_protein_structures
+from protos.io.ingest.download_structures import download_protein_structures
 
 # Configure logging
 logging.basicConfig(

@@ -10,7 +10,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.loaders import qm9_loader, ccd_loader
+from protos.io.ingest import qm9_loader, ccd_loader
 
 # Test directories
 test_dir = Path(__file__).parent / "test_data" / "databases"

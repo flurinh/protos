@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.io.paths.path_config import ProtosPaths
-from protos.loaders import qm9_loader
+from protos.io.ingest import qm9_loader
 
 def test_qm9_quick():
     """Test QM9 loader with existing extracted files."""

@@ -391,7 +391,7 @@ def main():
                         formatted,
                         max_alignment_gap=1,
                         protein_family='microbial_opsins',
-                        verbose=0  # Quiet mode for batch processing
+                        verbose=0  # Quiet mode for batch analysis
                     )
                     
                     # Create final row

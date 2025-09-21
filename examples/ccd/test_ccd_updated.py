@@ -10,7 +10,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.loaders import ccd_loader
+from protos.io.ingest import ccd_loader
 
 # CCD directory
 ccd_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/data/ligand/databases/ccd")

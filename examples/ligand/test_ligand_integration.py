@@ -69,7 +69,7 @@ def test_ligand_integration():
     # 3. Test Enamine integration (will fail without credentials)
     print("\n3. Testing Enamine Integration...")
     try:
-        from protos.loaders import enamine_loader
+        from protos.io.ingest import enamine_loader
         
         # List available datasets
         datasets = enamine_loader.list_available_datasets()

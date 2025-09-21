@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.processing.ligand import LigandProcessor
-from protos.loaders import qm9_loader, ccd_loader
+from protos.io.ingest import qm9_loader, ccd_loader
 
 # Set up test environment
 test_data_root = Path(__file__).parent / "test_data"

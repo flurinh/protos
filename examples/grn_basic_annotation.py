@@ -212,7 +212,7 @@ def main():
         # Find best matching reference
         query_dict = {seq_id: query_seq}
         
-        # Skip MMseqs2 for faster processing - just use direct alignment
+        # Skip MMseqs2 for faster analysis - just use direct alignment
         best_ref, best_score = None, -float('inf')
         
         for ref_name, ref_seq in ref_sequences.items():

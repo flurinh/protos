@@ -91,7 +91,7 @@ print("  ...")
 
 # Test 6: Check Enamine credentials
 print("\n=== Enamine Credentials ===")
-from protos.loaders import enamine_loader
+from protos.io.ingest import enamine_loader
 username, password = enamine_loader.get_enamine_credentials()
 if username:
     print(f"✓ Credentials found for: {username}")

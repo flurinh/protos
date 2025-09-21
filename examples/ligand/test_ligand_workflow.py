@@ -20,7 +20,7 @@ from protos.io.paths.path_config import ProtosPaths
 from protos.processing.ligand import LigandProcessor
 from protos.processing.property import PropertyProcessor
 from protos.processing.structure import StructureProcessor
-from protos.loaders.download_structures import download_structures_with_processor
+from protos.io.ingest.download_structures import download_structures_with_processor
 from protos.analysis.structure_ligand_analysis import (
     extract_all_ligands,
     get_binding_site,

@@ -40,7 +40,7 @@ print(f"enamine_password: {'SET' if password2 else 'NOT SET'}")
 
 # Now test through the loader
 print("\n=== Testing through Enamine loader ===")
-from protos.loaders import enamine_loader
+from protos.io.ingest import enamine_loader
 
 username, password = enamine_loader.get_enamine_credentials()
 print(f"Credentials found: {bool(username and password)}")

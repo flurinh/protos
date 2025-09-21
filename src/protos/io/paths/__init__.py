@@ -17,7 +17,6 @@ from .path_constants import (
     DEFAULT_GRN_SUBDIRS,
     DEFAULT_SEQUENCE_SUBDIRS,
     ENV_DATA_ROOT,
-    DEFAULT_REGISTRY_FILENAME,
     DEFAULT_GLOBAL_REGISTRY_FILENAME
 )
 
@@ -29,7 +28,9 @@ from .path_config import (
     get_structure_path,
     get_grn_path,
     get_sequence_path,
-    get_dataset_path
+    get_dataset_path,
+    get_protos_paths,
+    set_protos_paths
 )
 
 # Define the __all__ list to properly expose all public elements
@@ -46,12 +47,13 @@ __all__ = [
     'DEFAULT_GRN_SUBDIRS',
     'DEFAULT_SEQUENCE_SUBDIRS',
     'ENV_DATA_ROOT',
-    'DEFAULT_REGISTRY_FILENAME',
     'DEFAULT_GLOBAL_REGISTRY_FILENAME',
 
     # Path Configuration
     'ProtosPaths',
     'ensure_directory',
+    'get_protos_paths',
+    'set_protos_paths',
 
     # Path Resolution
     'resolve_path',

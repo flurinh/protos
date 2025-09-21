@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.io.paths.path_config import ProtosPaths
-from protos.loaders import ccd_loader_unified as ccd_loader
+from protos.io.ingest import ccd_loader_unified as ccd_loader
 
 # Set up paths
 data_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/data")

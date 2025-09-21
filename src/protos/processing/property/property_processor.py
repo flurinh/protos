@@ -1,332 +1,380 @@
-#!/usr/bin/env python3
-"""
-Fixed PropertyProcessor that treats properties as tables/DataFrames.
+"""PropertyProcessor: registry-aware tabular property storage.
 
-This version:
-- Works with entire property tables (DataFrames) at once
-- Each row is an entity
-- Each column is a property
-- Saves the entire table efficiently without per-cell logging
+This processor treats property tables as datasets (CSV files) and
+records each row as a property entry that annotates an existing entity.
 """
 
-import logging
-import pandas as pd
+from __future__ import annotations
+
+import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
+from typing import Any, Dict, Iterable, List, Optional, Sequence
+
+import pandas as pd
 import json
 
-from protos.core.base_processor import BaseProcessor
+from protos.io.core.base_processor import BaseProcessor
 
-logger = logging.getLogger(__name__)
+
+PROPERTY_ENTRY_ID = "property_entry_id"
+ENTITY_NAME = "entity_name"
+SCOPE_COLUMN = "scope"
+
+
+def _normalize_scope(value: Any) -> List[Dict[str, str]]:
+    if isinstance(value, str):
+        value = json.loads(value)
+    if not isinstance(value, Iterable):
+        raise ValueError("scope must be a list of {format, name} mappings")
+    normalized: List[Dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError("Each scope entry must be a dict with 'format' and 'name'")
+        fmt = item.get("format")
+        name = item.get("name")
+        if not name:
+            raise ValueError("Scope entry missing 'name'")
+        normalized.append({"format": fmt, "name": name})
+    if not normalized:
+        raise ValueError("Scope list cannot be empty")
+    return normalized
 
 
 class PropertyProcessor(BaseProcessor):
-    """
-    Processor for managing properties as tables.
-    
-    Properties are stored as DataFrames where:
-    - Each row represents an entity (indexed by entity ID)
-    - Each column represents a property
-    - Each table is a dataset
-    """
-    
-    def __init__(self, name: str = "property_processor", paths=None):
-        """Initialize PropertyProcessor."""
-        super().__init__(name=name, paths=paths)
-        self.processor_type = "property"
-        
-        # Store property tables as DataFrames
-        self.property_tables: Dict[str, pd.DataFrame] = {}
-        
-        # Ensure directories exist
-        self._ensure_directories()
-    
-    def _ensure_directories(self):
-        """Ensure required directories exist."""
-        # ProtosPaths handles directory creation automatically
-        # We just need to use the proper subdirectory paths
-        pass
-    
-    def create_property_table(self, 
-                            dataset_name: str,
-                            data: Union[pd.DataFrame, Dict[str, Dict[str, Any]]],
-                            metadata: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
-        """
-        Create a new property table.
-        
-        Args:
-            dataset_name: Name for the dataset/table
-            data: Either a DataFrame or dict of {entity_id: {prop: value}}
-            metadata: Optional metadata for the dataset
-            
-        Returns:
-            The created property table as DataFrame
-        """
-        # Convert to DataFrame if needed
-        if isinstance(data, dict):
-            df = pd.DataFrame.from_dict(data, orient='index')
+    """Manage property tables and relationships to existing entities."""
+
+    processor_type = "property"
+
+    def __init__(self, name: str = "property_processor") -> None:
+        super().__init__(name=name)
+        self._table_cache: Dict[str, pd.DataFrame] = {}
+
+    # ------------------------------------------------------------------
+    # Path helpers
+    # ------------------------------------------------------------------
+    @property
+    def tables_dir(self) -> Path:
+        return Path(self.get_subdirectory_path("tables_dir"))
+
+    @property
+    def datasets_dir(self) -> Path:
+        return Path(self.get_subdirectory_path("datasets_dir"))
+
+    def _table_path(self, table_name: str) -> Path:
+        return self.tables_dir / f"{table_name}.csv"
+
+    def _relative_path(self, path: Path) -> str:
+        return str(path.relative_to(self.paths.data_root))
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def record_properties(
+        self,
+        table_name: str,
+        rows: Sequence[Dict[str, Any]] | pd.DataFrame,
+        *,
+        metadata: Optional[Dict[str, Any]] = None,
+        allow_create: bool = False,
+    ) -> pd.DataFrame:
+        """Insert rows into a property table and register relationships."""
+
+        if isinstance(rows, pd.DataFrame):
+            new_df = rows.copy()
         else:
-            df = data.copy()
-        
-        # Ensure index is named properly
-        if df.index.name is None:
-            df.index.name = 'entity_id'
-        
-        # Store the table
-        self.property_tables[dataset_name] = df
-        
-        # Save to disk
-        self.save_property_table(dataset_name, metadata=metadata)
-        
-        logger.info(f"Created property table '{dataset_name}' with {len(df)} entities and {len(df.columns)} properties")
-        
-        return df
-    
-    def save_property_table(self, dataset_name: str, metadata: Optional[Dict[str, Any]] = None):
-        """
-        Save a property table to disk.
-        
-        Args:
-            dataset_name: Name of the dataset to save
-            metadata: Optional metadata to save with the dataset
-        """
-        if dataset_name not in self.property_tables:
-            logger.warning(f"Dataset '{dataset_name}' not found")
-            return
-        
-        df = self.property_tables[dataset_name]
-        
-        # Save CSV table
-        tables_dir = self.get_subdirectory_path('tables_dir')
-        csv_path = tables_dir / f"{dataset_name}.csv"
-        df.to_csv(csv_path)
-        
-        # Save metadata
-        if metadata is not None:
-            datasets_dir = self.get_subdirectory_path('datasets_dir')
-            metadata_path = datasets_dir / f"{dataset_name}.json"
-            dataset_info = {
-                'name': dataset_name,
-                'metadata': metadata,
-                'shape': list(df.shape),
-                'properties': df.columns.tolist(),
-                'entities': df.index.tolist(),
-                'table_file': f"../tables/{dataset_name}.csv"
-            }
-            
-            with open(metadata_path, 'w') as f:
-                json.dump(dataset_info, f, indent=2)
-        
-        logger.info(f"Saved property table '{dataset_name}' to {csv_path}")
-    
-    def load_property_table(self, dataset_name: str) -> pd.DataFrame:
-        """
-        Load a property table from disk.
-        
-        Args:
-            dataset_name: Name of the dataset to load
-            
-        Returns:
-            The loaded property table as DataFrame
-        """
-        # Check if already loaded
-        if dataset_name in self.property_tables:
-            return self.property_tables[dataset_name]
-        
-        # Load from CSV
-        tables_dir = self.get_subdirectory_path('tables_dir')
-        csv_path = tables_dir / f"{dataset_name}.csv"
-        if not csv_path.exists():
-            raise FileNotFoundError(f"Property table '{dataset_name}' not found at {csv_path}")
-        
-        df = pd.read_csv(csv_path, index_col=0)
-        self.property_tables[dataset_name] = df
-        
-        logger.info(f"Loaded property table '{dataset_name}' with {len(df)} entities and {len(df.columns)} properties")
-        
-        return df
-    
-    def add_property_column(self, dataset_name: str, property_name: str, 
-                           values: Union[pd.Series, Dict[str, Any], Any]):
-        """
-        Add a new property column to an existing table.
-        
-        Args:
-            dataset_name: Dataset to update
-            property_name: Name of the new property
-            values: Values for the property (Series, dict, or scalar)
-        """
-        if dataset_name not in self.property_tables:
-            raise ValueError(f"Dataset '{dataset_name}' not found")
-        
-        df = self.property_tables[dataset_name]
-        
-        # Add the new column
-        if isinstance(values, pd.Series):
-            df[property_name] = values
-        elif isinstance(values, dict):
-            df[property_name] = pd.Series(values)
+            new_df = pd.DataFrame(list(rows))
+
+        if new_df.empty:
+            raise ValueError("No property rows provided")
+        if SCOPE_COLUMN not in new_df.columns:
+            raise ValueError("Each property row must include 'scope'")
+
+        table = self._load_table(table_name)
+        existing_ids = set(table[PROPERTY_ENTRY_ID]) if not table.empty else set()
+
+        entry_ids: List[str] = []
+        scopes: List[List[Dict[str, str]]] = []
+        for idx, row in new_df.iterrows():
+            scope_items = _normalize_scope(row[SCOPE_COLUMN])
+            scopes.append(scope_items)
+
+            entity_name = row.get(ENTITY_NAME) or scope_items[-1]["name"]
+            new_df.at[idx, ENTITY_NAME] = entity_name
+
+            for scope_item in scope_items:
+                fmt = scope_item.get("format")
+                name = scope_item["name"]
+                entity_info = self.entity_registry.find_entity(name, fmt)
+                if not entity_info:
+                    if not allow_create:
+                        raise ValueError(
+                            f"Entity '{name}' (format={fmt}) not found; set allow_create=True to create placeholder"
+                        )
+                    self.entity_registry.register_entity(
+                        name=name,
+                        format_type=fmt or self.processor_type,
+                        file_path="",
+                        metadata={"placeholder": True},
+                    )
+
+            entry_id = row.get(PROPERTY_ENTRY_ID)
+            if not entry_id or str(entry_id).strip() == "":
+                entry_id = self._generate_entry_id(table_name)
+            entry_id = str(entry_id)
+            while entry_id in existing_ids or entry_id in entry_ids:
+                entry_id = self._generate_entry_id(table_name)
+
+            entry_ids.append(entry_id)
+            new_df.at[idx, PROPERTY_ENTRY_ID] = entry_id
+
+        new_df[SCOPE_COLUMN] = scopes
+        updated = pd.concat([table, new_df], ignore_index=True)
+        updated[PROPERTY_ENTRY_ID] = updated[PROPERTY_ENTRY_ID].astype(str)
+        self._write_table(table_name, updated)
+
+        artifact_rel = self._relative_path(self._table_path(table_name))
+
+        registered_entry_ids: List[str] = []
+        for entry_id, scope_items in zip(entry_ids, scopes):
+            row_index = updated.index[updated[PROPERTY_ENTRY_ID] == entry_id][0]
+            self.entity_registry.register_entity(
+                name=entry_id,
+                format_type=self.processor_type,
+                file_path=artifact_rel,
+                metadata={"table": table_name, "row_index": int(row_index)},
+            )
+            for scope_index, scope_item in enumerate(scope_items):
+                self.entity_registry.add_relationship(
+                    source_name=entry_id,
+                    target_name=scope_item["name"],
+                    rel_type="annotated_by",
+                    metadata={
+                        "table": table_name,
+                        "row_index": int(row_index),
+                        "scope_index": scope_index,
+                        "scope_format": scope_item.get("format"),
+                    },
+                )
+            registered_entry_ids.append(entry_id)
+
+        dataset_metadata = {
+            "artifact_path": artifact_rel,
+            "row_count": len(updated),
+            "columns": updated.columns.tolist(),
+        }
+        if metadata:
+            dataset_metadata.update(metadata)
+
+        if self.dataset_manager.dataset_exists(table_name):
+            if registered_entry_ids:
+                self.dataset_manager.add_to_dataset(table_name, registered_entry_ids)
+            self.dataset_manager.update_metadata(table_name, dataset_metadata)
         else:
-            # Scalar value - apply to all entities
-            df[property_name] = values
-        
-        # Save updated table
-        self.save_property_table(dataset_name)
-        
-        logger.info(f"Added property '{property_name}' to dataset '{dataset_name}'")
-    
-    def get_property_table(self, dataset_name: str) -> pd.DataFrame:
-        """Get a property table."""
-        if dataset_name not in self.property_tables:
-            return self.load_property_table(dataset_name)
-        return self.property_tables[dataset_name]
-    
-    def filter_by_property(self, dataset_name: str, property_name: str, 
-                          condition: callable) -> pd.DataFrame:
-        """
-        Filter entities by property value.
-        
-        Args:
-            dataset_name: Dataset to filter
-            property_name: Property to filter by
-            condition: Function that takes a value and returns True/False
-            
-        Returns:
-            Filtered DataFrame
-        """
-        df = self.get_property_table(dataset_name)
-        
-        if property_name not in df.columns:
-            raise ValueError(f"Property '{property_name}' not found in dataset")
-        
-        mask = df[property_name].apply(condition)
-        return df[mask]
-    
-    def merge_property_tables(self, dataset_names: List[str], 
-                             output_name: str, 
-                             how: str = 'outer') -> pd.DataFrame:
-        """
-        Merge multiple property tables.
-        
-        Args:
-            dataset_names: List of datasets to merge
-            output_name: Name for the merged dataset
-            how: Merge method ('outer', 'inner', 'left', 'right')
-            
-        Returns:
-            Merged DataFrame
-        """
-        if not dataset_names:
-            raise ValueError("No datasets provided to merge")
-        
-        # Load all tables
-        tables = [self.get_property_table(name) for name in dataset_names]
-        
-        # Merge progressively
-        merged = tables[0]
-        for table in tables[1:]:
-            merged = merged.join(table, how=how, rsuffix='_dup')
-        
-        # Remove duplicate columns
-        merged = merged.loc[:, ~merged.columns.duplicated()]
-        
-        # Save as new dataset
-        self.property_tables[output_name] = merged
-        self.save_property_table(output_name)
-        
-        logger.info(f"Merged {len(dataset_names)} datasets into '{output_name}' "
-                   f"with {len(merged)} entities and {len(merged.columns)} properties")
-        
-        return merged
-    
-    def get_entity_properties(self, entity_id: str, dataset_name: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Get all properties for an entity.
-        
-        Args:
-            entity_id: Entity ID
-            dataset_name: Specific dataset to query (or all if None)
-            
-        Returns:
-            Dictionary of property names to values
-        """
-        if dataset_name:
-            df = self.get_property_table(dataset_name)
-            if entity_id in df.index:
-                return df.loc[entity_id].to_dict()
-            return {}
-        else:
-            # Search all datasets
-            all_props = {}
-            for name in self.list_datasets():
-                df = self.get_property_table(name)
-                if entity_id in df.index:
-                    all_props.update(df.loc[entity_id].to_dict())
-            return all_props
-    
+            self.create_dataset(table_name, registered_entry_ids, dataset_metadata)
+
+        return updated
+
+    def load_table(self, table_name: str) -> pd.DataFrame:
+        return self._load_table(table_name).copy()
+
+    def get_properties(
+        self,
+        entity_name: str,
+        *,
+        table_name: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Return property rows associated with an entity."""
+
+        if table_name:
+            table = self._load_table(table_name)
+            if table.empty:
+                return table
+            return table[table[ENTITY_NAME] == entity_name].copy()
+
+        relationships = self.entity_registry.get_relationships(
+            entity_name,
+            rel_type="annotated_by",
+            direction="incoming",
+        )
+        rows: List[pd.DataFrame] = []
+        for rel in relationships:
+            rel_meta = rel.get("metadata", {})
+            table = rel_meta.get("table")
+            row_index = rel_meta.get("row_index")
+            if table is None:
+                continue
+            table_df = self._load_table(table)
+            if row_index is not None and 0 <= row_index < len(table_df):
+                rows.append(table_df.iloc[[row_index]])
+            else:
+                subset = table_df[table_df[ENTITY_NAME] == entity_name]
+                if not subset.empty:
+                    rows.append(subset)
+
+        if rows:
+            return pd.concat(rows, ignore_index=True)
+        return pd.DataFrame(columns=[PROPERTY_ENTRY_ID, ENTITY_NAME])
+
+    def list_tables(self) -> List[str]:
+        return self.dataset_manager.list_datasets()
+
     def list_datasets(self) -> List[str]:
-        """List all available property datasets."""
-        # From memory
-        datasets = list(self.property_tables.keys())
-        
-        # From disk
-        tables_dir = self.get_subdirectory_path('tables_dir')
-        if tables_dir.exists():
-            for csv_file in tables_dir.glob("*.csv"):
-                dataset_name = csv_file.stem
-                if dataset_name not in datasets:
-                    datasets.append(dataset_name)
-        
-        return sorted(datasets)
-    
-    # Implement abstract methods from BaseProcessor
-    def save_entity(self, name: str, data: Any, metadata: Optional[dict] = None):
-        """Save entity data."""
-        # For PropertyProcessor, entities are rows in tables
-        logger.warning("PropertyProcessor manages entities as rows in tables. "
-                      "Use create_property_table or add_property_column instead.")
-    
-    def load_entity(self, name: str) -> Optional[Any]:
-        """Load entity data."""
-        # For PropertyProcessor, entities are rows in tables
-        logger.warning("PropertyProcessor manages entities as rows in tables. "
-                      "Use get_property_table to access entity properties.")
+        """Expose dataset listings via the dataset manager."""
+        return super().list_datasets()
+
+    # ------------------------------------------------------------------
+    # Abstract method implementations
+    # ------------------------------------------------------------------
+    def load_entity(self, name: str) -> Optional[Dict[str, Any]]:
+        entry_info = self.entity_registry.find_entity(name, self.processor_type)
+        if not entry_info:
+            return None
+        metadata = entry_info.metadata or {}
+        table_name = metadata.get("table")
+        row_index = metadata.get("row_index")
+        if table_name is None:
+            return None
+        table = self._load_table(table_name)
+        if row_index is not None and 0 <= row_index < len(table):
+            return table.iloc[int(row_index)].to_dict()
+        match = table[table[PROPERTY_ENTRY_ID] == name]
+        if not match.empty:
+            return match.iloc[0].to_dict()
         return None
-    
-    # Compatibility methods for old API
-    def assign_property(self, entity_identifier: str, property_name: str, 
-                       property_value: Any, dataset_name: str = "default", **kwargs):
-        """
-        Assign a single property value (compatibility method).
-        
-        This method provides compatibility with the old API but uses
-        the new table-based approach internally.
-        """
-        # Get or create the dataset
-        if dataset_name in self.property_tables:
-            df = self.property_tables[dataset_name]
+
+    def save_entity(
+        self,
+        name: str,
+        data: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not isinstance(data, dict):
+            raise ValueError("PropertyProcessor.save_entity expects a dict")
+        if ENTITY_NAME not in data:
+            raise ValueError("Property entity data must include 'entity_name'")
+        table_name = (metadata or {}).get("table", "default_properties")
+        row = dict(data)
+        row[PROPERTY_ENTRY_ID] = name
+        self.record_properties(
+            table_name,
+            [row],
+            metadata=metadata,
+            allow_create=metadata.get("allow_create", False) if metadata else False,
+        )
+
+    # ------------------------------------------------------------------
+    # Compatibility helpers
+    # ------------------------------------------------------------------
+    def create_property_table(
+        self,
+        table_name: str,
+        data: pd.DataFrame | Sequence[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]] = None,
+        allow_create: bool = False,
+    ) -> pd.DataFrame:
+        table_file = self._table_path(table_name)
+        if table_file.exists():
+            table_file.unlink()
+        self._table_cache.pop(table_name, None)
+        return self.record_properties(
+            table_name,
+            data,
+            metadata=metadata,
+            allow_create=allow_create,
+        )
+
+    def load_property_table(self, table_name: str) -> pd.DataFrame:
+        return self.load_table(table_name)
+
+    def save_property_table(
+        self,
+        table_name: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        table = self._load_table(table_name)
+        self._write_table(table_name, table)
+        artifact_rel = self._relative_path(self._table_path(table_name))
+        dataset_metadata = {
+            "artifact_path": artifact_rel,
+            "row_count": len(table),
+            "columns": table.columns.tolist(),
+        }
+        if metadata:
+            dataset_metadata.update(metadata)
+        if self.dataset_manager.dataset_exists(table_name):
+            self.dataset_manager.update_metadata(table_name, dataset_metadata)
         else:
-            # Create empty DataFrame with proper structure
-            df = pd.DataFrame(columns=[], index=pd.Index([], name='entity_id'))
-            self.property_tables[dataset_name] = df
-        
-        # Ensure the property column exists
-        if property_name not in df.columns:
-            df[property_name] = pd.Series(dtype='object')
-        
-        # Add the entity if it doesn't exist
-        if entity_identifier not in df.index:
-            # Add new row with NaN values
-            df.loc[entity_identifier] = pd.NA
-        
-        # Set the property value
-        df.loc[entity_identifier, property_name] = property_value
-        
-        # Save
-        self.save_property_table(dataset_name)
-        
-        return entity_identifier
-    
-    def load_property_dataset(self, dataset_name: str) -> pd.DataFrame:
-        """Load a property dataset (alias for load_property_table)."""
-        return self.load_property_table(dataset_name)
+            self.create_dataset(table_name, [], dataset_metadata)
+
+    def add_property_column(
+        self,
+        table_name: str,
+        property_name: str,
+        values: Any,
+    ) -> pd.DataFrame:
+        table = self._load_table(table_name)
+        if isinstance(values, pd.Series):
+            table[property_name] = values
+        elif isinstance(values, dict):
+            table[property_name] = pd.Series(values)
+        else:
+            table[property_name] = values
+        self._write_table(table_name, table)
+        self.save_property_table(table_name)
+        return table
+
+    def filter_by_property(
+        self,
+        table_name: str,
+        property_name: str,
+        condition,
+    ) -> pd.DataFrame:
+        table = self._load_table(table_name)
+        if property_name not in table.columns:
+            raise ValueError(f"Property '{property_name}' not found in table '{table_name}'")
+        return table[table[property_name].apply(condition)]
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _write_table(self, table_name: str, df: pd.DataFrame) -> None:
+        storage_df = df.copy()
+        if SCOPE_COLUMN in storage_df.columns:
+            storage_df[SCOPE_COLUMN] = storage_df[SCOPE_COLUMN].apply(json.dumps)
+        storage_df.to_csv(self._table_path(table_name), index=False)
+        cache_df = df.copy()
+        if SCOPE_COLUMN in cache_df.columns:
+            cache_df[SCOPE_COLUMN] = cache_df[SCOPE_COLUMN].apply(_normalize_scope)
+        self._table_cache[table_name] = cache_df
+
+    # ------------------------------------------------------------------
+    # Internal utilities
+    # ------------------------------------------------------------------
+    def _load_table(self, table_name: str) -> pd.DataFrame:
+        if table_name in self._table_cache:
+            return self._table_cache[table_name]
+
+        table_path = self._table_path(table_name)
+        if not table_path.exists():
+            df = pd.DataFrame(columns=[PROPERTY_ENTRY_ID, ENTITY_NAME, SCOPE_COLUMN])
+            self._table_cache[table_name] = df
+            return df
+
+        df = pd.read_csv(table_path)
+        if SCOPE_COLUMN in df.columns:
+            df[SCOPE_COLUMN] = df[SCOPE_COLUMN].apply(json.loads)
+        if PROPERTY_ENTRY_ID not in df.columns:
+            df.insert(0, PROPERTY_ENTRY_ID, pd.Series(dtype=str))
+        if ENTITY_NAME not in df.columns:
+            df.insert(1, ENTITY_NAME, pd.Series(dtype=str))
+        self._table_cache[table_name] = df
+        return df
+
+    def _load_table_columns(self) -> List[str]:
+        df = self._table_cache.get(next(iter(self._table_cache), ""))
+        if df is not None:
+            return df.columns.tolist()
+        return [PROPERTY_ENTRY_ID, ENTITY_NAME, SCOPE_COLUMN]
+
+    def _generate_entry_id(self, table_name: str) -> str:
+        return f"{table_name}#{uuid.uuid4().hex[:8]}"

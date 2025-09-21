@@ -10,7 +10,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.loaders.ccd_index_builder import build_ccd_index_with_gemmi
+from protos.io.ingest.ccd_index_builder import build_ccd_index_with_gemmi
 
 # CCD paths
 ccd_dir = Path("/mnt/c/Users/hidbe/PycharmProjects/protos/data/ligand/databases/ccd")

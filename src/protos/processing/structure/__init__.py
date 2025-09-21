@@ -1,5 +1,5 @@
 """
-Structure processing modules for protein structure analysis.
+Structure analysis modules for protein structure analysis.
 
 This package provides tools for working with protein structures,
 including loading, filtering, and analyzing structural data.

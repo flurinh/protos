@@ -238,7 +238,7 @@ def example_batch_processing():
     model = StandardModel("esm2", "esm2_t6_8M")
     
     # Create dataset of proteins to process
-    print("Creating dataset for batch processing...")
+    print("Creating dataset for batch analysis...")
     proteins = ["BACR_HALSA", "ChR2", "NpHR", "C1C2"]
     
     model.create_dataset(

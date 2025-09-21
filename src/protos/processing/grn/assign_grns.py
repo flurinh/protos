@@ -58,7 +58,7 @@ def annotate_sequence(query_id, query_seq, new_row, protein_family):
             print(f"Missing GRNs in {query_id}: {missing}")
             return query_id, dict(zip(grns, rns))
     except Exception as e:
-        print(f"Error in processing {query_id}: {str(e)}")
+        print(f"Error in analysis {query_id}: {str(e)}")
         return None, None
 
 
@@ -75,7 +75,7 @@ def main_parallel_execution(query_dict, new_rows, protein_family, num_cores=8):
                 else:
                     print("why is the result in parallel execution None?")
             except Exception as e:
-                print(f"Error in processing: {str(e)}")
+                print(f"Error in analysis: {str(e)}")
                 pass
     return results
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process GRN annotations for a dataset')
     parser.add_argument('-p', '--protein_family', required=True, help='Protein family (e.g., gpcr_a, microbial_opsins)')
     parser.add_argument('-d', '--dataset', required=True, help='Dataset name (e.g., Bacteriorhodopsins)')
-    parser.add_argument('-n', '--num_cores', type=int, default=8, help='Number of cores for parallel processing')
+    parser.add_argument('-n', '--num_cores', type=int, default=8, help='Number of cores for parallel analysis')
 
     args = parser.parse_args()
 

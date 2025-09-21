@@ -14,7 +14,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from protos.processing.structure.struct_base_processor import CifBaseProcessor
-from protos.loaders.download_structures import download_protein_structures
+from protos.io.ingest.download_structures import download_protein_structures
 from protos.io.fasta_utils import write_fasta
 
 

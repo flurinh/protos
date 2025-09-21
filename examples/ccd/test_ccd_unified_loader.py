@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.io.paths.path_config import ProtosPaths
-from protos.loaders import ccd_loader_unified as ccd_loader
+from protos.io.ingest import ccd_loader_unified as ccd_loader
 
 def test_ccd_loader():
     """Test the unified CCD loader."""

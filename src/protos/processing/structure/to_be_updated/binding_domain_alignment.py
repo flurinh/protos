@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import gc
 from tqdm import tqdm
-from protos.processing.structure.struct_alignment import get_structure_alignment
+from protos.analysis.structure.alignment import get_structure_alignment
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 
@@ -199,7 +199,7 @@ def process_structures(cp1, cp2, primary_interaction_dist=9, limit=None):
                         print(len(ret_cp1), len(ret_cp2))
                         mappings[f"{pdb_id1}_{chain_id1}_vs_{pdb_id2}_{chain_id2}"] = None
 
-            # Cleanup after processing all cp2 structures for this cp1 structure
+            # Cleanup after analysis all cp2 structures for this cp1 structure
             del struct_cp1, ret_cp1
             gc.collect()
 

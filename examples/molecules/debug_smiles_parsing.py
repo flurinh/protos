@@ -10,7 +10,7 @@ from pathlib import Path
 # Add src to path  
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.loaders.ccd_loader import parse_ccd_cif_block
+from protos.io.ingest.ccd_loader import parse_ccd_cif_block
 import gzip
 
 # CCD file path

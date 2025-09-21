@@ -592,7 +592,7 @@ class GRNConfigManager:
             
         # Check for main config.json with multiple families
         main_config = self.config_dir / 'config.json'
-        print("hello main config", main_config)
+        print("main config", main_config)
         if main_config.exists():
             try:
                 with open(main_config, 'r') as f:

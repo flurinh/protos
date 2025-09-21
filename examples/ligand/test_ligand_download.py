@@ -1,5 +1,5 @@
 """
-Minimal test script for ligand download and processing - FIXED version.
+Minimal test script for ligand download and analysis - FIXED version.
 
 This script demonstrates proper usage of the LigandProcessor following Protos principles:
 1. NO direct path manipulation

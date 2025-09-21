@@ -10,20 +10,7 @@ from typing import Dict, List
 import importlib.resources as pkg_resources
 
 # Environment variables for data paths
-ENV_DATA_ROOT = "PROTOS_DATA_ROOT"  # For user data
-ENV_REF_DATA_ROOT = "PROTOS_REF_DATA_ROOT"  # For reference data (optional override)
-
-# Default data directories
-DEFAULT_USER_DATA_ROOT = "data"  # Default location for user data (in working directory)
-
-# Determine default reference data path within the package
-try:
-    # First try using importlib.resources to get package directory
-    with pkg_resources.as_file(pkg_resources.files("protos") / "data") as ref_path:
-        DEFAULT_REF_DATA_ROOT = str(ref_path)
-except (ImportError, AttributeError, NotADirectoryError):
-    # Fallback to environment variable or a relative path
-    DEFAULT_REF_DATA_ROOT = os.environ.get(ENV_REF_DATA_ROOT, os.path.join(os.path.dirname(__file__), "../../../reference_data"))
+ENV_DATA_ROOT = "PROTOS_DATA_ROOT"  # For data directory override
 
 # Default processor directories
 DEFAULT_PROCESSOR_DIRS = {
@@ -33,7 +20,9 @@ DEFAULT_PROCESSOR_DIRS = {
     "graph": "graph",
     "property": "property",
     "embedding": "embedding",
-    "ligand": "ligand"
+    "ligand": "ligand",
+    "input": "input",  # Added for InputManager
+    "temp": "temp"     # Added for temporary files
 }
 
 # Default structure subdirectories
@@ -46,16 +35,10 @@ DEFAULT_STRUCTURE_SUBDIRS = {
     "datasets_dir": "datasets"       # Directory for dataset JSON definitions
 }
 
-# Default test subdirectories (for test compatibility)
-DEFAULT_TEST_SUBDIRS = {
-    "dataset_dir": "datasets"         # Directory for test dataset files
-}
-
 # Default GRN subdirectories
 DEFAULT_GRN_SUBDIRS = {
     "table_dir": "tables",           # Directory for GRN mapping tables
-    "ref_dir": "reference",          # Directory for reference GRN tables (changed from 'reference' to 'reference')
-    "reference_dir": "reference",    # Alias for ref_dir
+    "reference_dir": "reference",    # Directory for reference GRN tables
     "configs_dir": "configs",        # Directory for GRN configuration files
     "assignment_dir": "assignments", # Directory for GRN assignments
     "temp_dir": "temp",             # Directory for temporary files
@@ -64,14 +47,15 @@ DEFAULT_GRN_SUBDIRS = {
 
 # Default sequence subdirectories
 DEFAULT_SEQUENCE_SUBDIRS = {
-    "fasta_dir": "fasta",           # Directory for FASTA files
-    "alignment_dir": "alignments",   # Directory for sequence alignments
-    "pairwise_alignment_dir": "alignments/pairwise",  # Directory for pairwise alignments
-    "multiple_alignment_dir": "alignments/multiple",  # Directory for multiple alignments
-    "mmseqs_alignment_dir": "alignments/mmseqs",      # Directory for MMseqs2 alignments
-    "databases_dir": "databases",    # Directory for MMseqs2 databases
-    "metadata_dir": "metadata",      # Directory for sequence metadata
-    "datasets_dir": "datasets"       # Directory for dataset definitions
+    "entity_fasta_dir": "fasta/entities",        # Single-sequence FASTA files
+    "dataset_fasta_dir": "fasta/datasets",       # Multi-sequence FASTA archives
+    "alignment_dir": "alignments",               # Alignment outputs
+    "pairwise_alignment_dir": "alignments/pairwise",
+    "multiple_alignment_dir": "alignments/multiple",
+    "mmseqs_alignment_dir": "alignments/mmseqs",
+    "database_dir": "databases",                 # Future sequence databases
+    "metadata_dir": "metadata",
+    "datasets_dir": "datasets"
 }
 
 # Default property subdirectories
@@ -100,9 +84,20 @@ DEFAULT_GRAPH_SUBDIRS = {
     "datasets_dir": "datasets"       # Directory for dataset definitions
 }
 
+# Default input subdirectories (for InputManager)
+DEFAULT_INPUT_SUBDIRS = {
+    # Flat input directory - no subdirectories needed
+    # Files are processed and moved to appropriate processor directories
+}
+
+# Default temp subdirectories
+DEFAULT_TEMP_SUBDIRS = {
+    # No subdirectories for temp - it's just a flat directory
+}
+
 # Registry file names
-DEFAULT_REGISTRY_FILENAME = "registry.json"
-DEFAULT_GLOBAL_REGISTRY_FILENAME = "global_registry.json"
+# DEPRECATED: DEFAULT_REGISTRY_FILENAME removed - processor-specific registries no longer used
+DEFAULT_GLOBAL_REGISTRY_FILENAME = "global_registry.json"  # Used by unified EntityRegistry
 
 # Common path joining function that handles different OS path separators
 def join_path(*args) -> str:

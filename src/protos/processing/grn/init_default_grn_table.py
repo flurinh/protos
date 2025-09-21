@@ -2,7 +2,7 @@ import time
 import logging
 import os
 from protos.processing.grn.grn_table_utils import *
-from protos.loaders.uniprot_utils import get_uniprot
+from protos.io.ingest.utils.uniprot_utils import get_uniprot
 
 
 def get_ref_table(path=r'data/gpcrdb/residue_table.csv', interval=None):

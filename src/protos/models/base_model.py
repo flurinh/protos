@@ -13,7 +13,7 @@ import json
 from datetime import datetime
 from dataclasses import dataclass, field
 
-from protos.core.base_processor import BaseProcessor
+from protos.io.core.base_processor import BaseProcessor
 from protos.io.paths import ProtosPaths
 from protos.io.entity_registry import EntityRegistry
 from protos.io.dataset_manager import DatasetManager

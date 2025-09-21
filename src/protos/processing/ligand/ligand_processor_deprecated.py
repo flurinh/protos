@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import List, Dict, Optional, Union, Any, Tuple
 from datetime import datetime
 
-from protos.core.base_processor import BaseProcessor
-from protos.loaders.ligand_utils import (
+from protos.io.core.base_processor import BaseProcessor
+from protos.io.ingest.utils.ligand_utils import (
     sanitize_smiles_filename, validate_smiles, smiles_to_inchi,
     calculate_molecular_properties, is_drug_like, parse_activity_value,
     create_sdf_from_smiles
@@ -92,7 +92,7 @@ class LigandProcessor(BaseProcessor):
     def chembl_available(self):
         """Check if ChEMBL functionality is available."""
         try:
-            from protos.loaders import chembl_loader
+            from protos.io.ingest import chembl_loader
             return chembl_loader._get_chembl_client() is not None
         except ImportError:
             return False
@@ -256,7 +256,7 @@ class LigandProcessor(BaseProcessor):
             return []
         
         # Use ChEMBL utility to query data
-        from protos.loaders import chembl_loader
+        from protos.io.ingest import chembl_loader
         ligands = chembl_loader.query_protein_ligands(
             protein_id,
             activity_types=activity_types,
@@ -849,7 +849,7 @@ class LigandProcessor(BaseProcessor):
             >>> print(atp['smiles'])
             >>> print(atp['name'])
         """
-        from protos.loaders import ccd_loader_unified as ccd_loader
+        from protos.io.ingest import ccd_loader_unified as ccd_loader
         
         # Get database path using ProtosPaths
         db_path = Path(self.paths.get_subdir_path(self.processor_type, "cache_dir")) / 'databases' / 'ccd'
@@ -921,7 +921,7 @@ class LigandProcessor(BaseProcessor):
             ...     'dipole': (0, 2.0)
             ... }, limit=100)
         """
-        from protos.loaders import qm9_loader
+        from protos.io.ingest import qm9_loader
         
         # Get database path using ProtosPaths
         db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'qm9'
@@ -987,7 +987,7 @@ class LigandProcessor(BaseProcessor):
         Returns:
             Ligand dictionary with quantum properties, or None if not found
         """
-        from protos.loaders import qm9_loader
+        from protos.io.ingest import qm9_loader
         
         # Get database path using ProtosPaths
         db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'qm9'
@@ -1056,7 +1056,7 @@ class LigandProcessor(BaseProcessor):
             logger.error("RDKit required for similarity search")
             return []
         
-        from protos.loaders import enamine_loader
+        from protos.io.ingest import enamine_loader
         
         # Get database path using ProtosPaths
         db_path = Path(self.paths.get_processor_path(self.processor_type)) / self.databases_subdir / 'enamine'
@@ -1147,7 +1147,7 @@ class LigandProcessor(BaseProcessor):
             >>> for name, info in datasets.items():
             ...     print(f"{name}: {info['description']} ({info['size']} compounds)")
         """
-        from protos.loaders import enamine_loader
+        from protos.io.ingest import enamine_loader
         return enamine_loader.list_available_datasets()
     
     def get_enamine_dataset_info(self, dataset_name: str) -> Optional[Dict]:
@@ -1160,7 +1160,7 @@ class LigandProcessor(BaseProcessor):
         Returns:
             Dataset information including download status
         """
-        from protos.loaders import enamine_loader
+        from protos.io.ingest import enamine_loader
         
         info = enamine_loader.get_dataset_info(dataset_name)
         if not info:
@@ -1185,7 +1185,7 @@ class LigandProcessor(BaseProcessor):
         Returns:
             Dictionary with database names and their statistics
         """
-        from protos.loaders import qm9_loader, ccd_loader_unified as ccd_loader, enamine_loader
+        from protos.io.ingest import qm9_loader, ccd_loader_unified as ccd_loader, enamine_loader
         
         stats = {}
         

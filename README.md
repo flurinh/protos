@@ -189,7 +189,7 @@ protos list-datasets          # Browse datasets
 # Analysis tools
 protos assign-grns            # Assign GRN numbers to sequences
 protos expand-annotation      # Expand GRN annotations
-protos process-structures     # Batch structure processing
+protos process-structures     # Batch structure analysis
 protos generate-embeddings    # Batch embedding generation
 ```
 
