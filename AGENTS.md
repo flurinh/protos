@@ -8,7 +8,7 @@ Source code sits in `src/protos`: `core/` for processors scaffolding, `io/` for 
 - `pytest` — main test suite.
 - `pytest migration_tests` — checks registry/dataset/ProtosPaths migrations.
 - `pytest -m "not integration and not slow"` — quick smoke run.
-- `protos init` — scaffold zero-config data; `protos register-input` validates `data/input/`.
+- `protos init --path ./data` — scaffold zero-config data roots; pair with `protos clear` to reset.
 - `python setup_project_data.py --refresh` — reload packaged reference data when fixtures drift.
 
 ## Entity & Data Workflow
@@ -24,4 +24,4 @@ Pytest drives validation. Place unit tests in `tests/<area>/test_<feature>.py`, 
 Commit history is terse; prefer clearer imperative subjects (`processor: add mmCIF cache purge`) and limit bodies to focused rationale. Group changes logically and reference issue IDs when available. Pull requests must describe the motivation, summarize behaviour changes, highlight data migrations, and link screenshots or CLI transcripts when relevant. Confirm tests in the PR description (`pytest` plus targeted markers) and note any follow-up tasks.
 
 ## Data & Configuration Tips
-Let ProtosPaths create and lock the data root; override via `PROTOS_DATA_ROOT` instead of path literals. Register assets through loaders or `protos register-input` so InputManager validates and archives them. Follow the `data/` tree (`structure/cache/`, `sequence/fasta/`, `grn/tables/`, etc.) and purge leftovers in `data/temp/` so health checks stay clean.
+Let ProtosPaths create and lock the data root; override via `PROTOS_DATA_ROOT` instead of path literals. Use `protos init`/`protos clear` for fast environment resets. Register assets through loaders so InputManager validates and archives them. Follow the `data/` tree (`structure/cache/`, `sequence/fasta/`, `grn/tables/`, etc.) and purge leftovers in `data/temp/` so health checks stay clean. Large property tables should rely on dataset-level registration (`record_properties(..., materialize_entries=False)`) and hydrate rows via `load_dataset_rows()`.

@@ -181,16 +181,18 @@ Machine learning embeddings for sequences:
 
 ```bash
 # Data management
-protos init-data              # Initialize data directory
-protos cleanup-data           # Clean and organize data
-protos list-entities          # Browse available entities
-protos list-datasets          # Browse datasets
+protos init --path ./data      # Initialize (or refresh) a data directory
+protos clear --force           # Delete and optionally reinitialize the active data root
+
+# Legacy helpers (maintained for compatibility)
+protos-init                    # Equivalent to `protos init`
+protos-cleanup --reinit        # Equivalent to `protos clear`
 
 # Analysis tools
-protos assign-grns            # Assign GRN numbers to sequences
-protos expand-annotation      # Expand GRN annotations
-protos process-structures     # Batch structure analysis
-protos generate-embeddings    # Batch embedding generation
+protos assign-grns             # Assign GRN numbers to sequences
+protos expand-annotation       # Expand GRN annotations
+protos process-structures      # Batch structure analysis
+protos generate-embeddings     # Batch embedding generation
 ```
 
 ## Examples
@@ -239,19 +241,19 @@ Import and query experimental data:
 from protos.processing.property import PropertyProcessor
 import pandas as pd
 
-# Import properties from DataFrame
+# Import properties from DataFrame (dataset-level storage by default)
 properties = pd.DataFrame({
-    'entity_name': ['BACR_HALSA', 'ChR2', 'NpHR'],
-    'lambda_max': [568, 470, 590],
-    'photocycle': ['fast', 'slow', 'fast']
+    "entity_name": ["BACR_HALSA", "ChR2", "NpHR"],
+    "lambda_max": [568, 470, 590],
+    "photocycle": ["fast", "slow", "fast"],
+    "scope": [[{"format": "sequence", "name": seq}] for seq in ["BACR_HALSA", "ChR2", "NpHR"]],
 })
 prop_proc = PropertyProcessor()
-prop_proc.import_properties("opsin_properties", properties)
+prop_proc.record_properties("opsin_properties", properties)
 
-# Query properties
-blue_opsins = prop_proc.filter_entities_by_property(
-    "opsin_properties",
-    {"lambda_max": {"lt": 500}}
+# Retrieve rows associated with a given sequence when needed
+blue_opsins = prop_proc.load_dataset_rows(
+    "opsin_properties", entity_name="ChR2", format_type="sequence"
 )
 ```
 

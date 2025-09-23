@@ -28,10 +28,7 @@ class ModelRegistry:
     # Built-in model types and their implementations
     BUILTIN_MODELS = {
         'lambda': 'protos.models.lambda_model.LambdaModel',
-        'esm': 'protos.models.esm_model.ESMModel',
-        'alphafold': 'protos.models.alphafold_model.AlphaFoldModel',
-        'property_predictor': 'protos.models.property_model.PropertyModel',
-        'graph_model': 'protos.models.graph_model.GraphModel'
+        'boltz': 'protos.models.boltz.BoltzModel',
     }
     
     def __init__(self, paths: Optional[ProtosPaths] = None):

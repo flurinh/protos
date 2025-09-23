@@ -44,6 +44,23 @@ File System (Human-Readable)
 4. **Human-Readable Everywhere**: No hash IDs in filenames or user-facing APIs
 5. **UUID-Based Registry**: Stable entity tracking with human-friendly interface
 
+## Command-Line Helpers
+
+For quick environment resets, the Typer-based CLI keeps the zero-configuration
+promise:
+
+```bash
+protos init --path ./data      # Initialize or refresh a data directory
+protos clear --force           # Delete (and by default recreate) the active root
+
+# Legacy wrappers retained for compatibility
+protos-init                    # Same as `protos init`
+protos-cleanup --reinit        # Same as `protos clear`
+```
+
+Both commands safely reset the ProtosPaths singleton so new processors pick up the
+fresh layout immediately.
+
 ## ProtosPaths: Zero-Configuration Path Management
 
 ProtosPaths automatically manages all file paths without any user configuration.
@@ -253,8 +270,25 @@ processor.assign_property("1ubq", "experiment_date", "2024-01-15")
 props = processor.get_entity_properties("BACR_HALSA")
 # Returns: {"lambda_max": 568, "photocycle": "fast", ...}
 
-# Save property dataset
-processor.save_property_table("opsin_properties", properties_df)
+# Record a property dataset (registry stores a single dataset entity by default)
+# Each row must include a `scope` entry describing which structures/sequences it annotates.
+import pandas as pd
+properties_df = pd.DataFrame(
+    {
+        "entity_name": ["BACR_HALSA", "ChR2", "NpHR"],
+        "lambda_max": [568, 470, 590],
+        "photocycle": ["fast", "slow", "fast"],
+    }
+)
+properties_df = properties_df.assign(
+    scope=lambda df: [[{"format": "sequence", "name": name}] for name in df["entity_name"]]
+)
+processor.record_properties("opsin_properties", properties_df)
+
+# On-demand hydration of rows for a specific entity
+opsin_rows = processor.load_dataset_rows(
+    "opsin_properties", entity_name="ChR2", format_type="sequence"
+)
 ```
 
 ## Common Workflows
@@ -307,6 +341,12 @@ prop_proc.assign_property("ABL1_MOUSE", "organism", "mouse")
 high_quality = prop_proc.find_entities_with_property("quality", "high")
 human_proteins = prop_proc.find_entities_with_property("organism", "human")
 ```
+
+> **Note:** When recording large tabular datasets, prefer
+> `record_properties(..., materialize_entries=False)` so the registry keeps a
+> single dataset entity and indexes rows on disk. Retrieve the relevant
+> annotations with `load_dataset_rows(table, entity_name=...)` instead of
+> materialising every row as its own entity.
 
 ### 4. Dataset Creation and Sharing
 

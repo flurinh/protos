@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Demonstrate embedding generation across all registered models."""
+"""Demonstrate embeddings on GPCR structure-derived sequence datasets."""
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
+from typing import Dict, Iterable, List, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SRC_DIR = PROJECT_ROOT / "src"
@@ -12,6 +14,7 @@ if SRC_DIR.exists():
     sys.path.insert(0, str(SRC_DIR))
 
 import protos
+from protos.processing.sequence import SequenceProcessor
 
 
 def ensure_data_root() -> Path:
@@ -21,65 +24,122 @@ def ensure_data_root() -> Path:
     return data_root
 
 
-REFERENCE_SEQUENCES = {
-    "3sn6_chain_A": "MKTIIALSYIFCLVFADYKDDDDAAAFVVVLG",
-    "5d5a_chain_A": "MNTSVYIFCLVFADVTDKDNRTLLGFFVASLL",
-    "6b73_chain_A": "MKSVLIFCLVFADYKDDDAAGGMVLLVFVVIL",
-}
-
-
-def ensure_sequence_dataset(dataset_name: str = "gpcr_sequences") -> None:
-    from protos.processing.sequence import SequenceProcessor
-    from protos.io.paths import get_protos_paths
-    from protos.io.ingest.sequence_loader import SequenceLoader
-
+def load_gpcr_structure_sequences(
+    preferred_dataset: str = "gpcr_chains_real",
+) -> Tuple[str, Dict[str, str]]:
     seq_proc = SequenceProcessor()
 
     try:
-        seq_proc.load_dataset(dataset_name)
-        return
-    except Exception:
+        sequences = seq_proc.load_dataset(preferred_dataset)
+        return preferred_dataset, sequences
+    except (FileNotFoundError, KeyError):
         pass
 
-    paths = get_protos_paths()
-    input_dir = Path(paths.get_processor_path('input'))
-    input_dir.mkdir(parents=True, exist_ok=True)
+    available = seq_proc.list_datasets()
+    chain_datasets = [name for name in available if name.startswith("gpcr_chain_dataset_")]
 
-    fasta_path = input_dir / f"{dataset_name}.fasta"
-    with open(fasta_path, "w") as handle:
-        for seq_id, seq in REFERENCE_SEQUENCES.items():
-            handle.write(f">{seq_id}\n{seq}\n")
+    sequences: Dict[str, str] = {}
+    for dataset_name in chain_datasets:
+        try:
+            dataset_sequences = seq_proc.load_dataset(dataset_name)
+            if dataset_sequences:
+                sequences.update(dataset_sequences)
+        except Exception as exc:  # noqa: BLE001
+            print(f"Warning: failed to load dataset '{dataset_name}': {exc}")
 
-    loader = SequenceLoader(processor=seq_proc)
-    loader.download_and_register(
-        str(fasta_path),
-        name=dataset_name,
-        materialize_entities=True,
+    if sequences:
+        dataset_label = preferred_dataset if preferred_dataset in available else "gpcr_chain_dataset"
+        return dataset_label, sequences
+
+    raise RuntimeError(
+        "No GPCR chain datasets available. Run test_cross_processor_annotation.py first "
+        "to register structure-derived sequences."
     )
 
 
-def main() -> None:
-    ensure_data_root()
-    ensure_sequence_dataset()
+MODEL_ALIASES = {
+    "esm2": "esm2_t12_35m",
+    "esm2_small": "esm2_t12_35m",
+    "esm2_medium": "esm2_t30_150m",
+    "esm2_large": "esm2_t36_3b",
+}
 
-    from protos.processing.sequence import SequenceProcessor
+
+def resolve_model_selection(
+    requested: Iterable[str] | None,
+    *,
+    all_models: Dict[str, Dict[str, str]],
+    run_all: bool,
+) -> List[str]:
+    if run_all:
+        return list(all_models.keys())
+
+    targets = list(requested or ("ankh_large", "esm2"))
+    resolved: List[str] = []
+
+    for name in targets:
+        canonical = MODEL_ALIASES.get(name, name)
+        if canonical not in all_models:
+            print(f"Skipping unknown model '{name}' (resolved '{canonical}')")
+            continue
+        resolved.append(canonical)
+
+    if not resolved:
+        raise ValueError(
+            "No valid models selected. Available models: " + ", ".join(sorted(all_models.keys()))
+        )
+
+    seen = set()
+    unique_models: List[str] = []
+    for model in resolved:
+        if model not in seen:
+            unique_models.append(model)
+            seen.add(model)
+    return unique_models
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run embedding demos on GPCR chain sequences")
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        help="Embedding models to run (aliases: esm2 -> esm2_t12_35m)",
+    )
+    parser.add_argument(
+        "--all-models",
+        action="store_true",
+        help="Run all available embedding models",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    ensure_data_root()
+
     from protos.processing.embedding import EmbeddingProcessor
 
-    seq_proc = SequenceProcessor()
-    dataset_name = "gpcr_sequences"
-    sequences = seq_proc.load_dataset(dataset_name)
+    dataset_name, sequences = load_gpcr_structure_sequences()
+    print(f"Loaded dataset '{dataset_name}' with {len(sequences)} sequences")
 
     models = EmbeddingProcessor.available_models()
 
-    for model_name in models.keys():
+    try:
+        target_models = resolve_model_selection(args.models, all_models=models, run_all=args.all_models)
+    except ValueError as exc:
+        print(exc)
+        return
+
+    for model_name in target_models:
         try:
             emb_proc = EmbeddingProcessor(model_name=model_name)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             print(f"Skipping {model_name}: {exc}")
             continue
 
         if not emb_proc.dependencies_available:
             print(f"Skipping {model_name}: install torch/transformers for embeddings")
+            emb_proc.clear_cache()
             continue
 
         print(f"\n=== Embedding with {model_name} ===")
@@ -93,7 +153,7 @@ def main() -> None:
                     register_entities=True,
                 )
                 print(f"  • Stored {embedding_type} embeddings -> {dataset_tag}")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 print(f"  ! Failed to embed with {embedding_type}: {exc}")
 
         emb_proc.clear_cache()
@@ -101,4 +161,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

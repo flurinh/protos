@@ -76,8 +76,16 @@ class PropertyProcessor(BaseProcessor):
         *,
         metadata: Optional[Dict[str, Any]] = None,
         allow_create: bool = False,
+        materialize_entries: bool = False,
     ) -> pd.DataFrame:
-        """Insert rows into a property table and register relationships."""
+        """Insert rows into a property table and register relationships.
+
+        When ``materialize_entries`` is ``False`` (default) the registry receives a
+        single dataset-level entity that annotates each referenced structure or
+        sequence. This keeps the registry lean even for residue-level tables.
+        Set ``materialize_entries=True`` to retain the legacy behaviour of
+        registering every row as its own entity.
+        """
 
         if isinstance(rows, pd.DataFrame):
             new_df = rows.copy()
@@ -90,10 +98,14 @@ class PropertyProcessor(BaseProcessor):
             raise ValueError("Each property row must include 'scope'")
 
         table = self._load_table(table_name)
-        existing_ids = set(table[PROPERTY_ENTRY_ID]) if not table.empty else set()
+        existing_ids = set(
+            table[PROPERTY_ENTRY_ID].dropna().astype(str)
+        ) if not table.empty and PROPERTY_ENTRY_ID in table.columns else set()
 
         entry_ids: List[str] = []
         scopes: List[List[Dict[str, str]]] = []
+        unique_targets: Dict[str, set[str]] = {}
+
         for idx, row in new_df.iterrows():
             scope_items = _normalize_scope(row[SCOPE_COLUMN])
             scopes.append(scope_items)
@@ -116,61 +128,130 @@ class PropertyProcessor(BaseProcessor):
                         file_path="",
                         metadata={"placeholder": True},
                     )
+                fmt_key = fmt or "unknown"
+                unique_targets.setdefault(fmt_key, set()).add(name)
 
-            entry_id = row.get(PROPERTY_ENTRY_ID)
-            if not entry_id or str(entry_id).strip() == "":
-                entry_id = self._generate_entry_id(table_name)
-            entry_id = str(entry_id)
-            while entry_id in existing_ids or entry_id in entry_ids:
-                entry_id = self._generate_entry_id(table_name)
+            if materialize_entries:
+                entry_id = row.get(PROPERTY_ENTRY_ID)
+                if not entry_id or str(entry_id).strip() == "":
+                    entry_id = self._generate_entry_id(table_name)
+                entry_id = str(entry_id)
+                while entry_id in existing_ids or entry_id in entry_ids:
+                    entry_id = self._generate_entry_id(table_name)
 
-            entry_ids.append(entry_id)
-            new_df.at[idx, PROPERTY_ENTRY_ID] = entry_id
+                entry_ids.append(entry_id)
+                new_df.at[idx, PROPERTY_ENTRY_ID] = entry_id
+
+        if not materialize_entries:
+            new_df[PROPERTY_ENTRY_ID] = pd.Series([None] * len(new_df))
 
         new_df[SCOPE_COLUMN] = scopes
         updated = pd.concat([table, new_df], ignore_index=True)
-        updated[PROPERTY_ENTRY_ID] = updated[PROPERTY_ENTRY_ID].astype(str)
+        if materialize_entries and PROPERTY_ENTRY_ID in updated.columns:
+            updated[PROPERTY_ENTRY_ID] = updated[PROPERTY_ENTRY_ID].astype(str)
         self._write_table(table_name, updated)
 
         artifact_rel = self._relative_path(self._table_path(table_name))
 
         registered_entry_ids: List[str] = []
-        for entry_id, scope_items in zip(entry_ids, scopes):
-            row_index = updated.index[updated[PROPERTY_ENTRY_ID] == entry_id][0]
-            self.entity_registry.register_entity(
-                name=entry_id,
-                format_type=self.processor_type,
-                file_path=artifact_rel,
-                metadata={"table": table_name, "row_index": int(row_index)},
-            )
-            for scope_index, scope_item in enumerate(scope_items):
-                self.entity_registry.add_relationship(
-                    source_name=entry_id,
-                    target_name=scope_item["name"],
-                    rel_type="annotated_by",
-                    metadata={
-                        "table": table_name,
-                        "row_index": int(row_index),
-                        "scope_index": scope_index,
-                        "scope_format": scope_item.get("format"),
-                    },
+        if materialize_entries:
+            for entry_id, scope_items in zip(entry_ids, scopes):
+                row_index = updated.index[updated[PROPERTY_ENTRY_ID] == entry_id][0]
+                self.entity_registry.register_entity(
+                    name=entry_id,
+                    format_type=self.processor_type,
+                    file_path=artifact_rel,
+                    metadata={"table": table_name, "row_index": int(row_index)},
                 )
-            registered_entry_ids.append(entry_id)
+                for scope_index, scope_item in enumerate(scope_items):
+                    self.entity_registry.add_relationship(
+                        source_name=entry_id,
+                        target_name=scope_item["name"],
+                        rel_type="annotated_by",
+                        metadata={
+                            "table": table_name,
+                            "row_index": int(row_index),
+                            "scope_index": scope_index,
+                            "scope_format": scope_item.get("format"),
+                        },
+                    )
+                registered_entry_ids.append(entry_id)
 
         dataset_metadata = {
             "artifact_path": artifact_rel,
             "row_count": len(updated),
             "columns": updated.columns.tolist(),
+            "materialize_entries": materialize_entries,
         }
+
+        index_rel_path: Optional[str] = None
+        if not materialize_entries:
+            index_path = self.datasets_dir / f"{table_name}__index.json"
+            index_data: Dict[str, Dict[str, List[int]]] = {}
+            if index_path.exists():
+                with open(index_path, "r", encoding="utf-8") as handle:
+                    index_data = json.load(handle)
+
+            start_idx = len(table)
+            for offset, scope_items in enumerate(scopes):
+                row_index = start_idx + offset
+                for scope_item in scope_items:
+                    fmt = scope_item.get("format") or "unknown"
+                    name = scope_item["name"]
+                    entries = index_data.setdefault(fmt, {}).setdefault(name, [])
+                    entries.append(int(row_index))
+
+            for fmt_key, fmt_mapping in index_data.items():
+                for entity_name, positions in fmt_mapping.items():
+                    fmt_mapping[entity_name] = sorted(set(positions))
+
+            index_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(index_path, "w", encoding="utf-8") as handle:
+                json.dump(index_data, handle, indent=2)
+
+            index_rel_path = str(index_path.relative_to(self.paths.data_root))
+            dataset_metadata["index_artifact"] = index_rel_path
+
         if metadata:
             dataset_metadata.update(metadata)
 
+        dataset_entity_name = table_name
+        entity_metadata = {
+            "table": table_name,
+            "artifact_path": artifact_rel,
+            "materialize_entries": materialize_entries,
+        }
+        if index_rel_path:
+            entity_metadata["index_artifact"] = index_rel_path
+
+        self.entity_registry.register_entity(
+            name=dataset_entity_name,
+            format_type=self.processor_type,
+            file_path=artifact_rel,
+            metadata=entity_metadata,
+        )
+
+        if not materialize_entries:
+            for fmt_key, names in unique_targets.items():
+                for target_name in names:
+                    rel_metadata = {"table": table_name, "scope_format": fmt_key}
+                    try:
+                        self.entity_registry.add_relationship(
+                            source_name=dataset_entity_name,
+                            target_name=target_name,
+                            rel_type="annotated_by",
+                            metadata=rel_metadata,
+                        )
+                    except ValueError:
+                        continue
+
         if self.dataset_manager.dataset_exists(table_name):
-            if registered_entry_ids:
+            if materialize_entries and registered_entry_ids:
                 self.dataset_manager.add_to_dataset(table_name, registered_entry_ids)
             self.dataset_manager.update_metadata(table_name, dataset_metadata)
         else:
-            self.create_dataset(table_name, registered_entry_ids, dataset_metadata)
+            entities_for_dataset = registered_entry_ids if materialize_entries else [dataset_entity_name]
+            self.create_dataset(table_name, entities_for_dataset, dataset_metadata)
 
         return updated
 
@@ -214,6 +295,59 @@ class PropertyProcessor(BaseProcessor):
         if rows:
             return pd.concat(rows, ignore_index=True)
         return pd.DataFrame(columns=[PROPERTY_ENTRY_ID, ENTITY_NAME])
+
+    def load_dataset_rows(
+        self,
+        table_name: str,
+        entity_name: Optional[str] = None,
+        *,
+        format_type: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Load property rows for an optional target entity using the dataset index.
+
+        Args:
+            table_name: Property table name.
+            entity_name: Optional entity name to filter rows by scope membership.
+            format_type: Optional scope format filter (e.g. "structure").
+
+        Returns:
+            A DataFrame of matching rows. When ``entity_name`` is ``None`` the
+            full table is returned.
+        """
+
+        table = self._load_table(table_name).copy()
+        if entity_name is None:
+            return table
+
+        index_path = self.datasets_dir / f"{table_name}__index.json"
+        candidate_rows: List[int] = []
+        if index_path.exists():
+            with open(index_path, "r", encoding="utf-8") as handle:
+                index_data = json.load(handle)
+
+            if format_type:
+                candidate_rows.extend(index_data.get(format_type, {}).get(entity_name, []))
+            else:
+                for fmt_map in index_data.values():
+                    candidate_rows.extend(fmt_map.get(entity_name, []))
+
+        if candidate_rows:
+            unique_idx = sorted(set(candidate_rows))
+            return table.iloc[unique_idx].reset_index(drop=True)
+
+        # Fallback: scan table scopes
+        matched_idx: List[int] = []
+        for idx, scopes in table[SCOPE_COLUMN].items():
+            for scope in scopes:
+                fmt = scope.get("format")
+                name = scope.get("name")
+                if name == entity_name and (format_type is None or fmt == format_type):
+                    matched_idx.append(idx)
+                    break
+
+        if not matched_idx:
+            return table.iloc[0:0]
+        return table.iloc[matched_idx].reset_index(drop=True)
 
     def list_tables(self) -> List[str]:
         return self.dataset_manager.list_datasets()
