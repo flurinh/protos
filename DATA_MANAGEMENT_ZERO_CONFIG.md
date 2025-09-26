@@ -238,20 +238,24 @@ alignment = processor.align_sequences(["seq1", "seq2", "seq3"])
 #### GRN Processor
 
 ```python
-from protos.processing.grn import GRNProcessor
+from protos.processing.sequence import SequenceProcessor
 
-# Zero configuration
-processor = GRNProcessor()
+seq_proc = SequenceProcessor()
 
-# Load GRN table (each row is an entity)
-grn_table = processor.load_grn_table("gpcr_alignment")
+# Annotate a sequence dataset using the bundled GPCR reference
+grn_df, summary = seq_proc.annotate_with_grn(
+    dataset_name="gpcr_sequences",
+    reference_table="gpcrdb_ref",
+    protein_family="gpcr_a",
+    output_table="gpcr_sequences_grn",
+    return_summary=True,
+)
 
-# Get GRN for specific protein
-grn_positions = processor.get_entity_grn("BACR_HALSA")
-# Returns: {"1.50": "R", "2.50": "L", "3.50": "V", ...}
+print(grn_df.head())          # Residue-by-residue GRN assignments
+print(summary["global"])      # Alignment summary stats
 
-# Save new GRN table
-processor.save_grn_table("my_family", grn_dataframe)
+# GRN tables live under data/grn/tables/
+# and are registered as dataset-level entities for easy discovery.
 ```
 
 #### Property Processor
@@ -261,14 +265,6 @@ from protos.processing.property import PropertyProcessor
 
 # Zero configuration
 processor = PropertyProcessor()
-
-# Assign properties to any entity
-processor.assign_property("BACR_HALSA", "lambda_max", 568)
-processor.assign_property("1ubq", "experiment_date", "2024-01-15")
-
-# Get entity properties
-props = processor.get_entity_properties("BACR_HALSA")
-# Returns: {"lambda_max": 568, "photocycle": "fast", ...}
 
 # Record a property dataset (registry stores a single dataset entity by default)
 # Each row must include a `scope` entry describing which structures/sequences it annotates.

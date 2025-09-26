@@ -33,7 +33,7 @@
 
 **Workflow**
 1. Create a `SequenceProcessor` and (optionally) load a reference sequence to classify query chains before annotation. In our GPCR demo we compare all chains against `5d5a_chain_A` and mark anything with a normalised score ≥0.35 as `gpcr_like`.
-2. Call `SequenceProcessor.annotate_with_grn_reference(dataset_name="gpcr_sequences", reference_table="gpcrdb_ref", protein_family="gpcr_a", output_table_name=...)`. The method now requires the family argument so callers remain aware of the reference regime.
+2. Call `SequenceProcessor.annotate_with_grn(dataset_name="gpcr_sequences", reference_table="gpcrdb_ref", protein_family="gpcr_a", output_table="gpcr_grn")`. The helper handles dataset loading + GRNProcessor annotation so callers stay in the registry workflow.
 3. Internally we first attempt an MMseqs search to pick the closest reference row, then fall back to BioPython if MMseqs is unavailable. The annotation step still uses the legacy `expand_annotation` helpers; coverage metadata (`assigned_positions`, `coverage_fraction`) is recorded per sequence for visibility.
 4. Results are written through `GRNProcessor.record_table`, producing a CSV artefact under `data/grn/datasets/<table>.csv` plus dataset metadata that links back to the source sequence dataset.
 

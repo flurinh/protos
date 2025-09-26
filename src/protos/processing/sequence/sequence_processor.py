@@ -14,7 +14,7 @@ import math
 import itertools
 from collections import Counter, OrderedDict
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Tuple, Any, Iterable
+from typing import Dict, List, Optional, Union, Tuple, Any, Iterable, Sequence
 import pandas as pd
 import numpy as np
 import logging
@@ -41,7 +41,6 @@ from protos.processing.sequence.seq_alignment import (
 )
 from protos.analysis.sequence.alignment_engine import SequenceAlignmentEngine
 from protos.processing.grn import GRNProcessor
-from protos.processing.grn.assign_grns import assign_grns_to_sequences
 from protos.processing.grn.grn_utils import get_seq, GRN_GAP_SYMBOL, GRN_UNKNOWN_SYMBOL
 from .seq_mutation_utils import (
     parse_mutation_str, apply_mutations_to_seq,
@@ -1061,97 +1060,99 @@ class SequenceProcessor(BaseProcessor):
 
         return linkage_df
 
-    def annotate_with_grn_reference(
+    def annotate_with_grn(
         self,
-        dataset_name: Optional[str],
-        reference_table: str,
+        dataset_name: Optional[str] = None,
         *,
+        sequences: Optional[Dict[str, str]] = None,
+        entity_names: Optional[Sequence[str]] = None,
+        reference_table: str,
         protein_family: str,
-        entity_name: Optional[str] = None,
-        sequence_map: Optional[Dict[str, str]] = None,
-        output_table_name: Optional[str] = None,
+        output_table: Optional[str] = None,
+        materialize_entries: bool = False,
         allow_create: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
-        use_mmseqs: bool = True,
-        verbose: int = 0,
-    ) -> pd.DataFrame:
-        """Assign GRNs for a dataset, entity, or explicit sequence map."""
+        return_summary: bool = False,
+    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, Any]]]:
+        """Annotate sequences with GRN positions using the bundled references.
 
-        sequences: Dict[str, str] = {}
+        Args:
+            dataset_name: Optional sequence dataset to load via the registry.
+            sequences: Explicit mapping of sequence names to strings.
+            entity_names: Extra sequence entities to pull from the registry.
+            reference_table: Human-readable name of the reference GRN table.
+            protein_family: Identifier for the GRN configuration (e.g. ``gpcr_a``).
+            output_table: Optional table name to persist under ``data/grn/tables``.
+            materialize_entries: Reserved for future per-row registration.
+            allow_create: Allow placeholder entities when linking relationships.
+            metadata: Extra key/value pairs to attach to the saved dataset.
+            return_summary: When ``True`` also return alignment metadata.
 
-        if sequence_map:
-            sequences.update(sequence_map)
+        Returns:
+            Either the annotation dataframe or a tuple ``(df, summary)`` when
+            ``return_summary`` is enabled.
+        """
+
+        sequence_map: Dict[str, str] = {}
+
+        if sequences:
+            sequence_map.update(sequences)
 
         if dataset_name:
             dataset_sequences = self.load_dataset(dataset_name)
-            sequences.update(dataset_sequences)
+            sequence_map.update(dataset_sequences)
 
-        if entity_name:
-            entity_data = self.load_entity(entity_name)
-            if entity_data is None:
-                raise ValueError(f"Entity '{entity_name}' is not available")
-            if isinstance(entity_data, dict):
-                sequences.update(entity_data)
-            else:
-                sequences[entity_name] = entity_data
+        if entity_names:
+            for entity_name in entity_names:
+                entity_data = self.load_entity(entity_name)
+                if entity_data is None:
+                    raise ValueError(f"Entity '{entity_name}' is not available")
+                if isinstance(entity_data, dict):
+                    sequence_map.update(entity_data)
+                else:
+                    sequence_map[entity_name] = entity_data
 
-        if not sequences:
+        if not sequence_map:
             raise ValueError(
-                "No sequences provided for GRN annotation. "
-                "Specify a dataset, entity, or explicit sequence_map."
+                "No sequences provided for GRN annotation. Specify a dataset, "
+                "explicit sequences, or entity names."
             )
 
         grn_proc = GRNProcessor()
-        reference_df = grn_proc.load_reference_table(reference_table)
-        if reference_df.empty:
-            raise ValueError(f"Reference table '{reference_table}' is empty")
-
-        family_key = protein_family
-
-        annotation_table, match_details = assign_grns_to_sequences(
-            sequences,
-            reference_df,
-            protein_family=family_key,
-            use_mmseqs=use_mmseqs,
-            aligner=self.aligner,
-            temp_folder=str(self.path_mmseqs_alignments_dir),
-            verbose=verbose,
+        annotations, summary = grn_proc.annotate_sequences(
+            sequence_map,
+            reference_table=reference_table,
+            protein_family=protein_family,
         )
 
-        if annotation_table.empty:
-            raise ValueError("No GRN annotations were produced")
+        if output_table:
+            table_metadata: Dict[str, Any] = {
+                "reference_table": reference_table,
+                "protein_family": protein_family,
+                "sequence_count": len(annotations),
+                "materialize_entries": materialize_entries,
+                **summary.get("global", {}),
+            }
 
-        if not output_table_name:
-            components = []
             if dataset_name:
-                components.append(dataset_name)
-            if entity_name:
-                components.append(entity_name)
-            components.append(family_key)
-            components.append('grn')
-            output_table_name = "_".join(components)
+                table_metadata["source_dataset"] = dataset_name
+            if entity_names:
+                table_metadata["source_entities"] = list(entity_names)
+            if metadata:
+                table_metadata.update(metadata)
 
-        table_metadata: Dict[str, Any] = {
-            'reference': reference_table,
-            'protein_family': family_key,
-            'sequence_count': len(annotation_table),
-            'match_summary': match_details,
-        }
-        if dataset_name:
-            table_metadata['source_dataset'] = dataset_name
-        if entity_name:
-            table_metadata['source_entity'] = entity_name
-        if metadata:
-            table_metadata.update(metadata)
+            grn_proc.record_table(
+                output_table,
+                annotations,
+                metadata=table_metadata,
+                per_entity_metadata=summary.get("per_sequence"),
+                allow_create=allow_create,
+                link_entities=True,
+            )
 
-        grn_proc.record_table(
-            output_table_name,
-            annotation_table,
-            metadata=table_metadata,
-            allow_create=allow_create,
-        )
-
-        return annotation_table
+        if return_summary:
+            return annotations, summary
+        return annotations
 
     def save_alignment(self, alignment_data: Dict, output_file: str, 
                       alignment_type: str = "pairwise"):

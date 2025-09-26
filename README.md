@@ -140,6 +140,22 @@ Manages 3D protein structures from PDB/mmCIF files with intelligent caching:
 - Caches preprocessed structures (PKL) for performance
 - Supports dataset-level caching for large-scale analysis
 
+```python
+from protos.processing.structure import StructureProcessor
+
+struct_proc = StructureProcessor()
+
+# Annotate GPCR chains with GRNs and persist the table
+grn_df = struct_proc.annotate_structures_with_grn(
+    ["3sn6", "5d5a", "6b73"],
+    reference_table="gpcrdb_ref",
+    protein_family="gpcr_a",
+    output_table="gpcr_structure_grn",
+)
+
+print(grn_df.head())
+```
+
 ### SeqProcessor
 
 Handles protein sequences and FASTA files:
@@ -158,6 +174,22 @@ Generic Residue Numbering for protein families:
 - Position conservation analysis
 - Functional site identification
 - Table-based storage with reference tables and configurations
+
+```python
+from protos.processing.sequence import SequenceProcessor
+
+seq_proc = SequenceProcessor()
+
+# Annotate a sequence dataset using the bundled GPCR reference
+grn_df = seq_proc.annotate_with_grn(
+    dataset_name="gpcr_sequences",
+    reference_table="gpcrdb_ref",
+    protein_family="gpcr_a",
+    output_table="gpcr_sequences_grn",
+)
+
+print(grn_df.head())  # residue-by-residue GRN mapping
+```
 
 ### PropertyProcessor
 

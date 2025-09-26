@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 
 from protos.io.core.base_processor import BaseProcessor
 from protos.io.paths import ProtosPaths
-from protos.io.entity_registry import EntityRegistry
-from protos.io.dataset_manager import DatasetManager
+from protos.io.core.entity_registry import EntityRegistry
+from protos.io.core.dataset_manager import DatasetManager
 
 
 @dataclass

@@ -54,6 +54,7 @@ _LAZY_IMPORTS = {
     "ModelRegistry": "protos.models.model_registry",
     "ModelDownloader": "protos.models.model_downloader",
     "ModelInstaller": "protos.models.model_installer",
+    "ModelManager": "protos.models.model_manager",
 }
 
 def __getattr__(name):
@@ -111,7 +112,8 @@ __all__ = [
     "ModelBackend", "UnifiedModelClient", "predict",
     
     # Lazy-loaded components
-    "StandardModel", "ModelRegistry", "ModelDownloader", "ModelInstaller"
+    "StandardModel", "ModelRegistry", "ModelDownloader", "ModelInstaller",
+    "ModelManager"
 ]
 
 # Model type registry for dynamic loading - populate lazily

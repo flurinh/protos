@@ -1491,6 +1491,98 @@ class StructureProcessor(BaseProcessor):
                 rmsd_map[reference_id][mobile_id] = rmsd
 
         return rmsd_map, pair_results
+
+    def annotate_structures_with_grn(
+        self,
+        structure_ids: Iterable[str],
+        *,
+        reference_table: str,
+        protein_family: str,
+        output_table: Optional[str] = None,
+        dataset_prefix: str = "grn_chain_sequences",
+        chain_filter: Optional[Union[str, Iterable[str], Dict[str, Iterable[str]]]] = None,
+        allow_create: bool = False,
+        materialize_entries: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+        return_summary: bool = False,
+    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, Any]]]:
+        """Annotate structure chains with GRNs using registered references."""
+
+        structure_list = list(structure_ids)
+        if not structure_list:
+            raise ValueError("No structure IDs provided for GRN annotation")
+
+        self.register_chain_sequences(
+            structure_list,
+            chain_filter=chain_filter,
+            dataset_prefix=dataset_prefix,
+            create_dataset=True,
+            overwrite=False,
+        )
+
+        from protos.processing.sequence import SequenceProcessor
+        from protos.processing.grn import GRNProcessor
+
+        seq_proc = SequenceProcessor()
+        grn_proc = GRNProcessor()
+
+        sequence_map: Dict[str, str] = {}
+        sequence_structure_map: Dict[str, List[Dict[str, Any]]] = {}
+
+        related = self.list_related_sequences(structure_list, include_unloaded=True)
+        for structure_id, relations in related.items():
+            for payload in relations:
+                seq_name = payload.get("name")
+                if not seq_name:
+                    continue
+                chain_id = payload.get("metadata", {}).get("chain_id")
+                sequence_data = seq_proc.load_entity(seq_name)
+                if isinstance(sequence_data, str) and sequence_data:
+                    sequence_map[seq_name] = sequence_data
+                    sequence_structure_map.setdefault(seq_name, []).append(
+                        {"name": structure_id, "chain_id": chain_id}
+                    )
+
+        if not sequence_map:
+            raise RuntimeError("No chain sequences available for GRN annotation")
+
+        annotations, summary = grn_proc.annotate_sequences(
+            sequence_map,
+            reference_table=reference_table,
+            protein_family=protein_family,
+        )
+
+        if output_table:
+            table_metadata: Dict[str, Any] = {
+                "reference_table": reference_table,
+                "protein_family": protein_family,
+                "structure_ids": structure_list,
+                "sequence_count": len(annotations),
+                "materialize_entries": materialize_entries,
+                **summary.get("global", {}),
+            }
+            if metadata:
+                table_metadata.update(metadata)
+
+            per_entity_metadata: Dict[str, Dict[str, Any]] = {}
+            for seq_name, info in summary.get("per_sequence", {}).items():
+                entry_metadata = dict(info)
+                if seq_name in sequence_structure_map:
+                    entry_metadata["related_structures"] = sequence_structure_map[seq_name]
+                per_entity_metadata[seq_name] = entry_metadata
+
+            grn_proc.record_table(
+                output_table,
+                annotations,
+                metadata=table_metadata,
+                per_entity_metadata=per_entity_metadata,
+                allow_create=allow_create,
+                link_entities=True,
+            )
+
+        if return_summary:
+            return annotations, summary
+        return annotations
     
     def orient_structure(
         self,

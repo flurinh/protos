@@ -23,7 +23,7 @@ from protos.models.format_schemas import (
 )
 from protos.models.format_validators import FormatValidator, FormatAdapter
 from protos.io.paths import ProtosPaths
-from protos.io.entity_registry import EntityRegistry
+from protos.io.core.entity_registry import EntityRegistry
 
 
 class ModelBackend(Enum):

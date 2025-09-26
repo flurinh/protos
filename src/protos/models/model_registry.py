@@ -279,7 +279,7 @@ class ModelRegistry:
         Returns:
             List of compatible model identifiers
         """
-        from protos.io.entity_registry import EntityRegistry
+        from protos.io.core.entity_registry import EntityRegistry
         
         # Get entity info
         registry = EntityRegistry(self.paths)
