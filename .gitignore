@@ -20,7 +20,6 @@ build/
 .env
 
 # CSV/CIF and temporary data
-*.csv
 *.cif
 
 # Internal tool references
