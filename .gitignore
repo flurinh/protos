@@ -31,8 +31,5 @@ CLAUDE.md
 # Test folders
 tests/
 
-# Protocol buffer generated data
-src/protos/reference_data/
-
 # Project folders (if temporary)
 projects
