@@ -169,6 +169,8 @@ class EmbeddingProcessor(BaseProcessor):
         # Model and tokenizer (loaded on demand)
         self._model = None
         self._tokenizer = None
+        self._is_encoder_decoder = False
+        self._encoder = None
         
         # Update metadata
         self.metadata.update({
@@ -177,7 +179,8 @@ class EmbeddingProcessor(BaseProcessor):
             "batch_size": batch_size,
             "max_seq_length": max_seq_length,
             "embedding_dim": self.model_config["embedding_dim"],
-            "dependencies_available": _TORCH_AVAILABLE and _TRANSFORMERS_AVAILABLE
+            "dependencies_available": _TORCH_AVAILABLE and _TRANSFORMERS_AVAILABLE,
+            "is_encoder_decoder": self._is_encoder_decoder,
         })
         
         self.logger.info(f"Initialized EmbeddingProcessor with model {model_name}")
@@ -234,12 +237,33 @@ class EmbeddingProcessor(BaseProcessor):
         self.logger.info(f"Loading model {self.model_name} from {self.model_config['hub_name']}")
         
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_config['hub_name'])
+        # Some tokenizers (e.g. T5) ship without an explicit pad token; default to EOS if needed
+        if getattr(self._tokenizer, "pad_token", None) is None and getattr(self._tokenizer, "eos_token", None) is not None:
+            self._tokenizer.pad_token = self._tokenizer.eos_token
+
         self._model = AutoModel.from_pretrained(self.model_config['hub_name'])
         self._model.to(self.device)
         self._model.eval()
-        
+
+        # Track whether we are working with an encoder-decoder architecture
+        self._is_encoder_decoder = bool(getattr(self._model.config, "is_encoder_decoder", False))
+        self._encoder = None
+        if self._is_encoder_decoder:
+            # Prefer the public getter when available so tied weights stay in sync
+            if hasattr(self._model, "get_encoder"):
+                self._encoder = self._model.get_encoder()
+            elif hasattr(self._model, "encoder"):
+                self._encoder = self._model.encoder
+            else:
+                self.logger.warning(
+                    "Model %s reported encoder-decoder architecture but exposes no encoder; falling back to full forward pass",
+                    self.model_name,
+                )
+                self._is_encoder_decoder = False
+        self.metadata["is_encoder_decoder"] = self._is_encoder_decoder
+
         self.logger.info(f"Model loaded successfully on {self.device}")
-    
+
     def embed_sequences(self,
                        sequences: Union[str, List[str], Dict[str, str]],
                        embedding_type: EmbeddingType = "mean",
@@ -322,14 +346,22 @@ class EmbeddingProcessor(BaseProcessor):
                     max_length=self.max_seq_length,
                     return_tensors="pt"
                 ).to(self.device)
-                
-                # Get model output
-                outputs = self.model(**inputs)
-                
+
+                # Forward pass through encoder (skip decoder for seq2seq models)
+                hidden_states = self._forward_encoder(inputs)
+
+                attention_mask = inputs.get("attention_mask")
+                if attention_mask is None:
+                    attention_mask = torch.ones(
+                        hidden_states.shape[:2],
+                        dtype=torch.long,
+                        device=hidden_states.device,
+                    )
+
                 # Extract embeddings
                 batch_embeddings = self._extract_embeddings(
-                    outputs.last_hidden_state,
-                    inputs["attention_mask"],
+                    hidden_states,
+                    attention_mask,
                     embedding_type
                 )
                 
@@ -337,12 +369,50 @@ class EmbeddingProcessor(BaseProcessor):
                 for j, seq_id in enumerate(batch_ids):
                     if embedding_type == "per_residue":
                         # Trim padding for per-residue embeddings
-                        seq_len = inputs["attention_mask"][j].sum().item()
+                        seq_len = attention_mask[j].sum().item()
                         results[seq_id] = batch_embeddings[j, :seq_len].cpu()
                     else:
                         results[seq_id] = batch_embeddings[j].cpu()
-        
+
         return results
+
+    def _forward_encoder(self, inputs: "torch.Tensor") -> "torch.Tensor":
+        """Run the transformer encoder and return hidden states."""
+
+        model = self.model  # Ensure lazy loading takes place
+
+        if self._is_encoder_decoder and self._encoder is not None:
+            encoder_kwargs = self._prepare_encoder_kwargs(inputs)
+            encoder_outputs = self._encoder(**encoder_kwargs)
+            if isinstance(encoder_outputs, tuple):
+                hidden_states = encoder_outputs[0]
+            else:
+                hidden_states = encoder_outputs.last_hidden_state
+        else:
+            outputs = model(**inputs)
+            hidden_states = outputs.last_hidden_state if hasattr(outputs, "last_hidden_state") else outputs[0]
+
+        return hidden_states
+
+    def _prepare_encoder_kwargs(self, inputs: "torch.Tensor") -> Dict[str, Any]:
+        """Filter tokenized inputs down to what encoders expect."""
+
+        allowed_keys = {
+            "input_ids",
+            "attention_mask",
+            "inputs_embeds",
+            "position_ids",
+            "head_mask",
+        }
+        encoder_kwargs: Dict[str, Any] = {}
+        for key in allowed_keys:
+            if key in inputs:
+                encoder_kwargs[key] = inputs[key]
+
+        if "return_dict" not in encoder_kwargs:
+            encoder_kwargs["return_dict"] = getattr(self._model.config, "use_return_dict", True)
+
+        return encoder_kwargs
     
     def _extract_embeddings(self,
                           hidden_states: "torch.Tensor",
