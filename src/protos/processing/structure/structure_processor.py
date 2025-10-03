@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import warnings
 from datetime import datetime
 from pathlib import Path
@@ -1356,6 +1357,255 @@ class StructureProcessor(BaseProcessor):
             cealign_max_gap=cealign_max_gap,
         )
         return rmsd_map, results
+
+
+    def align_and_record(
+        self,
+        structure_ids: Iterable[str],
+        reference_id: str,
+        *,
+        method: str = 'cealign',
+        atom_selection: str = 'CA',
+        chain_id: Optional[str] = None,
+        cealign_window: int = 8,
+        cealign_max_gap: int = 30,
+        save_aligned: bool = False,
+        summary_name: Optional[str] = None,
+        summary_metadata: Optional[Dict[str, Any]] = None,
+        aligned_dataset_name: Optional[str] = None,
+        property_table_name: Optional[str] = None,
+    ) -> Tuple[Dict[str, Any], Dict[str, 'AlignmentResult']]:
+        """Align structures, persist optional artifacts, and return a summary."""
+
+        structure_list = list(dict.fromkeys(structure_ids))
+        structure_list = [sid for sid in structure_list if sid != reference_id]
+
+        rmsd_map, results = self.align_structures(
+            structure_list,
+            reference_id,
+            method=method,
+            atom_selection=atom_selection,
+            apply_transform=True,
+            chain_id=chain_id,
+            cealign_window=cealign_window,
+            cealign_max_gap=cealign_max_gap,
+        )
+
+        pairwise_rows: List[Dict[str, Any]] = []
+        rmsd_values: List[float] = []
+        errors: Dict[str, str] = {}
+        aligned_entities: List[str] = []
+
+        for target_id, ref_map in rmsd_map.items():
+            for ref_id, rmsd in ref_map.items():
+                if rmsd is not None and not (isinstance(rmsd, float) and np.isnan(rmsd)):
+                    rmsd_values.append(float(rmsd))
+                result = results.get(target_id)
+                error = result.error if result else None
+                if error:
+                    errors[target_id] = error
+                pairwise_rows.append(
+                    {
+                        'target_id': target_id,
+                        'reference_id': ref_id,
+                        'rmsd': None if rmsd is None or (isinstance(rmsd, float) and np.isnan(rmsd)) else float(rmsd),
+                        'algorithm': result.algorithm if result else method,
+                        'error': error,
+                    }
+                )
+
+        timestamp = datetime.utcnow().isoformat()
+        global_stats: Dict[str, Any]
+        if rmsd_values:
+            global_stats = {
+                'count': len(rmsd_values),
+                'min': float(np.min(rmsd_values)),
+                'max': float(np.max(rmsd_values)),
+                'mean': float(np.mean(rmsd_values)),
+                'median': float(np.median(rmsd_values)),
+            }
+        else:
+            global_stats = {
+                'count': 0,
+                'min': None,
+                'max': None,
+                'mean': None,
+                'median': None,
+            }
+
+        aligned_result_map = {
+            sid: {
+                'aligned_id': res.aligned_id,
+                'rmsd': None if res.rmsd is None or np.isnan(res.rmsd) else float(res.rmsd),
+                'success': res.error is None,
+            }
+            for sid, res in results.items()
+            if res is not None
+        }
+
+        summary_payload: Dict[str, Any] = {
+            'reference_id': reference_id,
+            'structure_ids': [reference_id] + structure_list,
+            'method': method,
+            'atom_selection': atom_selection,
+            'chain_id': chain_id,
+            'parameters': {
+                'cealign_window': cealign_window,
+                'cealign_max_gap': cealign_max_gap,
+            },
+            'timestamp': timestamp,
+            'rmsd': {
+                'global': global_stats,
+                'pairwise': pairwise_rows,
+            },
+            'results': aligned_result_map,
+            'errors': errors,
+        }
+
+        if summary_metadata:
+            extra = {k: v for k, v in summary_metadata.items() if v is not None}
+            summary_payload.setdefault('metadata', {}).update(extra)
+
+        if save_aligned:
+            for struct_id, res in results.items():
+                if res is None or res.error:
+                    continue
+                if struct_id == reference_id and res.aligned_id == reference_id:
+                    continue
+                frame = self.frames.get(res.aligned_id)
+                if frame is None:
+                    frame = self.load_entity(res.aligned_id)
+                if frame is None:
+                    continue
+                aligned_meta = {
+                    'aligned_to': reference_id,
+                    'alignment_method': res.algorithm,
+                    'rmsd': None if res.rmsd is None or np.isnan(res.rmsd) else float(res.rmsd),
+                    'aligned_at': timestamp,
+                }
+                if summary_metadata:
+                    aligned_meta.update({k: v for k, v in summary_metadata.items() if v is not None})
+                self.save_entity(res.aligned_id, frame, metadata=aligned_meta)
+                aligned_entities.append(res.aligned_id)
+
+            aligned_entities = list(dict.fromkeys(aligned_entities))
+
+        summary_basename = summary_name or f"{reference_id}_alignment"
+        safe_summary_name = self._sanitize_filename(summary_basename)
+        alignment_dir = Path(self.paths.get_subdir_path('structure', 'alignments_dir'))
+        summary_path = alignment_dir / f"{safe_summary_name}.json"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(json.dumps(summary_payload, indent=2), encoding='utf-8')
+        summary_rel_path = summary_path.relative_to(self.paths.data_root)
+        summary_payload['summary_file'] = str(summary_rel_path)
+        summary_payload['summary_name'] = summary_basename
+
+        dataset_entities = [reference_id] + structure_list
+        dataset_entities = list(dict.fromkeys(dataset_entities))
+        dataset_metadata = {
+            'summary_file': str(summary_rel_path),
+            'aligned_entities': aligned_entities,
+            'timestamp': timestamp,
+            'method': method,
+            'atom_selection': atom_selection,
+            'chain_id': chain_id,
+            'global_stats': global_stats,
+        }
+        if summary_metadata:
+            dataset_metadata.update({k: v for k, v in summary_metadata.items() if v is not None})
+
+        summary_dataset_name = safe_summary_name
+
+        if property_table_name:
+            from protos.processing.property import PropertyProcessor
+
+            prop_proc = PropertyProcessor()
+            property_rows = []
+            for row in pairwise_rows:
+                target = row['target_id']
+                reference = row['reference_id']
+                if target == reference:
+                    continue
+                scope = [{'format': 'structure', 'name': target}]
+                if reference:
+                    scope.append({'format': 'structure', 'name': reference})
+                status = 'ok' if not row['error'] else 'error'
+                property_row = {
+                    'scope': scope,
+                    'entity_name': target,
+                    'reference': reference,
+                    'rmsd': row['rmsd'],
+                    'algorithm': row['algorithm'],
+                    'status': status,
+                    'summary_dataset': summary_dataset_name,
+                }
+                if row['error']:
+                    property_row['error_message'] = row['error']
+                property_rows.append(property_row)
+
+            if property_rows:
+                prop_metadata = {
+                    'reference_id': reference_id,
+                    'method': method,
+                    'summary_dataset': summary_dataset_name,
+                    'timestamp': timestamp,
+                }
+                if summary_metadata:
+                    prop_metadata.update({k: v for k, v in summary_metadata.items() if v is not None})
+
+                prop_proc.record_properties(
+                    property_table_name,
+                    property_rows,
+                    metadata=prop_metadata,
+                    allow_create=True,
+                    materialize_entries=False,
+                )
+                summary_payload['property_table'] = property_table_name
+                dataset_metadata['property_table'] = property_table_name
+
+        summary_dataset = self.create_dataset(summary_dataset_name, dataset_entities, dataset_metadata)
+        summary_payload['summary_dataset'] = summary_dataset
+
+        if save_aligned and aligned_dataset_name:
+            safe_aligned_name = self._sanitize_filename(aligned_dataset_name)
+            aligned_meta = {
+                'reference_id': reference_id,
+                'source_dataset': summary_dataset,
+                'timestamp': timestamp,
+            }
+            if summary_metadata:
+                aligned_meta.update({k: v for k, v in summary_metadata.items() if v is not None})
+            self.create_dataset(safe_aligned_name, aligned_entities, aligned_meta)
+            summary_payload['aligned_dataset'] = safe_aligned_name
+        elif save_aligned and aligned_entities:
+            summary_payload['aligned_dataset'] = None
+
+        return summary_payload, results
+
+    def export_aligned_structures(
+        self,
+        structure_ids: Optional[Iterable[str]] = None,
+        *,
+        output_dir: Optional[Union[str, Path]] = None,
+        overwrite: bool = False,
+        dataset_name: Optional[str] = None,
+    ) -> Dict[str, Path]:
+        """Export aligned structures to CIF files using the exporter."""
+
+        if dataset_name:
+            structure_ids = self.dataset_manager.get_dataset_entities(dataset_name)
+        if structure_ids is None:
+            raise ValueError('structure_ids or dataset_name must be provided')
+
+        ids = list(dict.fromkeys(structure_ids))
+        export_root = Path(output_dir) if output_dir else Path(self.paths.get_subdir_path('structure', 'alignments_dir')) / 'exports'
+        export_root.mkdir(parents=True, exist_ok=True)
+
+        exported: Dict[str, Path] = {}
+        for struct_id in ids:
+            out_path = export_root / f"{self._sanitize_filename(struct_id)}.cif"
+            exported[struct_id] = self.export_entity(struct_id, out_path, format='cif', overwrite=overwrite)
+        return exported
 
     def align_pair(
         self,
