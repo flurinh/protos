@@ -348,6 +348,11 @@ class StructureLoader(BaseLoader):
 
             file_path = self._resolve_registered_path(entity_info.file_path)
 
+            # Skip canonicalization if the registered artifact is not a CIF payload
+            suffixes = ''.join(file_path.suffixes).lower()
+            if not any(suffixes.endswith(ext) for ext in ('.cif', '.mmcif', '.cif.gz', '.mmcif.gz')):
+                return registered
+
             df = load_structure_from_cif(str(file_path), structure_id=registered)
             combined_metadata = dict(entity_info.metadata or {})
             combined_metadata.update(
