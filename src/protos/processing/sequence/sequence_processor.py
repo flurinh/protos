@@ -683,7 +683,12 @@ class SequenceProcessor(BaseProcessor):
             if not ref_seq or not query_seq:
                 return 0.0
             max_len = max(len(ref_seq), len(query_seq), 1)
-            matches = sum(1 for a, b in zip(ref_seq, query_seq) if a == b)
+            matches = 0
+            for idx in range(max_len):
+                a = ref_seq[idx] if idx < len(ref_seq) else None
+                b = query_seq[idx] if idx < len(query_seq) else None
+                if a is not None and b is not None and a == b:
+                    matches += 1
             return matches / max_len
 
         for seq_id in sequence_list:

@@ -1496,6 +1496,8 @@ class StructureProcessor(BaseProcessor):
             aligned_entities = list(dict.fromkeys(aligned_entities))
 
         aligned_entities = list(dict.fromkeys(aligned_entities))
+        summary_payload['aligned_entities'] = aligned_entities
+        summary_payload['aligned_entities'] = aligned_entities
 
         summary_basename = summary_name or f"{reference_id}_alignment"
         safe_summary_name = self._sanitize_filename(summary_basename)
