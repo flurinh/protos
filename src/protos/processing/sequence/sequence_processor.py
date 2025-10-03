@@ -39,7 +39,6 @@ from protos.processing.sequence.seq_alignment import (
     get_best_alignment,
     get_score,
     check_chain_similarity,
-    calculate_identity,
 )
 from protos.analysis.sequence.alignment_engine import SequenceAlignmentEngine
 from protos.processing.grn import GRNProcessor
@@ -680,6 +679,13 @@ class SequenceProcessor(BaseProcessor):
         results_map: Dict[str, Dict[str, Any]] = {}
         errors: Dict[str, str] = {}
 
+        def compute_identity(ref_seq: str, query_seq: str) -> float:
+            if not ref_seq or not query_seq:
+                return 0.0
+            max_len = max(len(ref_seq), len(query_seq), 1)
+            matches = sum(1 for a, b in zip(ref_seq, query_seq) if a == b)
+            return matches / max_len
+
         for seq_id in sequence_list:
             query_sequence = self.get_sequence(seq_id)
             if not query_sequence:
@@ -707,7 +713,7 @@ class SequenceProcessor(BaseProcessor):
                     store_alignment=save_alignments,
                 )
                 alignment_str = "\n".join(alignment_lines) if isinstance(alignment_lines, list) else str(alignment_lines)
-                identity = float(calculate_identity(reference_sequence, query_sequence))
+                identity = float(compute_identity(reference_sequence, query_sequence))
                 normalized_score = float(score) / max(len(query_sequence), len(reference_sequence), 1)
 
                 pairwise_rows.append(
