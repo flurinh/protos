@@ -15,6 +15,7 @@ import itertools
 from collections import Counter, OrderedDict
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Tuple, Any, Iterable, Sequence
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import logging
@@ -38,6 +39,7 @@ from protos.processing.sequence.seq_alignment import (
     get_best_alignment,
     get_score,
     check_chain_similarity,
+    calculate_identity,
 )
 from protos.analysis.sequence.alignment_engine import SequenceAlignmentEngine
 from protos.processing.grn import GRNProcessor
@@ -646,6 +648,222 @@ class SequenceProcessor(BaseProcessor):
             
         return formatted_results
     
+
+    def align_and_record(
+        self,
+        sequence_ids: Iterable[str],
+        reference_id: str,
+        *,
+        save_alignments: bool = False,
+        summary_name: Optional[str] = None,
+        summary_metadata: Optional[Dict[str, Any]] = None,
+        aligned_dataset_name: Optional[str] = None,
+        aligned_dataset_include_reference: bool = False,
+        property_table_name: Optional[str] = None,
+    ) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]:
+        """Align multiple sequences to a reference and persist a registry-aware summary."""
+
+        sequence_list = list(dict.fromkeys(sequence_ids))
+        sequence_list = [sid for sid in sequence_list if sid != reference_id]
+        if not sequence_list:
+            raise ValueError("No non-reference sequences provided for alignment.")
+
+        reference_sequence = self.get_sequence(reference_id)
+        if not reference_sequence:
+            raise ValueError(f"Reference sequence '{reference_id}' could not be resolved.")
+
+        timestamp = datetime.utcnow().isoformat()
+
+        pairwise_rows: List[Dict[str, Any]] = []
+        identity_values: List[float] = []
+        score_values: List[float] = []
+        results_map: Dict[str, Dict[str, Any]] = {}
+        errors: Dict[str, str] = {}
+
+        for seq_id in sequence_list:
+            query_sequence = self.get_sequence(seq_id)
+            if not query_sequence:
+                errors[seq_id] = "sequence_not_found"
+                pairwise_rows.append(
+                    {
+                        'sequence_id': seq_id,
+                        'reference_id': reference_id,
+                        'score': None,
+                        'normalized_score': None,
+                        'identity': None,
+                        'alignment': None,
+                        'status': 'error',
+                        'error': "Sequence not found",
+                    }
+                )
+                continue
+
+            try:
+                score, alignment_lines = self.align_sequences(
+                    query_sequence,
+                    reference_sequence,
+                    seq1_id=seq_id,
+                    seq2_id=reference_id,
+                    store_alignment=save_alignments,
+                )
+                alignment_str = "\n".join(alignment_lines) if isinstance(alignment_lines, list) else str(alignment_lines)
+                identity = float(calculate_identity(reference_sequence, query_sequence))
+                normalized_score = float(score) / max(len(query_sequence), len(reference_sequence), 1)
+
+                pairwise_rows.append(
+                    {
+                        'sequence_id': seq_id,
+                        'reference_id': reference_id,
+                        'score': float(score),
+                        'normalized_score': normalized_score,
+                        'identity': identity,
+                        'alignment': alignment_str,
+                        'status': 'ok',
+                    }
+                )
+
+                identity_values.append(identity)
+                score_values.append(normalized_score)
+                results_map[seq_id] = {
+                    'score': float(score),
+                    'normalized_score': normalized_score,
+                    'identity': identity,
+                    'alignment': alignment_lines,
+                }
+            except Exception as exc:  # noqa: BLE001
+                error_msg = str(exc)
+                errors[seq_id] = error_msg
+                pairwise_rows.append(
+                    {
+                        'sequence_id': seq_id,
+                        'reference_id': reference_id,
+                        'score': None,
+                        'normalized_score': None,
+                        'identity': None,
+                        'alignment': None,
+                        'status': 'error',
+                        'error': error_msg,
+                    }
+                )
+
+        successful_alignments = [row for row in pairwise_rows if row.get('status') == 'ok']
+        if not successful_alignments:
+            raise ValueError("No sequence alignments were successfully computed.")
+
+        identity_array = np.array(identity_values, dtype=float)
+        score_array = np.array(score_values, dtype=float) if score_values else identity_array
+
+        global_stats = {
+            'count': int(identity_array.size),
+            'min_identity': float(identity_array.min()) if identity_array.size else None,
+            'max_identity': float(identity_array.max()) if identity_array.size else None,
+            'mean_identity': float(identity_array.mean()) if identity_array.size else None,
+            'median_identity': float(np.median(identity_array)) if identity_array.size else None,
+            'mean_score': float(score_array.mean()) if score_array.size else None,
+        }
+
+        summary_payload: Dict[str, Any] = {
+            'reference_id': reference_id,
+            'sequence_ids': [reference_id] + sequence_list,
+            'timestamp': timestamp,
+            'alignment': {
+                'global': global_stats,
+                'pairwise': pairwise_rows,
+            },
+            'results': results_map,
+            'errors': errors,
+        }
+
+        if summary_metadata:
+            summary_payload['metadata'] = {k: v for k, v in summary_metadata.items() if v is not None}
+
+        summary_basename = summary_name or f"{reference_id}_sequence_alignment"
+        safe_summary_name = self._sanitize_filename(summary_basename)
+        summary_dir = Path(self.path_pairwise_alignments_dir)
+        summary_dir.mkdir(parents=True, exist_ok=True)
+        summary_path = summary_dir / f"{safe_summary_name}.json"
+        summary_path.write_text(json.dumps(summary_payload, indent=2), encoding='utf-8')
+        summary_rel_path = summary_path.relative_to(self.paths.data_root)
+        summary_payload['summary_file'] = str(summary_rel_path)
+        summary_payload['summary_name'] = summary_basename
+
+        dataset_entities = list(dict.fromkeys([reference_id] + sequence_list))
+        dataset_metadata = {
+            'summary_file': str(summary_rel_path),
+            'reference_id': reference_id,
+            'timestamp': timestamp,
+            'alignment_metric': 'identity',
+        }
+        if summary_metadata:
+            dataset_metadata.update({k: v for k, v in summary_metadata.items() if v is not None})
+
+        summary_dataset = self.create_dataset(safe_summary_name, dataset_entities, dataset_metadata)
+        summary_payload['summary_dataset'] = summary_dataset
+
+        aligned_sequences = [row['sequence_id'] for row in successful_alignments]
+        summary_payload['aligned_sequences'] = aligned_sequences
+        summary_payload['aligned_entities'] = aligned_sequences
+
+        if aligned_dataset_name:
+            safe_aligned_name = self._sanitize_filename(aligned_dataset_name)
+            aligned_entities = list(dict.fromkeys(aligned_sequences))
+            if aligned_dataset_include_reference and reference_id not in aligned_entities:
+                aligned_entities.insert(0, reference_id)
+            aligned_metadata = {
+                'reference_id': reference_id,
+                'source_dataset': summary_dataset,
+                'timestamp': timestamp,
+            }
+            if summary_metadata:
+                aligned_metadata.update({k: v for k, v in summary_metadata.items() if v is not None})
+
+            if aligned_entities:
+                self.create_dataset(safe_aligned_name, aligned_entities, aligned_metadata)
+                summary_payload['aligned_dataset'] = safe_aligned_name
+            else:
+                summary_payload['aligned_dataset'] = None
+
+        if property_table_name:
+            from protos.processing.property import PropertyProcessor
+
+            property_rows = [
+                {
+                    'scope': [
+                        {'format': 'sequence', 'name': row['sequence_id']},
+                        {'format': 'sequence', 'name': reference_id},
+                    ],
+                    'entity_name': row['sequence_id'],
+                    'reference': reference_id,
+                    'identity': row['identity'],
+                    'normalized_score': row['normalized_score'],
+                    'status': row['status'],
+                    'summary_dataset': summary_dataset,
+                }
+                for row in successful_alignments
+            ]
+
+            if property_rows:
+                prop_metadata = {
+                    'reference_id': reference_id,
+                    'summary_dataset': summary_dataset,
+                    'timestamp': timestamp,
+                }
+                if summary_metadata:
+                    prop_metadata.update({k: v for k, v in summary_metadata.items() if v is not None})
+
+                prop_proc = PropertyProcessor()
+                prop_proc.record_properties(
+                    property_table_name,
+                    property_rows,
+                    metadata=prop_metadata,
+                    allow_create=True,
+                    materialize_entries=False,
+                )
+                summary_payload['property_table'] = property_table_name
+
+        return summary_payload, results_map
+
+
     def mutate_sequence(self, sequence: str, mutations: List[str],
                        sequence_id: str = "mutant") -> str:
         """

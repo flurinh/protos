@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Structure alignment workflow using only StructureProcessor and StructureLoader."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import protos
@@ -47,47 +49,54 @@ def load_structures(processor, identifiers) -> list[str]:
     return available
 
 
-def align_and_report(processor, reference, mobiles):
-    rmsd_map, results = processor.align_structures(
-        structure_ids=mobiles,
-        reference_id=reference,
+def align_structures(processor, reference_id: str, mobile_ids: list[str]):
+    summary, _ = processor.align_and_record(
+        structure_ids=mobile_ids,
+        reference_id=reference_id,
+        method="cealign",
+        atom_selection="CA",
         apply_transform=True,
+        save_aligned=True,
+        summary_name=f"{reference_id}_gpcr_alignment",
+        aligned_dataset_name="gpcr_alignment_aligned",
+        aligned_dataset_include_reference=True,
+        property_table_name="gpcr_structure_alignment_properties",
     )
 
-    print("\nRMSD summary (target -> reference = value):")
-    for target, refs in rmsd_map.items():
-        for ref, rmsd in refs.items():
-            suffix = f"{rmsd:.3f} Å" if rmsd == rmsd else "NaN"
-            print(f"  {target} -> {ref}: {suffix}")
+    global_stats = summary.get("rmsd", {}).get("global", {})
+    print("\nRMSD summary (aligned to reference):")
+    for key in ("min", "mean", "max"):
+        value = global_stats.get(key)
+        if value is not None:
+            print(f"  {key}: {value:.3f} Å")
 
-    return results
+    for row in summary.get("rmsd", {}).get("pairwise", []):
+        rmsd = row.get("rmsd")
+        suffix = f"{rmsd:.3f} Å" if rmsd is not None else "NaN"
+        print(f"  {row['target_id']} -> {row['reference_id']}: {suffix}")
+
+    return summary
 
 
-def export_aligned(processor, aligned_results, reference_id: str):
+def export_aligned(processor, aligned_entities: list[str]):
     from protos.io.paths import get_protos_paths
+
+    if not aligned_entities:
+        print("No aligned entities to export.")
+        return
 
     output_dir = Path(get_protos_paths().data_root) / "alignment_output"
     output_dir.mkdir(exist_ok=True)
 
-    for struct_id, result in aligned_results.items():
-        if result is None or result.error:
-            continue
+    exported = processor.export_aligned_structures(
+        structure_ids=aligned_entities,
+        output_dir=output_dir,
+        overwrite=True,
+        export_format="cif",
+    )
 
-        aligned_id = result.aligned_id
-        df = processor.frames.get(aligned_id)
-        if df is not None:
-            processor.save_entity(
-                aligned_id,
-                df,
-                metadata={"aligned_to": reference_id, "rmsd": result.rmsd},
-            )
-
-        out_path = output_dir / f"{aligned_id}.cif"
-        try:
-            processor.export_entity(aligned_id, out_path, format="cif", overwrite=True)
-            print(f"✓ Exported {aligned_id} -> {out_path}")
-        except Exception as exc:  # noqa: BLE001
-            print(f"✗ Export failed for {aligned_id}: {exc}")
+    for struct_id, out_path in exported.items():
+        print(f"✓ Exported {struct_id} -> {out_path}")
 
 
 def main() -> None:
@@ -111,8 +120,13 @@ def main() -> None:
         return
 
     reference, *mobile_ids = available
-    alignment_results = align_and_report(processor, reference, mobile_ids)
-    export_aligned(processor, alignment_results, reference)
+    summary = align_structures(processor, reference, mobile_ids)
+    export_aligned(processor, summary.get("aligned_entities", []))
+
+    if summary.get("summary_file"):
+        print(f"\nSummary written to: {summary['summary_file']}")
+    if summary.get("summary_dataset"):
+        print(f"Summary dataset: {summary['summary_dataset']}")
 
 
 if __name__ == "__main__":

@@ -1369,10 +1369,12 @@ class StructureProcessor(BaseProcessor):
         chain_id: Optional[str] = None,
         cealign_window: int = 8,
         cealign_max_gap: int = 30,
+        apply_transform: bool = True,
         save_aligned: bool = False,
         summary_name: Optional[str] = None,
         summary_metadata: Optional[Dict[str, Any]] = None,
         aligned_dataset_name: Optional[str] = None,
+        aligned_dataset_include_reference: bool = False,
         property_table_name: Optional[str] = None,
     ) -> Tuple[Dict[str, Any], Dict[str, 'AlignmentResult']]:
         """Align structures, persist optional artifacts, and return a summary."""
@@ -1385,7 +1387,7 @@ class StructureProcessor(BaseProcessor):
             reference_id,
             method=method,
             atom_selection=atom_selection,
-            apply_transform=True,
+            apply_transform=apply_transform,
             chain_id=chain_id,
             cealign_window=cealign_window,
             cealign_max_gap=cealign_max_gap,
@@ -1438,6 +1440,8 @@ class StructureProcessor(BaseProcessor):
                 'aligned_id': res.aligned_id,
                 'rmsd': None if res.rmsd is None or np.isnan(res.rmsd) else float(res.rmsd),
                 'success': res.error is None,
+                'algorithm': res.algorithm,
+                'error': res.error,
             }
             for sid, res in results.items()
             if res is not None
@@ -1447,6 +1451,7 @@ class StructureProcessor(BaseProcessor):
             'reference_id': reference_id,
             'structure_ids': [reference_id] + structure_list,
             'method': method,
+            'apply_transform': apply_transform,
             'atom_selection': atom_selection,
             'chain_id': chain_id,
             'parameters': {
@@ -1490,6 +1495,8 @@ class StructureProcessor(BaseProcessor):
 
             aligned_entities = list(dict.fromkeys(aligned_entities))
 
+        aligned_entities = list(dict.fromkeys(aligned_entities))
+
         summary_basename = summary_name or f"{reference_id}_alignment"
         safe_summary_name = self._sanitize_filename(summary_basename)
         alignment_dir = Path(self.paths.get_subdir_path('structure', 'alignments_dir'))
@@ -1507,6 +1514,7 @@ class StructureProcessor(BaseProcessor):
             'aligned_entities': aligned_entities,
             'timestamp': timestamp,
             'method': method,
+            'apply_transform': apply_transform,
             'atom_selection': atom_selection,
             'chain_id': chain_id,
             'global_stats': global_stats,
@@ -1547,6 +1555,9 @@ class StructureProcessor(BaseProcessor):
                 prop_metadata = {
                     'reference_id': reference_id,
                     'method': method,
+                    'atom_selection': atom_selection,
+                    'chain_id': chain_id,
+                    'apply_transform': apply_transform,
                     'summary_dataset': summary_dataset_name,
                     'timestamp': timestamp,
                 }
@@ -1571,12 +1582,24 @@ class StructureProcessor(BaseProcessor):
             aligned_meta = {
                 'reference_id': reference_id,
                 'source_dataset': summary_dataset,
+                'method': method,
+                'atom_selection': atom_selection,
+                'chain_id': chain_id,
+                'apply_transform': apply_transform,
                 'timestamp': timestamp,
             }
             if summary_metadata:
                 aligned_meta.update({k: v for k, v in summary_metadata.items() if v is not None})
-            self.create_dataset(safe_aligned_name, aligned_entities, aligned_meta)
-            summary_payload['aligned_dataset'] = safe_aligned_name
+
+            aligned_dataset_entities = list(dict.fromkeys(aligned_entities))
+            if aligned_dataset_include_reference and reference_id not in aligned_dataset_entities:
+                aligned_dataset_entities.insert(0, reference_id)
+
+            if aligned_dataset_entities:
+                self.create_dataset(safe_aligned_name, aligned_dataset_entities, aligned_meta)
+                summary_payload['aligned_dataset'] = safe_aligned_name
+            else:
+                summary_payload['aligned_dataset'] = None
         elif save_aligned and aligned_entities:
             summary_payload['aligned_dataset'] = None
 
@@ -1589,6 +1612,7 @@ class StructureProcessor(BaseProcessor):
         output_dir: Optional[Union[str, Path]] = None,
         overwrite: bool = False,
         dataset_name: Optional[str] = None,
+        export_format: str = 'cif',
     ) -> Dict[str, Path]:
         """Export aligned structures to CIF files using the exporter."""
 
@@ -1602,9 +1626,12 @@ class StructureProcessor(BaseProcessor):
         export_root.mkdir(parents=True, exist_ok=True)
 
         exported: Dict[str, Path] = {}
+        fmt = export_format.lstrip('.')
+        suffix = export_format if export_format.startswith('.') else f'.{fmt}'
+
         for struct_id in ids:
-            out_path = export_root / f"{self._sanitize_filename(struct_id)}.cif"
-            exported[struct_id] = self.export_entity(struct_id, out_path, format='cif', overwrite=overwrite)
+            out_path = export_root / f"{self._sanitize_filename(struct_id)}{suffix}"
+            exported[struct_id] = self.export_entity(struct_id, out_path, format=fmt, overwrite=overwrite)
         return exported
 
     def align_pair(
