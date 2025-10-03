@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime
 
 import protos
 
@@ -78,25 +79,47 @@ def align_structures(processor, reference_id: str, mobile_ids: list[str]):
     return summary
 
 
-def export_aligned(processor, aligned_entities: list[str]):
+OVERWRITE_ORIGINAL = True  # Set to False to create versioned copies instead of overwriting
+VERSION_SUFFIX = "_aligned"  # Used when OVERWRITE_ORIGINAL is False
+
+
+def export_aligned(processor, aligned_entities: list[str], reference_id: str):
     from protos.io.paths import get_protos_paths
 
     if not aligned_entities:
         print("No aligned entities to export.")
         return
 
-    output_dir = Path(get_protos_paths().data_root) / "alignment_output"
-    output_dir.mkdir(exist_ok=True)
+    paths = get_protos_paths()
+    mmcif_dir = Path(processor.path_cif_dir)
+    mmcif_dir.mkdir(parents=True, exist_ok=True)
 
-    exported = processor.export_aligned_structures(
-        structure_ids=aligned_entities,
-        output_dir=output_dir,
-        overwrite=True,
-        export_format="cif",
-    )
+    export_map: dict[str, Path] = {}
+    for struct_id in aligned_entities:
+        df = processor.load_entity(struct_id)
+        if df is None:
+            print(f"✗ Skipping {struct_id}: aligned frame not available")
+            continue
 
-    for struct_id, out_path in exported.items():
-        print(f"✓ Exported {struct_id} -> {out_path}")
+        target_id = struct_id
+        metadata = {
+            "aligned_to": reference_id,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+
+        if OVERWRITE_ORIGINAL:
+            processor.save_entity(struct_id, df, metadata=metadata)
+        else:
+            versioned_id = f"{struct_id}{VERSION_SUFFIX}"
+            processor.save_entity(versioned_id, df, metadata={**metadata, "source_entity": struct_id})
+            target_id = versioned_id
+
+        out_path = mmcif_dir / f"{target_id}.cif"
+        processor.export_entity(target_id, out_path, format="cif", overwrite=True)
+        export_map[target_id] = out_path
+
+    for target_id, out_path in export_map.items():
+        print(f"✓ Exported {target_id} -> {out_path}")
 
 
 def main() -> None:
@@ -121,7 +144,7 @@ def main() -> None:
 
     reference, *mobile_ids = available
     summary = align_structures(processor, reference, mobile_ids)
-    export_aligned(processor, summary.get("aligned_entities", []))
+    export_aligned(processor, summary.get("aligned_entities", []), reference)
 
     if summary.get("summary_file"):
         print(f"\nSummary written to: {summary['summary_file']}")
