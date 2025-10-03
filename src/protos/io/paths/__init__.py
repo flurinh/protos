@@ -30,7 +30,8 @@ from .path_config import (
     get_sequence_path,
     get_dataset_path,
     get_protos_paths,
-    set_protos_paths
+    set_protos_paths,
+    reset_protos_data
 )
 
 # Define the __all__ list to properly expose all public elements
@@ -54,6 +55,7 @@ __all__ = [
     'ensure_directory',
     'get_protos_paths',
     'set_protos_paths',
+    'reset_protos_data',
 
     # Path Resolution
     'resolve_path',

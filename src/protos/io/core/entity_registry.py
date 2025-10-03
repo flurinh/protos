@@ -158,7 +158,30 @@ class EntityRegistry:
         """Reload registry from disk to see updates from other processes."""
         self._registry, self._name_index = self._load_registry()
         self._build_name_index()
-    
+
+    def reset(self, *, backup: bool = True) -> Optional[Path]:
+        """Clear every entity entry and optionally back up the previous registry."""
+
+        backup_path = None
+
+        if backup and self.registry_file.exists():
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup_path = self.registry_file.with_name(
+                f"{self.registry_file.stem}.{timestamp}.bak{self.registry_file.suffix}"
+            )
+            shutil.copy2(self.registry_file, backup_path)
+
+        if self.registry_file.exists():
+            self.registry_file.unlink()
+
+        self._registry = {}
+        self._name_index = {}
+
+        self._save_registry()
+        self._build_name_index()
+
+        return backup_path
+
     def _build_name_index(self):
         """Build name-to-ID index for fast lookups."""
         # Clear existing index

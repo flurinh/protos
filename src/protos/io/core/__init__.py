@@ -20,6 +20,13 @@ def get_registry() -> EntityRegistry:
     return _registry_instance
 
 
+def reset_registry(*, backup: bool = True):
+    """Reset the singleton registry contents and optionally create a backup."""
+
+    registry = get_registry()
+    registry.reset(backup=backup)
+
+
 __all__ = [
     'BaseProcessor',
     'EntityRegistry',
@@ -27,5 +34,6 @@ __all__ = [
     'InputManager',
     'RegistryHealthChecker',
     'ConflictResolver',
-    'get_registry'
+    'get_registry',
+    'reset_registry'
 ]

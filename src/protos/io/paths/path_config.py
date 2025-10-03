@@ -86,9 +86,44 @@ class ProtosPaths:
             else:
                 # Directory exists, ensure it has all required subdirs
                 self._ensure_complete_structure()
-            
+
             self._initialized = True
-    
+
+    def reinitialize(
+        self,
+        *,
+        wipe: bool = False,
+        reinstall_reference: bool = True,
+    ) -> None:
+        """Reset directory layout and registry state for the configured data root.
+
+        Args:
+            wipe: Remove the existing data root before recreating it. Use with care.
+            reinstall_reference: When False, skip re-installing bundled reference
+                data after clearing the root. The directory structure is still
+                recreated.
+        """
+
+        root_path = Path(self.data_root)
+
+        if wipe and root_path.exists():
+            shutil.rmtree(root_path)
+
+        # Mark the instance as uninitialized so subsequent calls rebuild layout
+        self._initialized = False
+
+        if wipe or not root_path.exists():
+            self._initialize_directory_structure()
+        else:
+            self._ensure_complete_structure()
+
+        self._initialize_registry()
+
+        if reinstall_reference:
+            self._install_reference_data()
+
+        self._initialized = True
+
     def _initialize_directory_structure(self):
         """Create all required directories."""
         # Create base directory
@@ -375,8 +410,46 @@ def get_protos_paths(data_root: Optional[str] = None) -> ProtosPaths:
 def set_protos_paths(data_root: str) -> ProtosPaths:
     """
     Update the global ProtosPaths instance with a new location.
-    
+
     Raises:
         RuntimeError: If paths have already been initialized.
     """
     return get_protos_paths(data_root)
+
+
+def reset_protos_data(
+    data_root: Optional[str] = None,
+    *,
+    wipe: bool = False,
+    reinstall_reference: bool = True,
+    backup_registry: bool = True,
+):
+    """Reset the global Protos data directory and entity registry.
+
+    Args:
+        data_root: Optional override for the data root. Must match the
+            configured root once processors have been initialized.
+        wipe: Remove the existing data directory before recreating it.
+        reinstall_reference: Reinstall bundled reference data after reset.
+        backup_registry: Persist a timestamped copy of the registry before
+            clearing it.
+    """
+
+    try:
+        paths = get_protos_paths(data_root)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "Cannot reset Protos data to a new location after initialization. "
+            "Call protos.set_data_path() before instantiating processors."
+        ) from exc
+
+    from protos.io.core import get_registry
+
+    registry = get_registry()
+    registry.reset(backup=backup_registry)
+
+    paths.reinitialize(wipe=wipe, reinstall_reference=reinstall_reference)
+
+    registry.refresh()
+
+    return paths
