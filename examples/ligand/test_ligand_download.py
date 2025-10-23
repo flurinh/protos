@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.io.paths.path_config import ProtosPaths
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
     
     # Initialize processor - that's all!
     print("Initializing LigandProcessor...")
-    lig_proc = LigandProcessor()
+    lig_proc = MoleculeProcessor()
     print("✓ LigandProcessor initialized")
     
     # Test ChEMBL functionality

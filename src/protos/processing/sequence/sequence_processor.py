@@ -14,13 +14,20 @@ import math
 import itertools
 from collections import Counter, OrderedDict
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Tuple, Any, Iterable, Sequence
+from typing import Dict, List, Optional, Union, Tuple, Any, Iterable, Sequence, Mapping
 from datetime import datetime
 import pandas as pd
 import numpy as np
 import logging
 
 from protos.io.core.base_processor import BaseProcessor
+from protos.io.paths import (
+    get_sequence_entity_paths,
+    get_sequence_entity_path,
+    get_sequence_dataset_path,
+    get_sequence_dataset_paths,
+    to_data_relative_path,
+)
 from protos.io.formats.fasta_utils import read_fasta, write_fasta
 from protos.io.utils.file_utils import save_json, load_json
 from protos.analysis.sequence import (
@@ -31,6 +38,7 @@ from protos.analysis.sequence import (
     MMseqsUnavailableError,
 )
 from protos.analysis.sequence.alignment_engine import SequenceAlignmentEngine
+from protos.analysis.sequence_best_match import find_best_matches as _find_best_matches
 from protos.processing.sequence.seq_alignment import (
     mmseqs2_align,
     mmseqs2_align2,
@@ -161,15 +169,14 @@ class SequenceProcessor(BaseProcessor):
             - For multi-sequence files: Dictionary of seq_id -> sequence
             - None if not found
         """
-        # Look for a canonical entity FASTA file
-        entity_path = Path(self.path_entity_dir) / f"{name}.fasta"
-        if not entity_path.exists():
-            entity_path = Path(self.path_entity_dir) / f"{name}.fa"
-
-        if entity_path.exists():
-            sequences = read_fasta(str(entity_path))
-            # Entity files should contain exactly one sequence
-            return list(sequences.values())[0] if len(sequences) == 1 else sequences
+        for candidate in get_sequence_entity_paths(self.paths, name):
+            if candidate.exists():
+                sequences = read_fasta(str(candidate))
+                return (
+                    list(sequences.values())[0]
+                    if len(sequences) == 1
+                    else sequences
+                )
 
         return None
         
@@ -188,10 +195,6 @@ class SequenceProcessor(BaseProcessor):
             name: Human-readable name for the entity
             data: Either a single sequence string or dict of seq_id -> sequence
         """
-        # Sanitize filename
-        safe_name = self._sanitize_filename(name)
-        output_path = Path(self.path_entity_dir) / f"{safe_name}.fasta"
-        
         # Convert single sequence to dict format
         if isinstance(data, str):
             sequences = {name: data}
@@ -200,14 +203,16 @@ class SequenceProcessor(BaseProcessor):
                 raise ValueError("save_entity expects a single sequence. Use save_sequences for multi-entry data.")
             sequences = data
             
-        # Save sequences
-        write_fasta(sequences, str(output_path))
+        target_path = get_sequence_entity_path(self.paths, name)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        write_fasta(sequences, str(target_path))
 
         # Build metadata for single entity
         seq_id = list(sequences.keys())[0]
         sequence = list(sequences.values())[0]
         entity_metadata = {
-            "file_path": str(output_path.relative_to(self.paths.data_root)),
+            "file_path": to_data_relative_path(self.paths, target_path),
             "length": len(sequence),
             "sequence_id": seq_id,
             "type": "single_sequence"
@@ -224,27 +229,22 @@ class SequenceProcessor(BaseProcessor):
 
         logger.info(f"Saved sequence entity: {name}")
         
-    def _sanitize_filename(self, name: str) -> str:
-        """Sanitize a name for use as a filename."""
-        # Replace problematic characters
-        safe_name = name.replace('/', '_').replace('\\', '_').replace(':', '_')
-        safe_name = safe_name.replace('|', '_').replace('*', '_').replace('?', '_')
-        safe_name = safe_name.replace('<', '_').replace('>', '_').replace('"', '_')
-        return safe_name
-    
     def export_entity(
         self,
         name: str,
-        out_path: Path,
+        export_name: Optional[str] = None,
         format: Optional[str] = None,
         overwrite: bool = False,
         sequence_ids: Optional[List[str]] = None,
-    ) -> Path:
+    ) -> Dict[str, Any]:
+        """Materialize an entity FASTA under the managed data root."""
         exporter = self._get_exporter()
+
+        export_format = (format or "fasta").lower()
         return exporter.export_entity(
             name,
-            out_path,
-            format=format,
+            export_name=export_name,
+            format=export_format,
             overwrite=overwrite,
             sequence_ids=sequence_ids,
         )
@@ -386,13 +386,11 @@ class SequenceProcessor(BaseProcessor):
         Returns:
             Dictionary of sequence_id -> sequence
         """
-        # Load using load_entity
-        dataset_path = Path(self.path_fasta_dir) / fasta_file
-        if not dataset_path.exists():
-            # allow filename without extension
-            dataset_path = Path(self.path_fasta_dir) / f"{fasta_file}.fasta"
-        if not dataset_path.exists():
-            raise FileNotFoundError(f"FASTA file not found: {fasta_file}")
+        # Load using managed dataset directory
+        candidate_paths = get_sequence_dataset_paths(self.paths, fasta_file)
+        dataset_path = next((path for path in candidate_paths if path.exists()), None)
+        if dataset_path is None:
+            raise FileNotFoundError(f"FASTA file not found in managed data root: {fasta_file}")
 
         sequences = read_fasta(str(dataset_path))
 
@@ -406,7 +404,7 @@ class SequenceProcessor(BaseProcessor):
         self._cache_sequences(sequences, dataset_name=dataset_key)
 
         dataset_metadata = {
-            "artifact_path": str(dataset_path.relative_to(self.paths.data_root)),
+            "artifact_path": to_data_relative_path(self.paths, dataset_path),
             "sequence_count": len(sequences),
             "materialized": register_entities,
         }
@@ -430,7 +428,8 @@ class SequenceProcessor(BaseProcessor):
 
         Args:
             sequences: Dictionary of sequence_id -> sequence
-            output_file: Output filename (without path)
+            output_file: Logical output name (extension optional); stored under
+                the managed sequence dataset directory
             dataset_name: Optional dataset name for registration
             metadata: Optional metadata to attach to dataset record
             materialize_entities: Whether to save each sequence as an individual entity
@@ -444,9 +443,9 @@ class SequenceProcessor(BaseProcessor):
             base_name = output_file
 
         dataset_key = self._sanitize_filename(dataset_name or base_name)
-        file_stem = self._sanitize_filename(base_name)
 
-        dataset_path = Path(self.path_fasta_dir) / f"{file_stem}.fasta"
+        dataset_path = get_sequence_dataset_path(self.paths, dataset_key)
+        dataset_path.parent.mkdir(parents=True, exist_ok=True)
         write_fasta(sequences, str(dataset_path))
 
         if materialize_entities:
@@ -454,7 +453,7 @@ class SequenceProcessor(BaseProcessor):
                 self.save_entity(seq_id, sequence)
 
         dataset_metadata = {
-            "artifact_path": str(dataset_path.relative_to(self.paths.data_root)),
+            "artifact_path": to_data_relative_path(self.paths, dataset_path),
             "sequence_count": len(sequences),
             "materialized": materialize_entities,
             "sequence_ids": list(sequences.keys()),
@@ -543,58 +542,27 @@ class SequenceProcessor(BaseProcessor):
             self.logger.warning("MMseqs unavailable: %s", exc)
             raise
 
-    def find_best_match(self, query_seq: str, reference_seqs: Dict[str, str],
-                       use_mmseqs: bool = True) -> Tuple[str, float, List[str]]:
-        """
-        Find best matching sequence from references.
-        
-        Args:
-            query_seq: Query sequence
-            reference_seqs: Dictionary of reference sequences
-            use_mmseqs: Whether to use MMseqs2 for fast search
-            
-        Returns:
-            Tuple of (best_match_id, score, alignment)
-        """
-        if use_mmseqs:
-            try:
-                # Use MMseqs2 for fast search
-                hits = mmseqs2_align(query_seq, reference_seqs)
-                if hits is not None and not hits.empty:
-                    best_hit = hits.iloc[0]
-                    best_id = best_hit['target_id']
-                    
-                    # Get detailed alignment with BioPython
-                    score, alignment = self.align_sequences(
-                        query_seq, reference_seqs[best_id],
-                        "query", best_id, store_alignment=False
-                    )
-                    
-                    return best_id, score, alignment
-            except Exception as e:
-                logger.warning(f"MMseqs2 search failed: {e}, falling back to BioPython")
-        
-        # Fall back to BioPython exhaustive search
-        best_id = None
-        best_score = float('-inf')
-        best_alignment = None
-        
-        for ref_id, ref_seq in reference_seqs.items():
-            try:
-                score, alignment = self.align_sequences(
-                    query_seq, ref_seq,
-                    "query", ref_id, store_alignment=False
-                )
-                if score > best_score:
-                    best_score = score
-                    best_id = ref_id
-                    best_alignment = alignment
-            except Exception as e:
-                logger.warning(f"Failed to align with {ref_id}: {e}")
-                continue
-                
-        return best_id, best_score, best_alignment
-    
+    def find_best_match(
+        self,
+        query_seq: str,
+        reference_seqs: Dict[str, str],
+        use_mmseqs: bool = True,
+    ) -> Tuple[Optional[str], Optional[float], List[str]]:
+        """Return the best matching reference sequence and alignment summary."""
+
+        results = _find_best_matches(
+            {"query": query_seq},
+            reference_seqs,
+            use_mmseqs=use_mmseqs,
+            fallback_to_biopython=True,
+        )
+
+        result = results["query"]
+        if result.best_id is None:
+            return None, None, []
+
+        return result.best_id, result.best_score, list(result.best_alignment)
+
     def multiple_sequence_alignment(self, sequences: Dict[str, str],
                                   reference_seqs: Optional[Dict[str, str]] = None,
                                   use_mmseqs: bool = True) -> Dict[str, Tuple[str, float, List[str]]]:
@@ -609,43 +577,24 @@ class SequenceProcessor(BaseProcessor):
         Returns:
             Dictionary of query_id -> (best_ref_id, score, alignment)
         """
-        if reference_seqs is None:
-            # All-vs-all alignment
-            reference_seqs = sequences
-            
-        if use_mmseqs and len(sequences) > 1 and len(reference_seqs) > 1:
-            try:
-                # Use MMseqs2 for batch search
-                hits = mmseqs2_align2(sequences, reference_seqs)
-                if hits is not None and not hits.empty:
-                    # Process results
-                    results = {}
-                    for query_id in sequences:
-                        query_hits = hits[hits['query_id'] == query_id]
-                        if not query_hits.empty:
-                            best_hit = query_hits.iloc[0]
-                            ref_id = best_hit['target_id']
-                            
-                            # Get detailed alignment
-                            score, alignment = self.align_sequences(
-                                sequences[query_id], reference_seqs[ref_id],
-                                query_id, ref_id, store_alignment=True
-                            )
-                            results[query_id] = (ref_id, score, alignment)
-                    
-                    return results
-            except Exception as e:
-                logger.warning(f"MMseqs2 batch search failed: {e}")
-        
-        # Fall back to BioPython
-        results = msa_blosum62(sequences, reference_seqs, self.aligner)
-        
-        # Convert to expected format
-        formatted_results = {}
-        for query_id, (ref_id, score, alignment) in results.items():
-            formatted_results[query_id] = (ref_id, score, alignment)
-            
-        return formatted_results
+        reference_map = reference_seqs or sequences
+
+        matches = _find_best_matches(
+            sequences,
+            reference_map,
+            use_mmseqs=use_mmseqs,
+            fallback_to_biopython=True,
+        )
+
+        formatted: Dict[str, Tuple[Optional[str], Optional[float], List[str]]] = {}
+        for query_id, result in matches.items():
+            formatted[query_id] = (
+                result.best_id,
+                result.best_score,
+                list(result.best_alignment),
+            )
+
+        return formatted
     
 
     def align_and_record(
@@ -1383,6 +1332,86 @@ class SequenceProcessor(BaseProcessor):
             return annotations, summary
         return annotations
 
+    # ------------------------------------------------------------------
+    # Mutational study helpers
+    # ------------------------------------------------------------------
+    def generate_mutants_for_sequence(
+        self,
+        seq_name: str,
+        sequence: str,
+        *,
+        seq_positions: Optional[Mapping[int, Sequence[str]]] = None,
+        grn_positions: Optional[Mapping[str, Sequence[str]]] = None,
+        grn_table: Optional[pd.DataFrame] = None,
+        protein_family: Optional[str] = None,
+        grn_reference: str = "gpcrdb_ref",
+    ) -> Dict[str, str]:
+        """Generate mutant sequences using sequence and/or GRN position specs.
+
+        - seq_positions: { position (1-based): [mut_residues] }
+        - grn_positions: { grn_label (e.g., '3.50'): [mut_residues] }
+        """
+        from protos.processing.grn import GRNProcessor as _GRNProc
+
+        seq_positions = dict(seq_positions or {})
+
+        # Translate GRN labels to sequence indices if requested
+        if grn_positions:
+            if grn_table is None:
+                if not protein_family:
+                    raise ValueError(
+                        "protein_family must be provided when using grn_positions without grn_table"
+                    )
+                # Annotate on the fly for a single sequence
+                grn_table = self.annotate_with_grn(
+                    sequences={seq_name: sequence},
+                    reference_table=grn_reference,
+                    protein_family=protein_family,
+                    output_table=None,
+                    allow_create=True,
+                    return_summary=False,
+                )
+
+            mapping = _GRNProc.build_grn_to_seq_index(grn_table, sequence_id=seq_name)
+            for grn_label, residues in grn_positions.items():
+                idx = mapping.get(str(grn_label))
+                if idx is None:
+                    continue
+                seq_positions.setdefault(int(idx), []).extend(list(residues))
+
+        if not seq_positions:
+            return {}
+
+        # Build Cartesian product across specified sites
+        sites: List[Tuple[int, str, List[str]]] = []
+        for pos, choices in sorted(seq_positions.items(), key=lambda kv: int(kv[0])):
+            p = int(pos)
+            if p < 1 or p > len(sequence):
+                continue
+            original = sequence[p - 1]
+            sites.append((p, original, list(choices)))
+
+        mutants: Dict[str, str] = {}
+        if not sites:
+            return mutants
+
+        for combo in itertools.product(*[site[2] for site in sites]):
+            seq_list = list(sequence)
+            tags: List[str] = []
+            valid = True
+            for (pos, original, _choices), new_res in zip(sites, combo):
+                if not new_res or len(new_res) != 1:
+                    valid = False
+                    break
+                tags.append(f"{original}{pos}{new_res}")
+                seq_list[pos - 1] = new_res
+            if not valid:
+                continue
+            mutant_name = f"{seq_name}_{'_'.join(tags)}"
+            mutants[mutant_name] = "".join(seq_list)
+
+        return mutants
+
     def save_alignment(self, alignment_data: Dict, output_file: str, 
                       alignment_type: str = "pairwise"):
         """
@@ -1585,20 +1614,24 @@ class SequenceProcessor(BaseProcessor):
     def export_dataset(
         self,
         dataset_name: str,
-        output_dir: Path,
+        export_name: Optional[str] = None,
         format: Optional[str] = None,
         overwrite: bool = False,
-        name_pattern: Optional[str] = None,
         sequence_ids: Optional[List[str]] = None,
-    ) -> Dict[str, Path]:
+        materialize_entities: bool = False,
+    ) -> Dict[str, Any]:
+        """Export a dataset FASTA into the managed data root and return metadata."""
         exporter = self._get_exporter()
+
+        export_format = (format or "fasta").lower()
+
         return exporter.export_dataset(
             dataset_name,
-            output_dir,
-            format=format,
+            format=export_format,
             overwrite=overwrite,
-            name_pattern=name_pattern,
             sequence_ids=sequence_ids,
+            export_name=export_name,
+            materialize_entities=materialize_entities,
         )
 
     def _get_exporter(self):

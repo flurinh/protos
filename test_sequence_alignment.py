@@ -60,10 +60,15 @@ def main() -> None:
         print(f"MMseqs alignment unavailable: {exc}")
 
     # Export aligned sequences (biopython)
-    output_dir = data_root / "sequence_alignment_output"
-    output_dir.mkdir(exist_ok=True)
-
-    processor.export_dataset(dataset_name, output_dir, overwrite=True)
+    export_info = processor.export_dataset(
+        dataset_name,
+        export_name="gpcr_demo_alignment",
+        overwrite=True,
+    )
+    print(
+        "Exported alignment dataset to",
+        export_info.get("artifact_path") or export_info.get("file_path"),
+    )
 
 
 if __name__ == "__main__":

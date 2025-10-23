@@ -85,33 +85,44 @@ def main() -> None:
         print(f"Alignment score ({ids[0]} vs {ids[1]}): {score:.2f}")
         print("Alignment preview:\n" + "\n".join(alignment[:3]) + "\n...")
 
-    output_dir = data_root / "sequence_output"
-    output_dir.mkdir(exist_ok=True)
-
-    processor.export_dataset(dataset_name, output_dir, overwrite=True)
-    print(f"Exported full dataset to {output_dir}")
+    full_export = processor.export_dataset(
+        dataset_name,
+        export_name="demo_sequences_full",
+        overwrite=True,
+    )
+    print(
+        "Exported full dataset to",
+        full_export.get("artifact_path") or full_export.get("file_path"),
+    )
 
     if gpcr_dataset:
-        processor.export_dataset(gpcr_dataset, output_dir, overwrite=True)
-        print(f"Exported GPCR dataset to {output_dir}")
+        gpcr_export = processor.export_dataset(
+            gpcr_dataset,
+            export_name="gpcr_sequences_full",
+            overwrite=True,
+        )
+        print(
+            "Exported GPCR dataset to",
+            gpcr_export.get("artifact_path") or gpcr_export.get("file_path"),
+        )
 
-    subset_path = processor.export_dataset(
+    subset_export = processor.export_dataset(
         dataset_name,
-        output_dir,
-        name_pattern="{name}_subset.fasta",
+        export_name="demo_sequences_subset",
         sequence_ids=[ids[-1]],
         overwrite=True,
-    )[dataset_name]
-    print(f"Exported subset to {subset_path}")
+    )
+    print(
+        "Exported subset to",
+        subset_export.get("artifact_path") or subset_export.get("file_path"),
+    )
 
     target_seq_id = ids[0]
     processor.save_entity(target_seq_id, sequences[target_seq_id])
-    single_path = processor.export_entity(
-        target_seq_id,
-        output_dir / f"{target_seq_id}.fasta",
-        overwrite=True,
+    single_export = processor.export_entity(target_seq_id, overwrite=True)
+    print(
+        f"Exported single sequence to {single_export.get('artifact_path') or single_export.get('file_path')}"
     )
-    print(f"Exported single sequence to {single_path}")
 
     # Mutant library and downstream analytics
     library, library_meta = processor.create_mutant_library(

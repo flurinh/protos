@@ -31,10 +31,10 @@ SMILES_SAMPLE = {
 def main() -> None:
     ensure_data_root()
 
-    from protos.processing.ligand import LigandProcessor
+    from protos.processing.molecule import MoleculeProcessor
     from protos.processing.structure import StructureProcessor
 
-    ligand_proc = LigandProcessor()
+    ligand_proc = MoleculeProcessor()
 
     dataset, entities = ligand_proc.register_smiles_dataset(SMILES_SAMPLE)
     print(f"Registered {len(entities)} ligands in dataset '{dataset}':")

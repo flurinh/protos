@@ -1,4 +1,4 @@
-"""Format schemas for model inputs and outputs.
+"""Format schemas for models inputs and outputs.
 
 This module defines the exact structure and requirements for each
 input and output format used by the models system.
@@ -397,10 +397,10 @@ class AttentionOutput:
 @dataclass
 class LogitsOutput:
     """
-    Raw model logits output format.
+    Raw models logits output format.
     
     Attributes:
-        logits: Raw model outputs
+        logits: Raw models outputs
         probabilities: Softmax probabilities (if applicable)
         predictions: Argmax predictions (if applicable)
         class_names: Class labels for classification
@@ -418,7 +418,7 @@ class FormatConverter:
     
     @staticmethod
     def sequence_to_embedding_input(sequence: SequenceFormat) -> Dict[str, Any]:
-        """Convert sequence to embedding model input."""
+        """Convert sequence to embedding models input."""
         return {
             "sequence": sequence.sequence,
             "sequence_id": sequence.sequence_id

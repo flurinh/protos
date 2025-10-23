@@ -68,42 +68,42 @@ class EmbeddingProcessor(BaseProcessor):
         "esm2_t6_8m": {
             "hub_name": "facebook/esm2_t6_8M_UR50D",
             "embedding_dim": 320,
-            "description": "ESM-2 tiny model (8M parameters)"
+            "description": "ESM-2 tiny models (8M parameters)"
         },
         "esm2_t12_35m": {
             "hub_name": "facebook/esm2_t12_35M_UR50D", 
             "embedding_dim": 480,
-            "description": "ESM-2 small model (35M parameters)"
+            "description": "ESM-2 small models (35M parameters)"
         },
         "esm2_t30_150m": {
             "hub_name": "facebook/esm2_t30_150M_UR50D",
             "embedding_dim": 640,
-            "description": "ESM-2 medium model (150M parameters)"
+            "description": "ESM-2 medium models (150M parameters)"
         },
         "esm2_t33_650m": {
             "hub_name": "facebook/esm2_t33_650M_UR50D",
             "embedding_dim": 1280,
-            "description": "ESM-2 large model (650M parameters)"
+            "description": "ESM-2 large models (650M parameters)"
         },
         "esm2_t36_3b": {
             "hub_name": "facebook/esm2_t36_3B_UR50D",
             "embedding_dim": 2560,
-            "description": "ESM-2 extra large model (3B parameters)"
+            "description": "ESM-2 extra large models (3B parameters)"
         },
         "esm2_t48_15b": {
             "hub_name": "facebook/esm2_t48_15B_UR50D",
             "embedding_dim": 5120,
-            "description": "ESM-2 huge model (15B parameters)"
+            "description": "ESM-2 huge models (15B parameters)"
         },
         "ankh_base": {
             "hub_name": "ElnaggarLab/ankh-base",
             "embedding_dim": 768,
-            "description": "Ankh base model"
+            "description": "Ankh base models"
         },
         "ankh_large": {
             "hub_name": "ElnaggarLab/ankh-large", 
             "embedding_dim": 1536,
-            "description": "Ankh large model"
+            "description": "Ankh large models"
         }
     }
 
@@ -130,7 +130,7 @@ class EmbeddingProcessor(BaseProcessor):
         
         Args:
             name: Processor instance name
-            model_name: Name of the model from MODEL_REGISTRY
+            model_name: Name of the models from MODEL_REGISTRY
             device: Device to use ('cuda', 'cpu', or None for auto)
             batch_size: Number of sequences to process at once
             max_seq_length: Maximum sequence length for tokenization
@@ -153,7 +153,7 @@ class EmbeddingProcessor(BaseProcessor):
         
         # Model configuration
         if model_name not in self.MODEL_REGISTRY:
-            raise ValueError(f"Unknown model: {model_name}. Available: {list(self.MODEL_REGISTRY.keys())}")
+            raise ValueError(f"Unknown models: {model_name}. Available: {list(self.MODEL_REGISTRY.keys())}")
         
         self.model_name = model_name
         self.model_config = self.MODEL_REGISTRY[model_name]
@@ -183,7 +183,7 @@ class EmbeddingProcessor(BaseProcessor):
             "is_encoder_decoder": self._is_encoder_decoder,
         })
         
-        self.logger.info(f"Initialized EmbeddingProcessor with model {model_name}")
+        self.logger.info(f"Initialized EmbeddingProcessor with models {model_name}")
         if not (_TORCH_AVAILABLE and _TRANSFORMERS_AVAILABLE):
             self.logger.warning("Dependencies not available. Install with: pip install torch transformers")
     
@@ -205,10 +205,10 @@ class EmbeddingProcessor(BaseProcessor):
     
     @property
     def model(self):
-        """Lazy load the model."""
+        """Lazy load the models."""
         if not self.dependencies_available:
             raise RuntimeError(
-                "Cannot load model - missing dependencies.\n"
+                "Cannot load models - missing dependencies.\n"
                 f"{_DEPENDENCIES_ERROR}\n"
                 "Install with: pip install -e '.[gpu]' (recommended) or pip install -e '.[embedding]'"
             )
@@ -230,11 +230,11 @@ class EmbeddingProcessor(BaseProcessor):
         return self._tokenizer
     
     def _load_model(self):
-        """Load the model and tokenizer."""
+        """Load the models and tokenizer."""
         if not self.dependencies_available:
-            raise RuntimeError("Cannot load model without torch and transformers installed.")
+            raise RuntimeError("Cannot load models without torch and transformers installed.")
         
-        self.logger.info(f"Loading model {self.model_name} from {self.model_config['hub_name']}")
+        self.logger.info(f"Loading models {self.model_name} from {self.model_config['hub_name']}")
         
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_config['hub_name'])
         # Some tokenizers (e.g. T5) ship without an explicit pad token; default to EOS if needed
@@ -418,7 +418,7 @@ class EmbeddingProcessor(BaseProcessor):
                           hidden_states: "torch.Tensor",
                           attention_mask: "torch.Tensor",
                           embedding_type: EmbeddingType) -> "torch.Tensor":
-        """Extract embeddings from model output."""
+        """Extract embeddings from models output."""
         if embedding_type == "mean":
             # Mean pooling with attention mask
             masked = hidden_states * attention_mask.unsqueeze(-1)
@@ -486,7 +486,7 @@ class EmbeddingProcessor(BaseProcessor):
 
             payload = {
                 "embedding": array,
-                "model": self.model_name,
+                "models": self.model_name,
                 "embedding_type": embedding_type,
                 "source_sequence": seq_id,
                 "dataset": dataset_name,
@@ -496,7 +496,7 @@ class EmbeddingProcessor(BaseProcessor):
 
             relative_path = str(file_path.relative_to(self.paths.data_root))
             metadata = {
-                "model": self.model_name,
+                "models": self.model_name,
                 "embedding_type": embedding_type,
                 "shape": list(array.shape),
                 "dtype": str(array.dtype),
@@ -518,7 +518,7 @@ class EmbeddingProcessor(BaseProcessor):
                     target_name=seq_id,
                     rel_type="derived_from",
                     metadata={
-                        "model": self.model_name,
+                        "models": self.model_name,
                         "embedding_type": embedding_type,
                     },
                 )
@@ -548,7 +548,7 @@ class EmbeddingProcessor(BaseProcessor):
         )
 
         dataset_metadata = {
-            "model": self.model_name,
+            "models": self.model_name,
             "embedding_type": embedding_type,
             "entity_count": len(entity_names),
             "embedding_dim": self.model_config["embedding_dim"],
@@ -637,7 +637,7 @@ class EmbeddingProcessor(BaseProcessor):
         return self.embed_sequences(sequences, embedding_type, save_dataset)
     
     def get_embedding_dim(self) -> int:
-        """Get the embedding dimension for the current model."""
+        """Get the embedding dimension for the current models."""
         return self.model_config["embedding_dim"]
     
     def list_available_models(self) -> Dict[str, Dict[str, Any]]:
@@ -712,7 +712,7 @@ class EmbeddingProcessor(BaseProcessor):
         return aggregated
 
     def clear_cache(self):
-        """Clear model from memory."""
+        """Clear models from memory."""
         if self._model is not None:
             del self._model
             self._model = None
@@ -721,7 +721,7 @@ class EmbeddingProcessor(BaseProcessor):
             self._tokenizer = None
         if _TORCH_AVAILABLE and torch.cuda.is_available():
             torch.cuda.empty_cache()
-        self.logger.info("Cleared model cache")
+        self.logger.info("Cleared models cache")
     
     def load_embedding_entity(self, identifier: str) -> Optional["torch.Tensor"]:
         """
@@ -849,3 +849,115 @@ class EmbeddingProcessor(BaseProcessor):
             entity_name_map={entity_id: entity_id},
         )
         return True
+
+    # --- Migration helpers: ingest artifacts produced by ModelManager ---
+    def ingest_from_artifact(
+        self,
+        dataset_name: str,
+        artifact_path: Union[str, Path],
+        *,
+        model_name: Optional[str] = None,
+        embedding_type: str = "per_residue",
+        sequences: Optional[Dict[str, str]] = None,
+        extra_metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Create an embedding dataset from a compact artifact (e.g., NPZ).
+
+        Reads the artifact, converts each array into a standard per-entity PKL
+        under embedding/<model>/<dataset>/, registers entities and finally the
+        dataset JSON with metadata. Returns the dataset name.
+        """
+        path = Path(artifact_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Embedding artifact not found: {path}")
+
+        # Allow overriding model on the processor instance
+        if model_name and model_name != self.model_name:
+            # Create a new processor for the requested model to keep layout tidy
+            other = EmbeddingProcessor(model_name=model_name)
+            return other.ingest_from_artifact(
+                dataset_name,
+                path,
+                model_name=model_name,
+                embedding_type=embedding_type,
+                sequences=sequences,
+                extra_metadata=extra_metadata,
+            )
+
+        loaded = np.load(path, allow_pickle=False)
+        # Build a mapping of id -> np.ndarray
+        arrays: Dict[str, np.ndarray] = {k: np.asarray(loaded[k]) for k in loaded.files}
+
+        # Persist using existing helpers to standardize entity layout
+        persist_sequences = sequences or {k: "" for k in arrays.keys()}
+        # Fake tensors: they can be numpy arrays; _persist_embeddings will handle conversion
+        saved_dir, entity_names = self._persist_embeddings(
+            arrays,  # type: ignore[arg-type]
+            persist_sequences,
+            embedding_type,
+            dataset_name=dataset_name,
+        )
+
+        ds_meta = {
+            "models": self.model_name,
+            "embedding_type": embedding_type,
+            "entity_count": len(entity_names),
+            "embedding_dim": self.model_config["embedding_dim"],
+            "artifact_path": str(saved_dir.relative_to(self.paths.data_root)),
+            "source_artifact": str(path.relative_to(self.paths.data_root))
+            if str(path).startswith(self.paths.data_root)
+            else str(path),
+        }
+        if extra_metadata:
+            ds_meta.update(extra_metadata)
+
+        if self.dataset_manager.dataset_exists(dataset_name):
+            self.dataset_manager.delete_dataset(dataset_name)
+        self.create_dataset(dataset_name, entity_names, ds_meta)
+
+        return dataset_name
+
+    def ingest_from_invocation(self, invocation: Any, dataset_name: Optional[str] = None) -> str:
+        """Create a dataset from a ModelInvocation that produced embeddings.
+
+        Looks for an output artifact with kind 'embedding' and format 'npz', and
+        uses its metadata for defaults.
+        """
+        try:
+            from protos.models.model_specs import ModelInvocation as _MI
+        except Exception:  # pragma: no cover - defensive import
+            _MI = Any  # type: ignore
+
+        inv = invocation  # do not type-check strictly to avoid import cycles
+        if not hasattr(inv, "outputs"):
+            raise ValueError("Invalid invocation: missing outputs")
+
+        artifact = None
+        for bundle in getattr(inv, "outputs", []) or []:
+            if getattr(bundle, "spec", None) and bundle.spec.kind == "embedding":
+                artifact = bundle
+                break
+        if artifact is None:
+            raise ValueError("No embedding artifact found in invocation outputs")
+
+        meta = artifact.metadata or {}
+        model_name = meta.get("model_name", self.model_name)
+        emb_type = meta.get("embedding_type", "per_residue")
+        sequences = None
+
+        # Determine target dataset name
+        final_name = dataset_name or meta.get("dataset")
+        if not final_name:
+            # Fallback: derive from file name
+            final_name = Path(artifact.path).stem
+
+        # Delegate to artifact-based ingest (may re-dispatch to a processor with
+        # matching model_name)
+        return self.ingest_from_artifact(
+            final_name,
+            artifact.path,
+            model_name=model_name,
+            embedding_type=emb_type,
+            sequences=sequences,
+            extra_metadata={k: v for k, v in meta.items() if k not in {"artifact_path"}},
+        )

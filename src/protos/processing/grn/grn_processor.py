@@ -47,6 +47,44 @@ class GRNProcessor(BaseProcessor):
         return str(path.relative_to(self.paths.data_root))
 
     # ------------------------------------------------------------------
+    # GRN parsing and mapping utilities
+    # ------------------------------------------------------------------
+    @staticmethod
+    def parse_grn_value(value: Any) -> Optional[Tuple[str, int]]:
+        """Parse a GRN table cell like 'M123' into (residue, 123).
+
+        Returns None for missing or malformed entries ('-').
+        """
+        if not isinstance(value, str) or not value or value == '-':
+            return None
+        head = value[0]
+        tail = value[1:]
+        try:
+            pos = int(tail)
+        except (TypeError, ValueError):
+            return None
+        return head, pos
+
+    @staticmethod
+    def build_grn_to_seq_index(grn_table: pd.DataFrame, *, sequence_id: str) -> Dict[str, int]:
+        """Construct mapping from GRN label to 1-based sequence indices for one sequence.
+
+        Expects GRN table to have sequence ids as index and GRN labels as columns,
+        with cell values formatted like 'A123' (amino acid + sequence index).
+        """
+        if sequence_id not in grn_table.index:
+            return {}
+        row = grn_table.loc[sequence_id]
+        mapping: Dict[str, int] = {}
+        for label, value in row.items():
+            parsed = GRNProcessor.parse_grn_value(value)
+            if parsed is None:
+                continue
+            _, seq_idx = parsed
+            mapping[str(label)] = int(seq_idx)
+        return mapping
+
+    # ------------------------------------------------------------------
     # Public API: recording / loading tables
     # ------------------------------------------------------------------
     def record_table(

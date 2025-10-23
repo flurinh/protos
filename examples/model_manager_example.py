@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Example usage of ModelManager for preparing model inputs."""
+"""Example usage of ModelManager for preparing models inputs."""
 
 from pathlib import Path
 import sys
@@ -161,7 +161,7 @@ def example_grn_mutation_screen():
 
 
 def example_batch_preparation():
-    """Example: Prepare batch of model runs."""
+    """Example: Prepare batch of models runs."""
     print("\n=== Example 5: Batch Preparation ===")
     
     manager = ModelManager()
@@ -209,7 +209,7 @@ def example_batch_preparation():
 
 
 def example_output_parsing():
-    """Example: Parse model outputs and register in Protos."""
+    """Example: Parse models outputs and register in Protos."""
     print("\n=== Example 6: Output Parsing and Registration ===")
     
     manager = ModelManager()

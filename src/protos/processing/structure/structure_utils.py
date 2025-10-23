@@ -213,9 +213,9 @@ def extract_torsion_angles(file_path: Union[str, Path], structure_id: int = 0) -
     """
     # Load structure with gemmi
     st = gemmi.read_structure(str(file_path), merge_chain_parts=True)
-    logger.debug(f"Found {len(st)} model(s), using model {structure_id}.")
+    logger.debug(f"Found {len(st)} models(s), using models {structure_id}.")
     
-    # Use specified model
+    # Use specified models
     model = st[structure_id]
     
     # Extract residue-wise features

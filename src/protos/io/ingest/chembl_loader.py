@@ -43,59 +43,12 @@ def _get_chembl_client():
     return chembl_client
 
 
-# Common gene name aliases that map directly to ChEMBL IDs
-GENE_ALIASES = {
-    'EGFR': 'CHEMBL203',      # Epidermal growth factor receptor
-    'HER2': 'CHEMBL1824',     # ERBB2
-    'ERBB2': 'CHEMBL1824',    # HER2
-    'COX2': 'CHEMBL230',      # PTGS2
-    'PTGS2': 'CHEMBL230',     # COX2
-    'ABL': 'CHEMBL1862',      # ABL1
-    'ABL1': 'CHEMBL1862',     # BCR-ABL
-    'SRC': 'CHEMBL267',       # SRC kinase
-    'VEGFR2': 'CHEMBL279',    # KDR
-    'KDR': 'CHEMBL279',       # VEGFR2
-    'MET': 'CHEMBL3717',      # c-Met
-    'ALK': 'CHEMBL4247',      # Anaplastic lymphoma kinase
-    'BTK': 'CHEMBL5251',      # Bruton's tyrosine kinase
-    'JAK2': 'CHEMBL6133',     # Janus kinase 2
-    'CDK4': 'CHEMBL331',      # Cyclin-dependent kinase 4
-    'CDK6': 'CHEMBL2508',     # Cyclin-dependent kinase 6
-    'BRAF': 'CHEMBL5145',     # B-Raf
-    'PI3K': 'CHEMBL3145',     # PIK3CA
-    'PIK3CA': 'CHEMBL3145',   # PI3K alpha
-    'MTOR': 'CHEMBL2185',     # mTOR
-    'HDAC': 'CHEMBL325',      # HDAC1
-    'PD1': 'CHEMBL4683',      # PDCD1
-    'PDL1': 'CHEMBL5917',     # CD274
-    'CTLA4': 'CHEMBL4301',    # CTLA-4
-}
-
-# Common PDB to ChEMBL target mappings
-PDB_ALIASES = {
-    # EGFR structures
-    '1M17': 'CHEMBL203',      # EGFR kinase domain
-    '2ITY': 'CHEMBL203',      # EGFR with erlotinib
-    '4HJO': 'CHEMBL203',      # EGFR T790M with inhibitor
-    
-    # Other kinases
-    '1T46': 'CHEMBL267',      # SRC kinase
-    '3LXK': 'CHEMBL1862',     # ABL1 with dasatinib
-    '1M52': 'CHEMBL331',      # CDK4
-    
-    # GPCRs
-    '3EML': 'CHEMBL213',      # Adenosine A2A receptor
-    '4EJ4': 'CHEMBL210',      # β2 adrenergic receptor
-    '5C1M': 'CHEMBL1889',     # μ-opioid receptor
-    
-    # Other targets
-    '1CX2': 'CHEMBL230',      # COX-2
-    '4B0Q': 'CHEMBL2185',     # mTOR
-}
-
-
-def map_protein_to_chembl_target(protein_id: str, 
-                                protein_mapping_cache: Optional[Dict] = None) -> Optional[str]:
+def map_protein_to_chembl_target(
+    protein_id: str,
+    *,
+    protein_mapping_cache: Optional[Dict] = None,
+    alias_map: Optional[Dict[str, str]] = None,
+) -> Optional[str]:
     """
     Map protein identifier to ChEMBL target ID.
     
@@ -105,6 +58,7 @@ def map_protein_to_chembl_target(protein_id: str,
     Args:
         protein_id: Protein identifier (UniProt, PDB, gene name)
         protein_mapping_cache: Optional cache dictionary
+        alias_map: Optional mapping of identifiers to ChEMBL target IDs
         
     Returns:
         ChEMBL target ID, or None if not found
@@ -118,13 +72,15 @@ def map_protein_to_chembl_target(protein_id: str,
     if protein_mapping_cache and protein_id in protein_mapping_cache:
         return protein_mapping_cache[protein_id]
     
-    # Check gene aliases
-    if protein_id.upper() in GENE_ALIASES:
-        return GENE_ALIASES[protein_id.upper()]
-    
-    # Check PDB aliases
-    if protein_id.upper() in PDB_ALIASES:
-        return PDB_ALIASES[protein_id.upper()]
+    alias_lookup: Dict[str, str] = {}
+    if alias_map:
+        alias_lookup = {key.upper(): value for key, value in alias_map.items()}
+
+    alias_match = alias_lookup.get(protein_id.upper())
+    if alias_match:
+        if protein_mapping_cache is not None:
+            protein_mapping_cache[protein_id] = alias_match
+        return alias_match
     
     # Extract identifier type
     id_info = extract_protein_mapping(protein_id)
@@ -190,11 +146,15 @@ def map_protein_to_chembl_target(protein_id: str,
     return None
 
 
-def query_protein_ligands(protein_id: str, 
-                         activity_types: Optional[List[str]] = None,
-                         min_pchembl: float = 5.0,
-                         max_value_nm: float = 10000,
-                         limit: Optional[int] = None) -> List[Dict]:
+def query_protein_ligands(
+    protein_id: str,
+    activity_types: Optional[List[str]] = None,
+    min_pchembl: float = 5.0,
+    max_value_nm: float = 10000,
+    limit: Optional[int] = None,
+    *,
+    alias_map: Optional[Dict[str, str]] = None,
+) -> List[Dict]:
     """
     Query ligands for a protein target from ChEMBL.
     
@@ -207,6 +167,7 @@ def query_protein_ligands(protein_id: str,
         min_pchembl: Minimum pChEMBL value (negative log of activity)
         max_value_nm: Maximum activity value in nM
         limit: Maximum number of compounds
+        alias_map: Optional dictionary mapping identifiers to ChEMBL target IDs
         
     Returns:
         List of ligand data dictionaries
@@ -217,7 +178,10 @@ def query_protein_ligands(protein_id: str,
         return []
     
     # Map to ChEMBL target
-    chembl_target = map_protein_to_chembl_target(protein_id)
+    chembl_target = map_protein_to_chembl_target(
+        protein_id,
+        alias_map=alias_map,
+    )
     if not chembl_target:
         logger.warning(f"Could not map {protein_id} to ChEMBL target")
         return []

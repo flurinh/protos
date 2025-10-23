@@ -1,6 +1,6 @@
 """StandardModel implementation for configuration-based models.
 
-This module provides a generic model class that can handle any model
+This module provides a generic models class that can handle any models
 defined in model_definitions.py without requiring custom implementation.
 """
 
@@ -24,7 +24,7 @@ from protos.io.paths import ProtosPaths
 
 class StandardModel(BaseModel):
     """
-    Generic model implementation that works with any model defined in model_definitions.
+    Generic models implementation that works with any models defined in model_definitions.
     
     This class:
     - Loads models based on configuration
@@ -39,15 +39,15 @@ class StandardModel(BaseModel):
                  paths: Optional[ProtosPaths] = None,
                  device: Optional[str] = None):
         """
-        Initialize a standard model.
+        Initialize a standard models.
         
         Args:
-            model_name: Name of the model (e.g., 'esm2', 'ankh')
+            model_name: Name of the models (e.g., 'esm2', 'ankh')
             model_variant: Specific variant (e.g., 'esm2_t33_650M')
             paths: ProtosPaths instance
             device: Device to use (overrides definition)
         """
-        # Get model definition
+        # Get models definition
         self.definition = get_model_definition(model_name)
         self.model_variant = model_variant
         
@@ -57,7 +57,7 @@ class StandardModel(BaseModel):
         # Initialize base class
         super().__init__(config, paths, name=model_name)
         
-        # Framework-specific model holder
+        # Framework-specific models holder
         self.framework_model = None
         self.tokenizer = None
         self.preprocessor = None
@@ -84,7 +84,7 @@ class StandardModel(BaseModel):
         )
     
     def _setup_adapters(self):
-        """Set up format adapters based on model definition."""
+        """Set up format adapters based on models definition."""
         # Input adapters
         for input_format in self.definition.input_formats:
             if input_format == InputFormat.SEQUENCE:
@@ -107,7 +107,7 @@ class StandardModel(BaseModel):
                 )
     
     def load_model(self, checkpoint_path: Optional[Path] = None):
-        """Load model based on framework."""
+        """Load models based on framework."""
         # Download weights if needed
         if checkpoint_path is None:
             checkpoint_path = self._ensure_weights()
@@ -124,7 +124,7 @@ class StandardModel(BaseModel):
         self.is_loaded = True
     
     def _ensure_weights(self) -> Path:
-        """Ensure model weights are available, downloading if needed."""
+        """Ensure models weights are available, downloading if needed."""
         # Check for existing weights
         variant = self.model_variant or list(self.definition.sources.keys())[0]
         weights_file = self.weights_path / f"{variant}.pt"
@@ -142,7 +142,7 @@ class StandardModel(BaseModel):
         return weights_file
     
     def _load_pytorch_model(self, checkpoint_path: Path):
-        """Load PyTorch model."""
+        """Load PyTorch models."""
         if self.definition.name == "esm2":
             self._load_esm2_model(checkpoint_path)
         elif self.definition.name == "ankh":
@@ -159,16 +159,16 @@ class StandardModel(BaseModel):
                 self.framework_model.eval()
     
     def _load_esm2_model(self, checkpoint_path: Path):
-        """Load ESM2 model specifically."""
+        """Load ESM2 models specifically."""
         try:
             import esm_test
             
-            # Load model and alphabet
+            # Load models and alphabet
             model_data = torch.load(checkpoint_path, map_location=self.config.device)
             
             # ESM models come with their alphabet
             if isinstance(model_data, dict):
-                self.framework_model = model_data['model']
+                self.framework_model = model_data['models']
                 self.alphabet = model_data['alphabet']
             else:
                 # Load from package
@@ -185,7 +185,7 @@ class StandardModel(BaseModel):
             raise ImportError("ESM package not installed. Run: pip install fair-esm")
     
     def _load_ankh_model(self, checkpoint_path: Path):
-        """Load Ankh model specifically."""
+        """Load Ankh models specifically."""
         try:
             from transformers import T5EncoderModel, T5Tokenizer
             
@@ -200,11 +200,11 @@ class StandardModel(BaseModel):
             raise ImportError("Transformers not installed. Run: pip install transformers")
     
     def _load_lambda_model(self, checkpoint_path: Path):
-        """Load Lambda model using the existing implementation."""
-        # Reuse the lambda model loading logic
+        """Load Lambda models using the existing implementation."""
+        # Reuse the lambda models loading logic
         from protos.models.lambda_model import LambdaModel
         
-        # Create a lambda model instance
+        # Create a lambda models instance
         lambda_model = LambdaModel(self.config, self.paths)
         lambda_model.load_model(checkpoint_path)
         
@@ -213,7 +213,7 @@ class StandardModel(BaseModel):
         self.model_factory = lambda_model.model_factory
     
     def _load_tensorflow_model(self, checkpoint_path: Path):
-        """Load TensorFlow model."""
+        """Load TensorFlow models."""
         try:
             import tensorflow as tf
             self.framework_model = tf.keras.models.load_model(str(checkpoint_path))
@@ -221,17 +221,17 @@ class StandardModel(BaseModel):
             raise ImportError("TensorFlow not installed")
     
     def _load_jax_model(self, checkpoint_path: Path):
-        """Load JAX model."""
+        """Load JAX models."""
         try:
             import jax
             import flax
-            # JAX model loading logic
-            raise NotImplementedError("JAX model loading not yet implemented")
+            # JAX models loading logic
+            raise NotImplementedError("JAX models loading not yet implemented")
         except ImportError:
             raise ImportError("JAX/Flax not installed")
     
     def _preprocess_input(self, input_data: Dict[str, Any]) -> Any:
-        """Preprocess input based on model requirements."""
+        """Preprocess input based on models requirements."""
         # Apply framework-specific preprocessing
         if self.definition.framework == ModelFramework.PYTORCH:
             return self._preprocess_pytorch(input_data)
@@ -303,7 +303,7 @@ class StandardModel(BaseModel):
         return inputs
     
     def _preprocess_lambda(self, input_data: Dict[str, Any]) -> Any:
-        """Preprocess for Lambda - reuse lambda model logic."""
+        """Preprocess for Lambda - reuse lambda models logic."""
         # This would use the graph construction logic from lambda_model
         from torch_geometric.data import Data
         
@@ -328,7 +328,7 @@ class StandardModel(BaseModel):
         return processed
     
     def _predict_single(self, input_data: Any) -> Any:
-        """Make prediction using the loaded model."""
+        """Make prediction using the loaded models."""
         if self.definition.framework == ModelFramework.PYTORCH:
             return self._predict_pytorch(input_data)
         elif self.definition.framework == ModelFramework.TENSORFLOW:
@@ -403,7 +403,7 @@ class StandardModel(BaseModel):
     
     def _predict_lambda(self, input_data: Any) -> Any:
         """Lambda-specific prediction."""
-        # Use the model's forward method
+        # Use the models's forward method
         output = self.framework_model(input_data)
         
         # Process based on task type
@@ -418,7 +418,7 @@ class StandardModel(BaseModel):
         return predictions
     
     def _process_output(self, raw_output: Any) -> Any:
-        """Process model output to standard format."""
+        """Process models output to standard format."""
         # Convert to numpy if needed
         if torch.is_tensor(raw_output):
             return raw_output.cpu().numpy()
@@ -428,7 +428,7 @@ class StandardModel(BaseModel):
             return raw_output
     
     def get_model_info(self) -> Dict[str, Any]:
-        """Get information about the loaded model."""
+        """Get information about the loaded models."""
         info = {
             "name": self.definition.name,
             "full_name": self.definition.full_name,

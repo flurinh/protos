@@ -27,7 +27,7 @@ def test_ccd_loader():
     paths = ProtosPaths(data_root=str(data_dir.absolute()))
     
     # Get CCD directory - use cache_dir for databases
-    ccd_dir = Path(paths.get_subdir_path("ligand", "cache_dir")) / "databases" / "ccd"
+    ccd_dir = Path(paths.get_subdir_path("molecule", "cache_dir")) / "databases" / "ccd"
     ccd_dir.mkdir(parents=True, exist_ok=True)
     print(f"CCD directory: {ccd_dir}")
     print(f"Directory exists: {ccd_dir.exists()}")

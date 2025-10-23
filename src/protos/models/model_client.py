@@ -1,4 +1,4 @@
-"""Unified model client that supports both local and containerized models.
+"""Unified models client that supports both local and containerized models.
 
 This module provides a single interface for working with models regardless
 of whether they run locally or in Docker containers.
@@ -49,7 +49,7 @@ class UnifiedModelClient:
                  backend: ModelBackend = ModelBackend.AUTO,
                  docker_host: Optional[str] = None):
         """
-        Initialize the unified model client.
+        Initialize the unified models client.
         
         Args:
             paths: ProtosPaths instance
@@ -87,7 +87,7 @@ class UnifiedModelClient:
         return list(STANDARD_MODELS.keys())
     
     def get_model_info(self, model_name: str) -> Dict[str, Any]:
-        """Get information about a model."""
+        """Get information about a models."""
         definition = get_model_definition(model_name)
         
         info = {
@@ -123,15 +123,15 @@ class UnifiedModelClient:
                 backend: Optional[ModelBackend] = None,
                 **kwargs) -> Dict[str, Any]:
         """
-        Make a prediction using a model.
+        Make a prediction using a models.
         
         Args:
-            model_name: Name of the model to use
+            model_name: Name of the models to use
             entity_name: Entity to load data for (optional)
             inputs: Direct input data (if not using entity)
-            model_variant: Specific model variant
+            model_variant: Specific models variant
             backend: Override default backend
-            **kwargs: Additional model-specific parameters
+            **kwargs: Additional models-specific parameters
             
         Returns:
             Prediction results
@@ -158,7 +158,7 @@ class UnifiedModelClient:
             return self._predict_local(model_name, inputs, model_variant, **kwargs)
     
     def _select_backend(self, model_name: str) -> ModelBackend:
-        """Auto-select the best backend for a model."""
+        """Auto-select the best backend for a models."""
         # Check if Docker service is available
         if self.service_manager and model_name in MODEL_SERVICES:
             # Check if service is running
@@ -197,15 +197,15 @@ class UnifiedModelClient:
             import esm_test
         elif model_name == "ankh":
             import transformers
-        # Add other model checks as needed
+        # Add other models checks as needed
     
     def _predict_local(self, 
                        model_name: str,
                        inputs: Dict[str, Any],
                        model_variant: Optional[str] = None,
                        **kwargs) -> Dict[str, Any]:
-        """Make prediction using local model."""
-        # Get or create model instance
+        """Make prediction using local models."""
+        # Get or create models instance
         model_key = f"{model_name}_{model_variant or 'default'}"
         
         if model_key not in self.local_models:
@@ -228,7 +228,7 @@ class UnifiedModelClient:
         
         model = self.local_models[model_key]
         
-        # Adapt inputs for model
+        # Adapt inputs for models
         adapted_inputs = self._adapt_inputs(inputs, model_name, kwargs)
         
         # Make prediction
@@ -253,10 +253,10 @@ class UnifiedModelClient:
         
         service = self.remote_services[model_name]
         
-        # Adapt inputs for model
+        # Adapt inputs for models
         adapted_inputs = self._adapt_inputs(inputs, model_name, kwargs)
         
-        # Add model-specific parameters
+        # Add models-specific parameters
         request_data = {
             **adapted_inputs,
             "model_variant": model_variant
@@ -268,7 +268,7 @@ class UnifiedModelClient:
         return result
     
     def _load_entity_data(self, entity_name: str, model_name: str) -> Dict[str, Any]:
-        """Load entity data in formats required by model."""
+        """Load entity data in formats required by models."""
         definition = get_model_definition(model_name)
         required_formats = [fmt.value for fmt in definition.input_formats]
         
@@ -352,7 +352,7 @@ class UnifiedModelClient:
                       inputs: Dict[str, Any], 
                       model_name: str,
                       config: Dict[str, Any]) -> Dict[str, Any]:
-        """Adapt inputs for specific model requirements."""
+        """Adapt inputs for specific models requirements."""
         return self.format_adapter.adapt_for_model(inputs, model_name, config)
     
     def shutdown(self):

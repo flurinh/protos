@@ -20,7 +20,7 @@ from typing import Dict, List, Any, Optional, Union, Tuple, Set, Iterable
 from abc import ABC, abstractmethod
 
 # Import path management utilities
-from protos.io.paths import get_protos_paths
+from protos.io.paths import get_protos_paths, sanitize_storage_name
 
 
 class BaseProcessor(ABC):
@@ -521,25 +521,7 @@ class BaseProcessor(ABC):
         Returns:
             Sanitized filename
         """
-        # Replace problematic characters
-        replacements = {
-            '/': '_',
-            '\\': '_',
-            ':': '_',
-            '*': '_',
-            '?': '_',
-            '"': '_',
-            '<': '_',
-            '>': '_',
-            '|': '_',
-            ' ': '_'
-        }
-        
-        safe_name = name
-        for char, replacement in replacements.items():
-            safe_name = safe_name.replace(char, replacement)
-        
-        return safe_name
+        return sanitize_storage_name(name)
     
     # ========== Data Operations (to be overridden by subclasses) ==========
     
@@ -738,7 +720,7 @@ class BaseProcessor(ABC):
             'grn': ProcessorType.GRN,
             'property': ProcessorType.PROPERTY,
             'embedding': ProcessorType.EMBEDDING,
-            'ligand': ProcessorType.LIGAND,
+            'ligand': ProcessorType.MOLECULE,
             'graph': ProcessorType.GRAPH
         }
         

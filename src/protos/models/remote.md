@@ -184,7 +184,7 @@ docker/
 ```dockerfile
 FROM nvidia/cuda:<version>-cudnn-runtime
 
-# Install Python and model-specific dependencies
+# Install Python and models-specific dependencies
 RUN apt-get update && apt-get install -y python3-pip
 COPY requirements.txt .
 RUN pip3 install -r requirements.txt
@@ -200,7 +200,7 @@ COPY weights/ /models/weights/
 COPY entrypoint.py /app/
 WORKDIR /app
 
-# Run model in server mode
+# Run models in server mode
 CMD ["python3", "entrypoint.py"]
 ```
 

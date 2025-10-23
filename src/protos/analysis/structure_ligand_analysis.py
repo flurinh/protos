@@ -9,7 +9,7 @@ These functions can be used standalone or integrated into workflows.
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance_matrix, cKDTree
-from typing import Dict, List, Tuple, Optional, Set, Union
+from typing import Dict, List, Tuple, Optional, Set, Union, Iterable
 import logging
 from pathlib import Path
 
@@ -25,9 +25,25 @@ except ImportError:
     HAS_RDKIT = False
 
 
-def extract_all_ligands(cif_processor, pdb_id: str, 
-                       exclude_common: bool = True,
-                       min_atoms: int = 3) -> List[Dict]:
+COMMON_HETERO = {
+    'HOH', 'WAT', 'NA', 'CL', 'K', 'CA', 'MG', 'ZN',
+    'SO4', 'PO4', 'IOD', 'BR', 'F', 'FE', 'CU', 'MN',
+    'CD', 'NI', 'HG', 'CO', 'SR', 'BA', 'RB', 'CS',
+    'GOL', 'EDO', 'PEG', 'ACT', 'DMS', 'FMT'
+}
+
+WATER_RES_NAMES = {'HOH', 'WAT'}
+
+
+def extract_all_ligands(
+    cif_processor,
+    pdb_id: str,
+    *,
+    exclude_common: bool = True,
+    include_waters: bool = False,
+    allowed_res_names: Optional[Iterable[str]] = None,
+    min_atoms: int = 3,
+) -> List[Dict]:
     """
     Extract all ligands from a structure using CifBaseProcessor data.
     
@@ -35,16 +51,21 @@ def extract_all_ligands(cif_processor, pdb_id: str,
         cif_processor: CifBaseProcessor instance with loaded data
         pdb_id: Structure identifier
         exclude_common: Exclude water, ions, and common molecules
+        include_waters: If True, allow water molecules even when excluding common hetero atoms
+        allowed_res_names: Optional explicit whitelist of residue names to include
         min_atoms: Minimum number of atoms for a ligand
         
     Returns:
         List of ligand dictionaries with structure and metadata
     """
-    # Common molecules to exclude
-    common_hetero = {'HOH', 'WAT', 'NA', 'CL', 'K', 'CA', 'MG', 'ZN', 
-                     'SO4', 'PO4', 'IOD', 'BR', 'F', 'FE', 'CU', 'MN',
-                     'CD', 'NI', 'HG', 'CO', 'SR', 'BA', 'RB', 'CS',
-                     'GOL', 'EDO', 'PEG', 'ACT', 'DMS', 'FMT'}
+    allowed_set = set(allowed_res_names) if allowed_res_names is not None else None
+
+    if exclude_common:
+        excluded_residues = COMMON_HETERO.copy()
+        if include_waters:
+            excluded_residues -= WATER_RES_NAMES
+    else:
+        excluded_residues = set()
     
     # Get structure data
     structure_data = cif_processor.data[cif_processor.data['pdb_id'] == pdb_id].copy()
@@ -57,7 +78,9 @@ def extract_all_ligands(cif_processor, pdb_id: str,
         ['res_name3l', 'auth_chain_id', 'auth_seq_id']
     ):
         # Apply filters
-        if exclude_common and res_name in common_hetero:
+        if allowed_set is not None and res_name not in allowed_set:
+            continue
+        if exclude_common and res_name in excluded_residues:
             continue
         if len(atoms) < min_atoms:
             continue
@@ -87,6 +110,24 @@ def extract_all_ligands(cif_processor, pdb_id: str,
         
     logger.info(f"Found {len(ligands)} ligands in {pdb_id}")
     return ligands
+
+
+def extract_water_molecules(
+    cif_processor,
+    pdb_id: str,
+    *,
+    min_atoms: int = 1,
+) -> List[Dict]:
+    """Extract water molecules from a structure as ligand-like records."""
+
+    return extract_all_ligands(
+        cif_processor,
+        pdb_id,
+        exclude_common=True,
+        include_waters=True,
+        allowed_res_names=WATER_RES_NAMES,
+        min_atoms=min_atoms,
+    )
 
 
 def get_ligand_by_id(cif_processor, pdb_id: str, res_name: str,
@@ -491,8 +532,13 @@ def find_conserved_interactions(cif_processor,
 
 # Workflow helper functions
 
-def analyze_all_ligands_in_structure(cif_processor, pdb_id: str,
-                                   exclude_common: bool = True) -> List[Dict]:
+def analyze_all_ligands_in_structure(
+    cif_processor,
+    pdb_id: str,
+    *,
+    exclude_common: bool = True,
+    include_waters: bool = False,
+) -> List[Dict]:
     """
     Complete analysis of all ligands in a structure.
     
@@ -500,6 +546,7 @@ def analyze_all_ligands_in_structure(cif_processor, pdb_id: str,
         cif_processor: CifBaseProcessor instance
         pdb_id: Structure identifier
         exclude_common: Exclude water and ions
+        include_waters: Allow water molecules to appear in the analysis
         
     Returns:
         List of analysis results for each ligand
@@ -507,7 +554,12 @@ def analyze_all_ligands_in_structure(cif_processor, pdb_id: str,
     results = []
     
     # Extract all ligands
-    ligands = extract_all_ligands(cif_processor, pdb_id, exclude_common)
+    ligands = extract_all_ligands(
+        cif_processor,
+        pdb_id,
+        exclude_common=exclude_common,
+        include_waters=include_waters,
+    )
     
     for ligand in ligands:
         # Get interactions

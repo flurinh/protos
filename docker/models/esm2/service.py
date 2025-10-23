@@ -1,4 +1,4 @@
-"""ESM-2 model service."""
+"""ESM-2 models service."""
 
 import os
 import torch
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Create Flask app
 app = Flask(__name__)
 
-# Global model holder
+# Global models holder
 model = None
 alphabet = None
 batch_converter = None
@@ -22,15 +22,15 @@ device = None
 
 
 def load_model():
-    """Load ESM-2 model."""
+    """Load ESM-2 models."""
     global model, alphabet, batch_converter, device
     
     model_variant = os.environ.get("MODEL_VARIANT", "esm2_t33_650M")
     device_name = os.environ.get("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
     
-    logger.info(f"Loading ESM-2 model: {model_variant} on {device_name}")
+    logger.info(f"Loading ESM-2 models: {model_variant} on {device_name}")
     
-    # Load model
+    # Load models
     model, alphabet = esm.pretrained.load_model_and_alphabet(model_variant)
     batch_converter = alphabet.get_batch_converter()
     
@@ -54,7 +54,7 @@ def health():
 def info():
     """Model information endpoint."""
     return jsonify({
-        "model": "esm2",
+        "models": "esm2",
         "variant": os.environ.get("MODEL_VARIANT", "esm2_t33_650M"),
         "device": str(device) if device else "not loaded",
         "max_length": 1024,
@@ -125,7 +125,7 @@ def predict():
 
 
 if __name__ == "__main__":
-    # Load model on startup
+    # Load models on startup
     load_model()
     
     # Run server

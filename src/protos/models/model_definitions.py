@@ -1,4 +1,4 @@
-"""Standard model definitions for Protos.
+"""Standard models definitions for Protos.
 
 This module defines configurations for standard protein AI models,
 including their requirements, inputs, outputs, and download sources.
@@ -10,7 +10,7 @@ from enum import Enum
 
 
 class ModelFramework(Enum):
-    """Supported model frameworks."""
+    """Supported models frameworks."""
     PYTORCH = "pytorch"
     TENSORFLOW = "tensorflow"
     JAX = "jax"
@@ -62,7 +62,7 @@ class ModelRequirements:
 
 @dataclass
 class ModelDefinition:
-    """Complete definition of a standard model."""
+    """Complete definition of a standard models."""
     # Basic info
     name: str
     full_name: str
@@ -97,13 +97,13 @@ class ModelDefinition:
     citation: Optional[str] = None
 
 
-# Standard model definitions
+# Standard models definitions
 STANDARD_MODELS = {
     "esm2": ModelDefinition(
         name="esm2",
         full_name="ESM-2",
         version="2.0",
-        description="Evolutionary Scale Modeling protein language model from Meta",
+        description="Evolutionary Scale Modeling protein language models from Meta",
         framework=ModelFramework.PYTORCH,
         input_formats=[InputFormat.SEQUENCE],
         output_format=OutputFormat.EMBEDDING,
@@ -161,7 +161,7 @@ STANDARD_MODELS = {
         name="ankh",
         full_name="Ankh",
         version="1.0",
-        description="Large protein language model optimized for efficiency",
+        description="Large protein language models optimized for efficiency",
         framework=ModelFramework.PYTORCH,
         input_formats=[InputFormat.SEQUENCE],
         output_format=OutputFormat.EMBEDDING,
@@ -197,12 +197,12 @@ STANDARD_MODELS = {
         name="boltz1",
         full_name="Boltz-1",
         version="1.0",
-        description="Structure prediction model",
+        description="Structure prediction models",
         framework=ModelFramework.PYTORCH,
         input_formats=[InputFormat.SEQUENCE, InputFormat.MSA],
         output_format=OutputFormat.STRUCTURE,
         sources={
-            "model": ModelSource(
+            "models": ModelSource(
                 url="https://github.com/jwohlwend/boltz/releases/download/v1.0.0/boltz1.ckpt",
                 format="checkpoint",
                 size_mb=800
@@ -274,7 +274,7 @@ STANDARD_MODELS = {
         output_format=OutputFormat.STRUCTURE,
         max_sequence_length=512,
         sources={
-            "model": ModelSource(
+            "models": ModelSource(
                 url="https://dl.fbaipublicfiles.com/fair-esm/models/esmfold_3B_v1.pt",
                 size_mb=11000,
                 requires_auth=False
@@ -298,12 +298,12 @@ STANDARD_MODELS = {
         name="protgpt2",
         full_name="ProtGPT2",
         version="1.0",
-        description="Generative protein language model",
+        description="Generative protein language models",
         framework=ModelFramework.PYTORCH,
         input_formats=[InputFormat.SEQUENCE],
         output_format=OutputFormat.SEQUENCE,
         sources={
-            "model": ModelSource(
+            "models": ModelSource(
                 url="https://huggingface.co/nferruz/ProtGPT2",
                 format="huggingface",
                 size_mb=1500
@@ -331,13 +331,13 @@ STANDARD_MODELS = {
         name="prostt5",
         full_name="ProstT5",
         version="1.0",
-        description="Structure-informed protein language model",
+        description="Structure-informed protein language models",
         framework=ModelFramework.PYTORCH,
         input_formats=[InputFormat.SEQUENCE],
         output_format=OutputFormat.EMBEDDING,
         max_sequence_length=1024,
         sources={
-            "model": ModelSource(
+            "models": ModelSource(
                 url="https://huggingface.co/Rostlab/ProstT5",
                 format="huggingface",
                 size_mb=3000
@@ -361,7 +361,7 @@ STANDARD_MODELS = {
         name="rita",
         full_name="RITA",
         version="1.0",
-        description="Protein family-specific language model",
+        description="Protein family-specific language models",
         framework=ModelFramework.PYTORCH,
         input_formats=[InputFormat.SEQUENCE],
         output_format=OutputFormat.EMBEDDING,
@@ -450,9 +450,9 @@ class StandardAdapters:
 
 
 def get_model_definition(model_name: str) -> ModelDefinition:
-    """Get a model definition by name."""
+    """Get a models definition by name."""
     if model_name not in STANDARD_MODELS:
-        raise ValueError(f"Unknown model: {model_name}. Available: {list(STANDARD_MODELS.keys())}")
+        raise ValueError(f"Unknown models: {model_name}. Available: {list(STANDARD_MODELS.keys())}")
     return STANDARD_MODELS[model_name]
 
 

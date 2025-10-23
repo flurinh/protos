@@ -209,7 +209,7 @@ Files are automatically moved to the correct location after registration.
             elif proc_type == ProcessorType.SEQUENCE:
                 from protos.io.ingest.sequence_loader import SequenceLoader
                 return SequenceLoader()
-            elif proc_type == ProcessorType.LIGAND:
+            elif proc_type == ProcessorType.MOLECULE:
                 from protos.io.ingest.ligand_loader import LigandLoader
                 return LigandLoader()
             # Add more loaders as they're implemented

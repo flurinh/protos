@@ -1,6 +1,6 @@
 """Model service architecture for containerized models.
 
-This module provides a service-based architecture where each model runs
+This module provides a service-based architecture where each models runs
 in its own Docker container with the appropriate dependencies.
 """
 
@@ -18,7 +18,7 @@ import pandas as pd
 
 
 class ServiceStatus(Enum):
-    """Status of a model service."""
+    """Status of a models service."""
     OFFLINE = "offline"
     STARTING = "starting"
     READY = "ready"
@@ -28,7 +28,7 @@ class ServiceStatus(Enum):
 
 @dataclass
 class ServiceConfig:
-    """Configuration for a model service."""
+    """Configuration for a models service."""
     name: str
     image: str
     port: int
@@ -50,8 +50,8 @@ class ServiceConfig:
             "volumes": self.volumes,
             "restart_policy": {"Name": "unless-stopped"},
             "labels": {
-                "protos.model": self.name,
-                "protos.type": "model-service"
+                "protos.models": self.name,
+                "protos.type": "models-service"
             }
         }
         
@@ -74,7 +74,7 @@ class ServiceConfig:
 
 
 class ModelServiceInterface(ABC):
-    """Abstract interface for model services."""
+    """Abstract interface for models services."""
     
     @abstractmethod
     def predict(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -93,7 +93,7 @@ class ModelServiceInterface(ABC):
 
 
 class RemoteModelService(ModelServiceInterface):
-    """Client for communicating with containerized model services."""
+    """Client for communicating with containerized models services."""
     
     def __init__(self, service_config: ServiceConfig, timeout: int = 30):
         self.config = service_config
@@ -308,7 +308,7 @@ MODEL_SERVICES = {
 
 
 class ModelServiceManager:
-    """Manages Docker containers for model services."""
+    """Manages Docker containers for models services."""
     
     def __init__(self, docker_host: Optional[str] = None):
         try:
@@ -320,7 +320,7 @@ class ModelServiceManager:
             raise RuntimeError(f"Could not connect to Docker: {e}")
         
     def start_service(self, service_name: str, wait_ready: bool = True) -> RemoteModelService:
-        """Start a model service container."""
+        """Start a models service container."""
         if service_name not in MODEL_SERVICES:
             raise ValueError(f"Unknown service: {service_name}")
             
@@ -352,7 +352,7 @@ class ModelServiceManager:
         return service
     
     def stop_service(self, service_name: str):
-        """Stop a model service container."""
+        """Stop a models service container."""
         container = self._get_container(service_name)
         if container:
             print(f"Stopping service {service_name}...")
@@ -362,7 +362,7 @@ class ModelServiceManager:
             print(f"Service {service_name} is not running")
     
     def list_services(self) -> Dict[str, ServiceStatus]:
-        """List all model services and their status."""
+        """List all models services and their status."""
         status = {}
         
         for service_name in MODEL_SERVICES:

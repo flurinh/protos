@@ -20,7 +20,7 @@ DEFAULT_PROCESSOR_DIRS = {
     "graph": "graph",
     "property": "property",
     "embedding": "embedding",
-    "ligand": "ligand",
+    "molecule": "molecule",
     "input": "input",  # Added for InputManager
     "temp": "temp"     # Added for temporary files
 }
@@ -32,7 +32,9 @@ DEFAULT_STRUCTURE_SUBDIRS = {
     "dataset_dir": "structure_dataset", # Directory for processed dataset PKL files
     "alignments_dir": "alignments",   # Directory for alignment files
     "temp_dir": "temp_cif",          # Directory for temporary files
-    "datasets_dir": "datasets"       # Directory for dataset JSON definitions
+    "datasets_dir": "datasets",      # Directory for dataset JSON definitions
+    "sdf_dir": "sdf",                # Directory for ligand SDF artifacts
+    "pdb_dir": "pdb"                 # Directory for exported PDB files
 }
 
 # Default GRN subdirectories
@@ -70,10 +72,9 @@ DEFAULT_EMBEDDING_SUBDIRS = {
     "datasets_dir": "datasets"       # Directory for dataset definitions
 }
 
-# Default ligand subdirectories
-DEFAULT_LIGAND_SUBDIRS = {
-    "sdf_dir": "sdf",               # Directory for SDF/MOL files
-    "cache_dir": "cache",            # Directory for cached ligand data
+# Default molecule subdirectories
+DEFAULT_MOLECULE_SUBDIRS = {
+    "records_dir": "records",        # JSON records for SMILES/InChI metadata
     "datasets_dir": "datasets"       # Directory for dataset definitions
 }
 

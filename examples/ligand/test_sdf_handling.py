@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent / 'src'))
 # Activate conda environment
 os.system("source /home/hidberf/miniconda/bin/activate protos")
 
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 
 
 def test_sdf_operations():
@@ -25,7 +25,7 @@ def test_sdf_operations():
     print("=== Testing SDF File Operations ===\n")
     
     # Initialize processor
-    lig_proc = LigandProcessor()
+    lig_proc = MoleculeProcessor()
     print(f"✓ Initialized LigandProcessor")
     
     # Test data - some drug molecules
@@ -112,7 +112,7 @@ def test_chembl_to_sdf():
     """Test downloading ChEMBL compounds and saving to SDF."""
     print("\n\n=== Testing ChEMBL to SDF Workflow ===\n")
     
-    lig_proc = LigandProcessor()
+    lig_proc = MoleculeProcessor()
     
     if not lig_proc.chembl_available:
         print("   ⚠️ ChEMBL not available, skipping test")

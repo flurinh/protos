@@ -18,7 +18,7 @@ class ProcessorType(Enum):
     GRN = "grn"
     PROPERTY = "property"
     EMBEDDING = "embedding"
-    LIGAND = "ligand"
+    MOLECULE = "molecule"
     GRAPH = "graph"
 
 
@@ -186,7 +186,7 @@ FORMATS = {
         name="SDF",
         extensions=[".sdf", ".mol"],
         category=FormatCategory.STRUCTURE,
-        processor=ProcessorType.LIGAND,
+        processor=ProcessorType.MOLECULE,
         handler_class="SDFHandler",
         description="Structure Data File for small molecules"
     ),
@@ -194,7 +194,7 @@ FORMATS = {
         name="MOL2",
         extensions=[".mol2"],
         category=FormatCategory.STRUCTURE,
-        processor=ProcessorType.LIGAND,
+        processor=ProcessorType.MOLECULE,
         handler_class="Mol2Handler",
         description="Tripos MOL2 format"
     ),

@@ -156,7 +156,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Model registry service (optional, for model discovery)
+  # Model registry service (optional, for models discovery)
   registry:
     build:
       context: ./models/registry

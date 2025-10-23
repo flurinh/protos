@@ -1,4 +1,4 @@
-"""Test integration between Protos processors and model formats."""
+"""Test integration between Protos processors and models formats."""
 
 import os
 import sys
@@ -24,7 +24,7 @@ from protos.models.format_validators import (
 
 
 def test_structure_processor_to_model():
-    """Test converting CifBaseProcessor data to model formats."""
+    """Test converting CifBaseProcessor data to models formats."""
     print("=== Testing Structure Processor → Model Format ===")
     
     # Initialize processor
@@ -112,7 +112,7 @@ def test_structure_processor_to_model():
 
 
 def test_sequence_processor_to_model():
-    """Test converting SeqProcessor data to model formats."""
+    """Test converting SeqProcessor data to models formats."""
     print("=== Testing Sequence Processor → Model Format ===")
     
     # Initialize processor
@@ -145,7 +145,7 @@ def test_sequence_processor_to_model():
                 is_valid, error = validator.validate_input(seq_format, "sequence")
                 print(f"  SequenceFormat valid: {is_valid}")
                 
-                # Test model adaptation
+                # Test models adaptation
                 adapter = FormatAdapter()
                 
                 # For ESM-2
@@ -179,7 +179,7 @@ def test_sequence_processor_to_model():
 
 
 def test_grn_processor_to_model():
-    """Test converting GRNBaseProcessor data to model formats."""
+    """Test converting GRNBaseProcessor data to models formats."""
     print("=== Testing GRN Processor → Model Format ===")
     
     # Initialize processor
@@ -217,7 +217,7 @@ def test_grn_processor_to_model():
 
 
 def test_property_processor_to_model():
-    """Test converting PropertyProcessor data to model formats."""
+    """Test converting PropertyProcessor data to models formats."""
     print("=== Testing Property Processor → Model Format ===")
     
     # Initialize processor
@@ -253,7 +253,7 @@ def test_property_processor_to_model():
 
 
 def test_full_pipeline():
-    """Test complete pipeline from processor to model input."""
+    """Test complete pipeline from processor to models input."""
     print("=== Testing Full Pipeline: Processor → Model Input ===")
     
     # Simulate having all data types for one entity
@@ -303,7 +303,7 @@ def test_full_pipeline():
     print(f"\nEntity: {entity_name}")
     print("Available formats:", list(formats.keys()))
     
-    # Check model compatibility
+    # Check models compatibility
     models = {
         "ESM-2": ["sequence"],
         "Lambda": ["structure", "sequence", "grn"],
@@ -346,7 +346,7 @@ def test_full_pipeline():
                             }
                         }
                         adapted = adapter.adapt_for_model(model_input, "lambda", config)
-                        print(f"  ✓ Adapted to model format")
+                        print(f"  ✓ Adapted to models format")
                 except Exception as e:
                     print(f"  ! Adaptation note: {e}")
     

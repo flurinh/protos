@@ -21,11 +21,11 @@ def main():
     """Run embedding generation example."""
     print("=== EmbeddingProcessor Example ===\n")
     
-    # Initialize processor with a small model for testing
+    # Initialize processor with a small models for testing
     print("1. Initializing EmbeddingProcessor...")
     processor = EmbeddingProcessor(
         name="example_embeddings",
-        model_name="esm2_t6_8m",  # Small model for demo
+        model_name="esm2_t6_8m",  # Small models for demo
         batch_size=2
     )
     
@@ -115,7 +115,7 @@ def main():
     print(f"   Embedding shape: {single_embedding.shape}")
     
     # Clear cache
-    print("\n8. Clearing model cache...")
+    print("\n8. Clearing models cache...")
     processor.clear_cache()
     print("   Cache cleared")
     

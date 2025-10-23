@@ -305,7 +305,7 @@ def any_format_to_embeddings_workflow(
     Args:
         source_id: Biological identifier of the source
         source_format: Format of the source ("sequence", "structure", etc.)
-        model_name: Embedding model to use
+        model_name: Embedding models to use
         processor_name: Name for embedding processor
         batch_size: Batch size for embedding generation
         
@@ -361,7 +361,7 @@ def any_format_to_embeddings_workflow(
     
     # Create metadata with lineage
     metadata = {
-        'model': model_name,
+        'models': model_name,
         'source_format': source_format,
         'source_id': source_id,
         'lineage': [
@@ -380,7 +380,7 @@ def any_format_to_embeddings_workflow(
     return {
         'entity_id': entity_id,
         'source_id': source_id,
-        'model': model_name,
+        'models': model_name,
         'metadata': metadata
     }
 

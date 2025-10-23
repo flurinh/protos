@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir \
     numpy \
     pandas
 
-# Create model directory
+# Create models directory
 RUN mkdir -p /models
 
 # Copy service code

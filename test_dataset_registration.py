@@ -20,7 +20,7 @@ from protos.datasets import (
     register_rhodopsin_structure_dataset,
 )
 from protos.processing.graph import GraphProcessor
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 from protos.processing.property import PropertyProcessor
 from protos.processing.sequence import SequenceProcessor
 from protos.processing.structure import StructureProcessor
@@ -32,7 +32,6 @@ def isolated_data_root(tmp_path) -> Path:
     return tmp_path
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True, reason="Dataset helpers pending implementation")
 def test_register_gpcr_sequence_dataset(isolated_data_root: Path) -> None:
     dataset_name = register_gpcr_sequence_dataset()
     processor = SequenceProcessor()
@@ -41,7 +40,6 @@ def test_register_gpcr_sequence_dataset(isolated_data_root: Path) -> None:
     assert len(sequences) > 0
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True, reason="Dataset helpers pending implementation")
 def test_register_rhodopsin_structure_dataset(isolated_data_root: Path) -> None:
     dataset_name = register_rhodopsin_structure_dataset()
     processor = StructureProcessor()
@@ -50,15 +48,13 @@ def test_register_rhodopsin_structure_dataset(isolated_data_root: Path) -> None:
     assert len(structures) > 0
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True, reason="Dataset helpers pending implementation")
 def test_register_chembl_ligand_dataset(isolated_data_root: Path) -> None:
     dataset_name = register_chembl_ligand_dataset()
-    processor = LigandProcessor()
+    processor = MoleculeProcessor()
     datasets = processor.dataset_manager.list_datasets()
     assert dataset_name in datasets
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True, reason="Dataset helpers pending implementation")
 def test_register_gpcr_property_dataset(isolated_data_root: Path) -> None:
     dataset_name = register_gpcr_property_dataset()
     processor = PropertyProcessor()
@@ -66,7 +62,6 @@ def test_register_gpcr_property_dataset(isolated_data_root: Path) -> None:
     assert dataset_name in datasets
 
 
-@pytest.mark.xfail(raises=NotImplementedError, strict=True, reason="Dataset helpers pending implementation")
 def test_register_rhodopsin_graph_dataset(isolated_data_root: Path) -> None:
     dataset_name = register_rhodopsin_graph_dataset()
     processor = GraphProcessor()

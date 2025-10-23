@@ -21,7 +21,7 @@ from protos.io.core.dataset_manager import DatasetManager
 
 @dataclass
 class ModelConfig:
-    """Configuration for a model."""
+    """Configuration for a models."""
     model_type: str
     model_name: str
     version: str
@@ -52,7 +52,7 @@ class ModelConfig:
 
 @dataclass
 class ModelPrediction:
-    """Container for model predictions."""
+    """Container for models predictions."""
     entity_name: str
     model_name: str
     prediction: Any
@@ -66,7 +66,7 @@ class BaseModel(ABC):
     Base class for all AI models in Protos.
     
     This class provides:
-    - Consistent interface for model loading and prediction
+    - Consistent interface for models loading and prediction
     - Integration with Protos path system
     - Automatic entity tracking
     - Dataset support
@@ -83,12 +83,12 @@ class BaseModel(ABC):
                  paths: Optional[ProtosPaths] = None,
                  name: Optional[str] = None):
         """
-        Initialize base model.
+        Initialize base models.
         
         Args:
             config: Model configuration
             paths: ProtosPaths instance (created if not provided)
-            name: Human-readable name for this model instance
+            name: Human-readable name for this models instance
         """
         # Follow Protos pattern: automatic path management
         self.paths = paths or ProtosPaths()
@@ -114,7 +114,7 @@ class BaseModel(ABC):
         self.registry_path = self.models_path / "model_registry.json"
         self._register_model()
         
-        # Initialize the actual model
+        # Initialize the actual models
         self.model = None
         self.is_loaded = False
         
@@ -123,7 +123,7 @@ class BaseModel(ABC):
         self.output_adapter = None
         
     def _register_model(self):
-        """Register this model in the model registry."""
+        """Register this models in the models registry."""
         registry = {}
         if self.registry_path.exists():
             with open(self.registry_path, 'r') as f:
@@ -142,10 +142,10 @@ class BaseModel(ABC):
     @abstractmethod
     def load_model(self, checkpoint_path: Optional[Path] = None):
         """
-        Load the model weights.
+        Load the models weights.
         
         Args:
-            checkpoint_path: Path to model checkpoint (uses default if not provided)
+            checkpoint_path: Path to models checkpoint (uses default if not provided)
         """
         pass
     
@@ -217,13 +217,13 @@ class BaseModel(ABC):
     
     def _prepare_input(self, entity_name: str) -> Any:
         """
-        Prepare input data for the model.
+        Prepare input data for the models.
         
         This method:
         1. Finds the entity in the registry
         2. Loads data from required formats
         3. Applies format adapters
-        4. Preprocesses for model input
+        4. Preprocesses for models input
         """
         # Get entity info
         entity_info = self.entity_registry.find_entity(entity_name)
@@ -252,10 +252,10 @@ class BaseModel(ABC):
     @abstractmethod
     def _preprocess_input(self, input_data: Dict[str, Any]) -> Any:
         """
-        Preprocess input data for model.
+        Preprocess input data for models.
         
         Subclasses implement this to convert from Protos formats
-        to model-specific input format.
+        to models-specific input format.
         """
         pass
     
@@ -280,7 +280,7 @@ class BaseModel(ABC):
             format_type=f"model_{self.config.output_format}",
             file_path=str(pred_file),
             metadata={
-                'model': self.name,
+                'models': self.name,
                 'timestamp': prediction.timestamp
             }
         )
@@ -320,7 +320,7 @@ class BaseModel(ABC):
         
         Args:
             format_type: The input format type (e.g., 'sequence', 'structure')
-            adapter_fn: Function that converts from Protos format to model input
+            adapter_fn: Function that converts from Protos format to models input
         """
         self.input_adapters[format_type] = adapter_fn
     
@@ -329,14 +329,14 @@ class BaseModel(ABC):
         Register an adapter function for output format conversion.
         
         Args:
-            adapter_fn: Function that converts model output to Protos format
+            adapter_fn: Function that converts models output to Protos format
         """
         self.output_adapter = adapter_fn
     
     def create_dataset(self, dataset_name: str, entity_names: List[str], 
                       metadata: Optional[dict] = None):
         """
-        Create a dataset for this model.
+        Create a dataset for this models.
         
         Args:
             dataset_name: Name for the dataset

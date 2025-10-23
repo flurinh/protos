@@ -25,7 +25,7 @@ def test_qm9_loader():
     paths = ProtosPaths(data_root=str(data_dir.absolute()))
     
     # Get QM9 directory
-    qm9_dir = Path(paths.get_subdir_path("ligand", "cache_dir")) / "databases" / "qm9"
+    qm9_dir = Path(paths.get_subdir_path("molecule", "cache_dir")) / "databases" / "qm9"
     qm9_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"QM9 directory: {qm9_dir}")

@@ -4,10 +4,11 @@ Simplified path configuration for the Protos framework.
 
 import os
 import json
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from .path_constants import (
     ENV_DATA_ROOT,
@@ -19,10 +20,10 @@ from .path_constants import (
     join_path,
     DEFAULT_PROPERTY_SUBDIRS,
     DEFAULT_EMBEDDING_SUBDIRS,
-    DEFAULT_LIGAND_SUBDIRS,
+    DEFAULT_MOLECULE_SUBDIRS,
     DEFAULT_GRAPH_SUBDIRS,
     DEFAULT_INPUT_SUBDIRS,
-    DEFAULT_TEMP_SUBDIRS
+    DEFAULT_TEMP_SUBDIRS,
 )
 
 
@@ -31,6 +32,42 @@ def get_default_data_root() -> str:
     if env_root:
         return os.path.expanduser(env_root)
     return os.path.expanduser("~/protos_data")
+
+
+# ----------------------- Structure path helpers -----------------------
+
+def get_structure_entity_path(paths: 'ProtosPaths', name: str, *, extension: str = 'cif') -> Path:
+    """Compute default export path for a structure entity based on extension.
+
+    - 'cif' -> structure/mmcif/{name}.cif
+    - 'sdf' -> structure/sdf/{name}.sdf
+    """
+    ext = extension.lower().lstrip('.')
+    if ext == 'cif':
+        base = Path(paths.get_subdir_path('structure', 'structure_dir'))
+    elif ext == 'sdf':
+        base = Path(paths.get_subdir_path('structure', 'sdf_dir'))
+    elif ext == 'pdb':
+        base = Path(paths.get_subdir_path('structure', 'pdb_dir'))
+    else:
+        base = Path(paths.get_processor_path('structure'))
+    return base / f"{name}.{ext}"
+
+
+def get_structure_dataset_path(paths: 'ProtosPaths', dataset_name: str, *, extension: str = 'cif') -> Path:
+    """Compute default export path for a structure dataset based on extension.
+
+    - 'cif' -> structure/mmcif/{dataset_name}.cif (not typical; usually per-entity)
+    - 'sdf' -> structure/sdf/{dataset_name}.sdf
+    """
+    ext = extension.lower().lstrip('.')
+    if ext == 'sdf':
+        base = Path(paths.get_subdir_path('structure', 'sdf_dir'))
+    elif ext == 'pdb':
+        base = Path(paths.get_subdir_path('structure', 'pdb_dir'))
+    else:
+        base = Path(paths.get_subdir_path('structure', 'structure_dir'))
+    return base / f"{dataset_name}.{ext}"
 
 
 class ProtosPaths:
@@ -62,7 +99,7 @@ class ProtosPaths:
             'sequence': DEFAULT_SEQUENCE_SUBDIRS.copy(),
             'property': DEFAULT_PROPERTY_SUBDIRS.copy(),
             'embedding': DEFAULT_EMBEDDING_SUBDIRS.copy(),
-            'ligand': DEFAULT_LIGAND_SUBDIRS.copy(),
+            'molecule': DEFAULT_MOLECULE_SUBDIRS.copy(),
             'graph': DEFAULT_GRAPH_SUBDIRS.copy(),
             'input': DEFAULT_INPUT_SUBDIRS.copy(),
             'temp': DEFAULT_TEMP_SUBDIRS.copy(),
@@ -376,6 +413,103 @@ def ensure_directory(directory: Union[str, Path]) -> str:
     dir_path = Path(directory).expanduser().resolve()
     os.makedirs(dir_path, exist_ok=True)
     return str(dir_path)
+
+
+def sanitize_storage_name(name: str, *, default: str = "item") -> str:
+    """Produce a filesystem-safe name for stored artifacts."""
+
+    if not name:
+        sanitized = default
+    else:
+        sanitized = re.sub(r"\s+", "_", name.strip())
+        sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", sanitized)
+
+    # Collapse duplicate underscores and trim
+    sanitized = re.sub(r"_+", "_", sanitized).strip("._")
+
+    if not sanitized:
+        sanitized = default
+
+    return sanitized[:128]
+
+
+def _sequence_dir(paths: "ProtosPaths", key: str) -> Path:
+    return Path(paths.get_subdir_path("sequence", key))
+
+
+def get_sequence_entity_paths(
+    paths: "ProtosPaths",
+    entity_name: str,
+    *,
+    extensions: Iterable[str] = ("fasta", "fa"),
+) -> List[Path]:
+    """Return candidate paths for a sequence entity."""
+
+    base_name = sanitize_storage_name(entity_name, default="sequence")
+    entity_dir = _sequence_dir(paths, "entity_fasta_dir")
+    return [entity_dir / f"{base_name}.{ext}" for ext in extensions]
+
+
+def get_sequence_entity_path(
+    paths: "ProtosPaths",
+    entity_name: str,
+    *,
+    extension: str = "fasta",
+) -> Path:
+    entity_dir = _sequence_dir(paths, "entity_fasta_dir")
+    ext = extension.lstrip(".").lower()
+    base_name = sanitize_storage_name(entity_name, default="sequence")
+    if base_name.lower().endswith(f".{ext}"):
+        base_name = base_name[: -(len(ext) + 1)]
+    return entity_dir / f"{base_name}.{ext}"
+
+
+def get_sequence_dataset_path(
+    paths: "ProtosPaths",
+    dataset_name: str,
+    *,
+    extension: str = "fasta",
+) -> Path:
+    dataset_dir = _sequence_dir(paths, "dataset_fasta_dir")
+    ext = extension.lstrip(".").lower()
+    base_name = sanitize_storage_name(dataset_name, default="dataset")
+    if base_name.lower().endswith(f".{ext}"):
+        base_name = base_name[: -(len(ext) + 1)]
+    return dataset_dir / f"{base_name}.{ext}"
+
+
+def get_sequence_dataset_paths(
+    paths: "ProtosPaths",
+    dataset_name: str,
+    *,
+    extensions: Iterable[str] = ("fasta", "fa"),
+) -> List[Path]:
+    dataset_dir = _sequence_dir(paths, "dataset_fasta_dir")
+    base_name = sanitize_storage_name(dataset_name, default="dataset")
+
+    candidates: List[Path] = []
+    if "." in dataset_name:
+        stem, ext = dataset_name.rsplit(".", 1)
+        sanitized_stem = sanitize_storage_name(stem, default="dataset")
+        candidates.append(dataset_dir / f"{sanitized_stem}.{ext}")
+
+    candidates.append(dataset_dir / base_name)
+    for ext in extensions:
+        candidates.append(dataset_dir / f"{base_name}.{ext}")
+
+    unique: List[Path] = []
+    seen = set()
+    for candidate in candidates:
+        if candidate not in seen:
+            seen.add(candidate)
+            unique.append(candidate)
+    return unique
+
+
+def to_data_relative_path(paths: "ProtosPaths", target: Union[str, Path]) -> str:
+    target_path = Path(target).resolve()
+    data_root = Path(paths.data_root).resolve()
+    return str(target_path.relative_to(data_root))
 
 
 # Singleton access functions

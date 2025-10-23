@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.io.paths.path_config import ProtosPaths
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 
 def test_ccd_integration():
     """Test CCD integration."""
@@ -22,7 +22,7 @@ def test_ccd_integration():
     os.environ["PROTOS_DATA_ROOT"] = str(data_dir.absolute())
     
     # Initialize processor
-    processor = LigandProcessor(name="test_ccd")
+    processor = MoleculeProcessor(name="test_ccd")
     
     # Test getting specific components
     test_components = ["ATP", "NAD", "FAD", "HEM", "ADP"]

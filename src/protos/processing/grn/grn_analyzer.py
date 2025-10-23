@@ -151,7 +151,7 @@ class GRNAnalyzer:
                 feature_name = name + '_' + str(int(colidx) + 1)
             else:
                 feature_name = feature_name + '_0'
-        self.features[feature_name] = None  # apply the model to the sequence and vectorize it
+        self.features[feature_name] = None  # apply the models to the sequence and vectorize it
 
     def aggr_map_features(self, method='sum'):
         if method == 'sum':

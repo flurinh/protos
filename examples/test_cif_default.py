@@ -9,14 +9,14 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 
 # Set up environment
 test_data_root = Path(__file__).parent / "data"
 os.environ["PROTOS_DATA_ROOT"] = str(test_data_root.absolute())
 
 # Initialize processor
-lig_proc = LigandProcessor()
+lig_proc = MoleculeProcessor()
 
 # Test molecule
 caffeine = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"

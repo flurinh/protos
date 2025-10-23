@@ -1,6 +1,6 @@
-"""Model downloader for fetching model weights from various sources.
+"""Model downloader for fetching models weights from various sources.
 
-This module handles downloading model weights from GitHub releases,
+This module handles downloading models weights from GitHub releases,
 HuggingFace, and other sources with progress tracking and verification.
 """
 
@@ -21,7 +21,7 @@ from protos.models.model_definitions import get_model_definition, ModelSource
 
 class ModelDownloader:
     """
-    Downloads and manages model weights for Protos.
+    Downloads and manages models weights for Protos.
     
     Features:
     - Progress tracking
@@ -57,21 +57,21 @@ class ModelDownloader:
     def download_model(self, model_name: str, variant: str, 
                       target_dir: Path) -> Path:
         """
-        Download model weights.
+        Download models weights.
         
         Args:
-            model_name: Name of the model (e.g., 'esm2')
+            model_name: Name of the models (e.g., 'esm2')
             variant: Model variant (e.g., 'esm2_t33_650M')
             target_dir: Directory to save weights to
             
         Returns:
             Path to downloaded weights
         """
-        # Get model definition
+        # Get models definition
         definition = get_model_definition(model_name)
         
         if variant not in definition.sources:
-            raise ValueError(f"Unknown variant '{variant}' for model '{model_name}'")
+            raise ValueError(f"Unknown variant '{variant}' for models '{model_name}'")
         
         source = definition.sources[variant]
         
@@ -158,14 +158,14 @@ class ModelDownloader:
         
         repo_id = source.url.replace("https://huggingface.co/", "")
         
-        # Create model-specific directory
+        # Create models-specific directory
         model_dir = target_dir / variant
         model_dir.mkdir(parents=True, exist_ok=True)
         
         print(f"Downloading {model_name} ({variant}) from HuggingFace: {repo_id}")
         
         try:
-            # Download entire model repository
+            # Download entire models repository
             local_dir = snapshot_download(
                 repo_id=repo_id,
                 local_dir=model_dir,
@@ -173,13 +173,13 @@ class ModelDownloader:
                 resume_download=True
             )
             
-            # Find the main model file
+            # Find the main models file
             model_files = list(Path(local_dir).glob("*.bin")) + \
                          list(Path(local_dir).glob("*.safetensors")) + \
                          list(Path(local_dir).glob("*.pt"))
             
             if model_files:
-                # Use the largest file as the main model
+                # Use the largest file as the main models
                 main_model = max(model_files, key=lambda p: p.stat().st_size)
                 
                 # Create a symlink or copy to expected location
@@ -224,12 +224,12 @@ class ModelDownloader:
         return self.registry.copy()
     
     def get_download_info(self, model_name: str, variant: str) -> Optional[Dict[str, Any]]:
-        """Get download information for a model."""
+        """Get download information for a models."""
         key = f"{model_name}/{variant}"
         return self.registry.get(key)
     
     def remove_downloaded_model(self, model_name: str, variant: str):
-        """Remove a downloaded model."""
+        """Remove a downloaded models."""
         key = f"{model_name}/{variant}"
         if key in self.registry:
             info = self.registry[key]
@@ -249,7 +249,7 @@ class ModelDownloader:
             print(f"Removed {model_name} ({variant})")
     
     def download_all_variants(self, model_name: str, target_dir: Path) -> Dict[str, Path]:
-        """Download all variants of a model."""
+        """Download all variants of a models."""
         definition = get_model_definition(model_name)
         downloaded = {}
         

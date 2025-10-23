@@ -24,7 +24,7 @@ def main():
     # Initialize processors
     embedding_processor = EmbeddingProcessor(
         name="embedding_example",
-        model_name="esm2_t6_8m",  # Use small model for demonstration
+        model_name="esm2_t6_8m",  # Use small models for demonstration
         device="cpu"
     )
     
@@ -119,7 +119,7 @@ def main():
         'sequences': sequences,
         'embeddings': {},
         'metadata': {
-            'model': embedding_processor.model_name,
+            'models': embedding_processor.model_name,
             'embedding_type': 'per_residue',
             'include_special_tokens': False
         }
@@ -137,7 +137,7 @@ def main():
     
     # Clean up
     embedding_processor.clear_cache()
-    print("\n7. Cleaned up - model cache cleared")
+    print("\n7. Cleaned up - models cache cleared")
 
 
 if __name__ == "__main__":

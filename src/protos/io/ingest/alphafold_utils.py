@@ -24,9 +24,9 @@ def download_alphafold_structures(uid, max_models=5, output_dir=None, processor=
         output_path = Path(output_dir or 'data/mmcif/alphafold_structures')
         output_path.mkdir(parents=True, exist_ok=True)
 
-    # Try to download each model
+    # Try to download each models
     for i in range(1, max_models + 1):
-        # Define the URL for this model
+        # Define the URL for this models
         url = f"https://alphafold.ebi.ac.uk/files/AF-{uid}-F1-model_v{i}.cif"
 
         # Send a GET request to the URL
@@ -44,7 +44,7 @@ def download_alphafold_structures(uid, max_models=5, output_dir=None, processor=
             print(f"Saved AlphaFold structure to {filepath}")
         else:
             print(
-                f"Failed to download AlphaFold structure for Uniprot ID {uid}, model v{i}. Status code: {response.status_code}")
+                f"Failed to download AlphaFold structure for Uniprot ID {uid}, models v{i}. Status code: {response.status_code}")
         print("\n")
 
 
@@ -57,7 +57,7 @@ def download_alphafold_with_processor(uid, processor, max_models=5):
     Args:
         uid: UniProt ID for AlphaFold structure
         processor: StructureProcessor instance (handles all path management)
-        max_models: Maximum number of model versions to try
+        max_models: Maximum number of models versions to try
     """
     return download_alphafold_structures(
         uid=uid,

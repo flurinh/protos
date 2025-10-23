@@ -52,7 +52,7 @@ def main() -> None:
 
     if not embedding_processor.dependencies_available:
         payload: Dict[str, object] = {
-            "model": MODEL_NAME,
+            "models": MODEL_NAME,
             "dependencies_available": False,
             "message": "Install torch and transformers to enable embeddings.",
             "sequence_subset": list(subset.keys()),

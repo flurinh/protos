@@ -29,6 +29,14 @@ from .path_config import (
     get_grn_path,
     get_sequence_path,
     get_dataset_path,
+    sanitize_storage_name,
+    get_sequence_entity_paths,
+    get_sequence_entity_path,
+    get_sequence_dataset_path,
+    get_sequence_dataset_paths,
+    get_structure_entity_path,
+    get_structure_dataset_path,
+    to_data_relative_path,
     get_protos_paths,
     set_protos_paths,
     reset_protos_data
@@ -63,5 +71,11 @@ __all__ = [
     'get_grn_path',
     'get_sequence_path',
     'get_dataset_path',
+    'sanitize_storage_name',
+    'get_sequence_entity_paths',
+    'get_sequence_entity_path',
+    'get_sequence_dataset_path',
+    'get_sequence_dataset_paths',
+    'to_data_relative_path',
     'get_data_root'
 ]

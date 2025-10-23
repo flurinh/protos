@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.io.paths.path_config import ProtosPaths
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 from protos.processing.property import PropertyProcessor
 from protos.processing.structure import StructureProcessor
 from protos.io.ingest.download_structures import download_structures_with_processor
@@ -52,7 +52,7 @@ def main():
     struct_proc = StructureProcessor(name="structure_processor", paths=paths)
     print(f"✓ StructureProcessor initialized")
     
-    lig_proc = LigandProcessor(paths=paths)
+    lig_proc = MoleculeProcessor(paths=paths)
     print(f"✓ LigandProcessor initialized at: {lig_proc.data_path}")
     
     prop_proc = PropertyProcessor(paths=paths)

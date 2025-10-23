@@ -412,7 +412,7 @@ class StructureLoader(BaseLoader):
         Args:
             uniprot_id: UniProt identifier
             name: Human-readable name (defaults to UniProt ID)
-            version: AlphaFold model version
+            version: AlphaFold models version
             
         Returns:
             Registered entity name if successful

@@ -706,7 +706,7 @@ def fix_cif_data(df: pd.DataFrame) -> pd.DataFrame:
         fixed_df.loc[fixed_df['occupancy'] < 0, 'occupancy'] = 0.0
         fixed_df.loc[fixed_df['occupancy'] > 1, 'occupancy'] = 1.0
     
-    # Set default model number if missing
+    # Set default models number if missing
     if 'model_num' not in fixed_df.columns or fixed_df['model_num'].isna().any():
         fixed_df['model_num'] = 1
     
@@ -910,7 +910,7 @@ def load_structure_from_cif(filepath: str, structure_id: Optional[str] = None, m
     try:
         st = gemmi.read_structure(filepath, merge_chain_parts=True)
         if model_id >= len(st):
-            logger.warning(f"Model {model_id} not found, using model 0")
+            logger.warning(f"Model {model_id} not found, using models 0")
             model_id = 0
         
         model = st[model_id]
@@ -958,12 +958,12 @@ def extract_structure_from_model(model, chain_id: str,
                                only_ca: bool = True, 
                                include_atom_type: bool = False) -> pd.DataFrame:
     """
-    Extract structure data from gemmi model.
+    Extract structure data from gemmi models.
     
     This function replaces get_protein_structure_df from struct_utils.py.
     
     Args:
-        model: Gemmi model object
+        model: Gemmi models object
         chain_id: Chain identifier to extract
         only_ca: Whether to extract only CA atoms (default: True)
         include_atom_type: Whether to include atom type column

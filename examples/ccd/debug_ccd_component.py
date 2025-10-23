@@ -22,7 +22,7 @@ os.environ["PROTOS_DATA_ROOT"] = str(data_dir.absolute())
 paths = ProtosPaths(data_root=str(data_dir.absolute()))
 
 # Get CCD directory
-ccd_dir = Path(paths.get_subdir_path("ligand", "cache_dir")) / "databases" / "ccd"
+ccd_dir = Path(paths.get_subdir_path("molecule", "cache_dir")) / "databases" / "ccd"
 
 print(f"CCD directory: {ccd_dir}")
 print(f"CCD ready: {ccd_loader.is_ccd_ready(ccd_dir)}")

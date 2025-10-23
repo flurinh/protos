@@ -15,6 +15,7 @@ if SRC_DIR.exists():
 
 import protos
 from protos.processing.sequence import SequenceProcessor
+from protos.models.model_manager import ModelManager
 
 
 def ensure_data_root() -> Path:
@@ -117,46 +118,64 @@ def main() -> None:
     args = parse_args()
     ensure_data_root()
 
-    from protos.processing.embedding import EmbeddingProcessor
-
     dataset_name, sequences = load_gpcr_structure_sequences()
     print(f"Loaded dataset '{dataset_name}' with {len(sequences)} sequences")
 
-    models = EmbeddingProcessor.available_models()
+    # Discover embedding cards via ModelManager
+    manager = ModelManager()
+    available_cards = {
+        name.replace("embedding_", ""): card
+        for name, card in manager.cards.items()
+        if name.startswith("embedding_")
+    }
 
     try:
-        target_models = resolve_model_selection(args.models, all_models=models, run_all=args.all_models)
+        target_models = resolve_model_selection(
+            args.models, all_models=available_cards, run_all=args.all_models
+        )
     except ValueError as exc:
         print(exc)
         return
 
+    from protos.processing.embedding import EmbeddingProcessor
+
     for model_name in target_models:
-        try:
-            emb_proc = EmbeddingProcessor(model_name=model_name)
-        except Exception as exc:  # noqa: BLE001
-            print(f"Skipping {model_name}: {exc}")
-            continue
-
-        if not emb_proc.dependencies_available:
-            print(f"Skipping {model_name}: install torch/transformers for embeddings")
-            emb_proc.clear_cache()
-            continue
-
-        print(f"\n=== Embedding with {model_name} ===")
+        card_name = f"embedding_{model_name}"
+        print(f"\n=== Embedding with {model_name} via ModelManager ===")
         for embedding_type in ("per_residue", "mean", "sum"):
             dataset_tag = f"{dataset_name}__{model_name}__{embedding_type}"
             try:
-                emb_proc.embed_sequences(
-                    sequences,
-                    embedding_type=embedding_type,
-                    save_dataset=dataset_tag,
-                    register_entities=True,
+                invocation = manager.prepare(
+                    card_name,
+                    inputs={"sequence_dataset": dataset_name},
+                    config={"embedding_type": embedding_type},
                 )
+            except Exception as exc:  # noqa: BLE001
+                print(f"  ! Failed to prepare runtime for {model_name}: {exc}")
+                continue
+
+            # Handle runtime status (e.g., missing deps)
+            status = None
+            if invocation.runtime and invocation.runtime.outputs:
+                status = invocation.runtime.outputs.get("status")
+            if status == "skipped":
+                reason = invocation.runtime.outputs.get("reason", "unknown")
+                print(f"  • Skipping {embedding_type}: {reason}")
+                continue
+            if status == "error":
+                print(
+                    f"  ! Runtime error for {embedding_type}: "
+                    f"{invocation.runtime.outputs.get('error')}"
+                )
+                continue
+
+            try:
+                # Ingest artifact into formal dataset
+                emb_proc = EmbeddingProcessor(model_name=model_name)
+                emb_proc.ingest_from_invocation(invocation, dataset_name=dataset_tag)
                 print(f"  • Stored {embedding_type} embeddings -> {dataset_tag}")
             except Exception as exc:  # noqa: BLE001
-                print(f"  ! Failed to embed with {embedding_type}: {exc}")
-
-        emb_proc.clear_cache()
+                print(f"  ! Ingest failed for {embedding_type}: {exc}")
 
 
 if __name__ == "__main__":

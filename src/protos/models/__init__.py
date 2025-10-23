@@ -1,4 +1,4 @@
-"""Protos Models - AI model integration for structural biology.
+"""Protos Models - AI models integration for structural biology.
 
 This package provides a unified interface for integrating various AI models
 into the Protos framework, including:
@@ -8,14 +8,14 @@ into the Protos framework, including:
 - Graph neural networks
 - Custom models
 
-The model system follows Protos design principles:
+The models system follows Protos design principles:
 - Zero configuration by default
 - Human-readable names everywhere
 - Automatic path management
 - Entity tracking and dataset support
 
 Key Features:
-- Docker-based model isolation (each model runs in its own container)
+- Docker-based models isolation (each models runs in its own container)
 - Automatic dependency management (no version conflicts)
 - Unified API regardless of backend (local or Docker)
 - Format validation and conversion
@@ -120,10 +120,10 @@ __all__ = [
 MODEL_TYPES = {}
 
 def register_model_type(model_type: str, model_class):
-    """Register a new model type."""
+    """Register a new models type."""
     MODEL_TYPES[model_type] = model_class
 
-# Register standard model type lazily
+# Register standard models type lazily
 def _ensure_standard_model():
     """Ensure StandardModel is registered."""
     if 'standard' not in MODEL_TYPES:

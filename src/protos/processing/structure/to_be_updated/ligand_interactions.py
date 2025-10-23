@@ -33,6 +33,7 @@ CHARGED_RESIDUES = {
 
 # Common solvent/ion codes to exclude
 COMMON_HETERO = {'HOH', 'WAT', 'NA', 'CL', 'K', 'CA', 'MG', 'ZN', 'SO4', 'PO4'}
+WATER_CODES = {'HOH', 'WAT'}
 
 
 class LigandInteractionAnalyzer:
@@ -55,7 +56,13 @@ class LigandInteractionAnalyzer:
         else:
             self.protein_tree = None
             
-    def extract_ligands(self, exclude_common: bool = True) -> List[Dict]:
+    def extract_ligands(
+        self,
+        exclude_common: bool = True,
+        *,
+        include_waters: bool = False,
+        allowed_res_names: Optional[Set[str]] = None,
+    ) -> List[Dict]:
         """
         Extract all ligands from the structure.
         
@@ -69,10 +76,19 @@ class LigandInteractionAnalyzer:
         
         # Group by residue name and chain
         ligand_groups = self.hetatoms.groupby(['res_name3l', 'auth_chain_id', 'auth_seq_id'])
-        
+
+        if exclude_common:
+            excluded = COMMON_HETERO.copy()
+            if include_waters:
+                excluded -= WATER_CODES
+        else:
+            excluded = set()
+
         for (res_name, chain_id, res_id), atoms in ligand_groups:
             # Skip common molecules if requested
-            if exclude_common and res_name in COMMON_HETERO:
+            if allowed_res_names is not None and res_name not in allowed_res_names:
+                continue
+            if exclude_common and res_name in excluded:
                 continue
                 
             # Calculate ligand properties

@@ -12,7 +12,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.processing.ligand.ligand_processor import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 from protos.io.paths.path_config import ProtosPaths
 
 def test_ligand_processor():
@@ -22,7 +22,7 @@ def test_ligand_processor():
     
     # Initialize processor
     print("1. Initializing LigandProcessor...")
-    lig_proc = LigandProcessor()
+    lig_proc = MoleculeProcessor()
     print(f"   Processor type: {lig_proc.processor_type}")
     print(f"   ChEMBL available: {lig_proc.chembl_available}")
     
@@ -101,7 +101,7 @@ def test_chembl_integration():
     print("\n=== Testing ChEMBL Integration ===\n")
     
     # Initialize processor
-    lig_proc = LigandProcessor()
+    lig_proc = MoleculeProcessor()
     
     if not lig_proc.chembl_available:
         print("   ChEMBL functionality not available")

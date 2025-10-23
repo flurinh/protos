@@ -12,6 +12,7 @@ import numpy as np
 
 from protos.io.core.base_processor import BaseProcessor
 from protos.io.formats.structure_schema import STRUCT_COLUMN_DTYPE, SORTED_STRUCT_COLUMNS
+from protos.analysis.structure_water_networks import analyze_water_networks
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from .alignment_engine import StructureAlignmentEngine, AlignmentResult
@@ -46,6 +47,8 @@ class StructureProcessor(BaseProcessor):
         self._dirty: bool = False
         self._alignment_engine: Optional["StructureAlignmentEngine"] = None
         self._sequence_loader = None
+        # Legacy caches for compatibility with pre-unified workflows
+        self.chain_dict: Dict[str, str] = {}
 
     # ---------- Path Properties ----------
 
@@ -59,7 +62,16 @@ class StructureProcessor(BaseProcessor):
         """Get CIF directory from ProtosPaths"""
         return Path(self.paths.get_subdir_path('structure', 'structure_dir'))
 
-    
+    @property
+    def path_pdb_dir(self) -> Path:
+        """Get PDB directory from ProtosPaths"""
+        return Path(self.paths.get_subdir_path('structure', 'pdb_dir'))
+
+    @property
+    def path_sdf_dir(self) -> Path:
+        """Get SDF directory from ProtosPaths"""
+        return Path(self.paths.get_subdir_path('structure', 'sdf_dir'))
+
     @property
     def path_dataset_dir(self) -> Path:
         """Get dataset directory from ProtosPaths"""
@@ -279,20 +291,28 @@ class StructureProcessor(BaseProcessor):
     def export_entity(
         self,
         name: str,
-        out_path: Path,
+        out_path: Optional[Path] = None,
         format: Optional[str] = None,
-        overwrite: bool = False
+        overwrite: bool = False,
+        **kwargs,
     ) -> Path:
         exporter = self._get_exporter()
-        return exporter.export_entity(name, out_path, format=format, overwrite=overwrite)
+        return exporter.export_entity(
+            name,
+            out_path,
+            format=format,
+            overwrite=overwrite,
+            **kwargs,
+        )
 
     def export_dataset(
         self,
         dataset_name: str,
-        output_dir: Path,
+        output_dir: Optional[Path] = None,
         format: Optional[str] = None,
         overwrite: bool = False,
         name_pattern: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Path]:
         exporter = self._get_exporter()
         return exporter.export_dataset(
@@ -301,7 +321,83 @@ class StructureProcessor(BaseProcessor):
             format=format,
             overwrite=overwrite,
             name_pattern=name_pattern,
+            **kwargs,
         )
+
+    def summarize_ligands(
+        self,
+        structure_id: str,
+        *,
+        group_by: Optional[Union[str, List[str]]] = None,
+        include_chains: Optional[List[str]] = None,
+        include_comp_ids: Optional[List[str]] = None,
+        min_atoms: int = 1,
+    ) -> Dict[str, Any]:
+        """Return a nested dict summary of ligands for a structure.
+
+        - Filters HETATM only
+        - Groups by 'res_id' when available (default), otherwise by provided columns
+        - Returns counts by chain and per ligand
+        """
+        df = self.load_entity(structure_id)
+        if df is None:
+            raise ValueError(f"Structure '{structure_id}' not found")
+        df = df.reset_index()
+
+        if 'group' in df.columns:
+            df = df[df['group'].str.upper() == 'HETATM']
+        if df.empty:
+            return {"entity": structure_id, "total_groups": 0, "chains": {}}
+
+        if include_chains and 'auth_chain_id' in df.columns:
+            df = df[df['auth_chain_id'].isin(include_chains)]
+        if include_comp_ids and 'auth_comp_id' in df.columns:
+            df = df[df['auth_comp_id'].isin(include_comp_ids)]
+
+        # Determine grouping
+        if group_by is None:
+            if 'res_id' in df.columns:
+                group_cols = ['res_id']
+            else:
+                group_cols = [c for c in ['auth_chain_id', 'auth_seq_id', 'auth_comp_id', 'insertion'] if c in df.columns]
+                if not group_cols:
+                    group_cols = ['auth_comp_id'] if 'auth_comp_id' in df.columns else []
+        else:
+            group_cols = [group_by] if isinstance(group_by, str) else list(group_by)
+
+        if group_cols:
+            grouped = df.groupby(group_cols, dropna=False)
+        else:
+            grouped = [(structure_id, df)]
+
+        chains: Dict[str, Dict[str, Any]] = {}
+        total = 0
+        for key, sub in grouped:
+            if len(sub) < min_atoms:
+                continue
+            total += 1
+            # Resolve chain/comp/seq
+            chain = str(sub.get('auth_chain_id', pd.Series(['?'])).iloc[0]) if 'auth_chain_id' in sub.columns else '?'
+            comp = str(sub.get('auth_comp_id', pd.Series(['?'])).iloc[0]) if 'auth_comp_id' in sub.columns else '?'
+            seq = sub.get('auth_seq_id', pd.Series([None])).iloc[0] if 'auth_seq_id' in sub.columns else None
+            ins = sub.get('insertion', pd.Series([''])).iloc[0] if 'insertion' in sub.columns else ''
+            res_id = sub.get('res_id', pd.Series([None])).iloc[0] if 'res_id' in sub.columns else None
+            if not res_id:
+                res_id = f"{comp}_{seq if seq is not None else ''}{ins}".strip('_')
+
+            chains.setdefault(chain, {})[res_id] = {
+                'comp_id': comp,
+                'seq_id': int(seq) if seq is not None and pd.notna(seq) else None,
+                'insertion': ins if ins and ins == ins else '',
+                'atom_count': int(len(sub)),
+            }
+
+        return {
+            'entity': structure_id,
+            'grouping': group_cols,
+            'total_groups': total,
+            'chains': chains,
+        }
     # ---------- Frame Management ----------
     
     def _set_frame(self, structure_id: str, df: pd.DataFrame):
@@ -1289,6 +1385,103 @@ class StructureProcessor(BaseProcessor):
         sanitized_chain = chain_id.replace(' ', '_')
         return f"{structure_id}_chain_{sanitized_chain}"
 
+    def compute_water_networks(
+        self,
+        structure_ids: Optional[Union[str, Iterable[str]]] = None,
+        *,
+        residue_cutoff: float = 3.4,
+        water_water_cutoff: float = 3.4,
+        hydrogen_bond_cutoff: float = 3.2,
+        property_table_name: Optional[str] = None,
+        property_metadata: Optional[Dict[str, Any]] = None,
+        allow_create_property_table: bool = False,
+    ) -> Dict[str, Any]:
+        """Analyze water-mediated networks for the provided structures."""
+
+        if structure_ids is None:
+            structure_list = self.list_entities()
+        elif isinstance(structure_ids, str):
+            structure_list = [structure_ids]
+        else:
+            structure_list = list(structure_ids)
+
+        structure_list = list(dict.fromkeys(structure_list))
+
+        analysis_results: Dict[str, Any] = {}
+        errors: Dict[str, str] = {}
+        property_rows: List[Dict[str, Any]] = []
+
+        for structure_id in structure_list:
+            frame = self.load_entity(structure_id)
+            if frame is None:
+                errors[structure_id] = "structure not found"
+                continue
+
+            try:
+                analysis = analyze_water_networks(
+                    frame,
+                    residue_cutoff=residue_cutoff,
+                    water_water_cutoff=water_water_cutoff,
+                    hydrogen_bond_cutoff=hydrogen_bond_cutoff,
+                )
+            except Exception as exc:  # pragma: no cover - defensive logging
+                self.logger.exception(
+                    "Failed to compute water networks for %s", structure_id
+                )
+                errors[structure_id] = str(exc)
+                continue
+
+            analysis_results[structure_id] = analysis
+
+            summary = analysis.get('summary') or {}
+            if property_table_name and summary:
+                property_rows.append(
+                    {
+                        'scope': [{'format': 'structure', 'name': structure_id}],
+                        'entity_name': structure_id,
+                        'network_count': summary.get('network_count'),
+                        'residue_count': summary.get('residue_count'),
+                        'water_count': summary.get('water_count'),
+                        'bridging_water_count': summary.get('bridging_water_count'),
+                        'max_residue_path_length': summary.get('max_residue_path_length'),
+                        'residues_with_grn': summary.get('residues_with_grn'),
+                        'parameters': {
+                            'residue_cutoff': residue_cutoff,
+                            'water_water_cutoff': water_water_cutoff,
+                            'hydrogen_bond_cutoff': hydrogen_bond_cutoff,
+                        },
+                    }
+                )
+
+        property_table_recorded: Optional[str] = None
+        if property_rows and property_table_name:
+            from protos.processing.property import PropertyProcessor
+
+            prop_proc = PropertyProcessor()
+            metadata = property_metadata.copy() if property_metadata else {}
+            metadata.update(
+                {
+                    'residue_cutoff': residue_cutoff,
+                    'water_water_cutoff': water_water_cutoff,
+                    'hydrogen_bond_cutoff': hydrogen_bond_cutoff,
+                }
+            )
+
+            prop_proc.record_properties(
+                property_table_name,
+                property_rows,
+                metadata=metadata,
+                allow_create=allow_create_property_table,
+                materialize_entries=False,
+            )
+            property_table_recorded = property_table_name
+
+        return {
+            'structures': analysis_results,
+            'errors': errors,
+            'property_table': property_table_recorded,
+        }
+
     def list_related_sequences(
         self,
         structure_ids: Optional[Union[str, Iterable[str]]] = None,
@@ -2034,9 +2227,174 @@ class StructureProcessor(BaseProcessor):
             self.logger.info(f"Residue renumbering mapping: {residue_mapping}")
         
         return df_canonical
-    
+
+    # ---------- Legacy Compatibility Helpers ----------
+
+    def load_structures(
+        self,
+        structure_ids: Optional[Union[str, Iterable[str]]] = None,
+        **_,
+    ) -> List[str]:
+        """Compatibility wrapper for legacy load_structures API."""
+
+        warnings.warn(
+            "StructureProcessor.load_structures is deprecated; use load_entity instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        if structure_ids is None:
+            structure_list = list(self.list_entities())
+        elif isinstance(structure_ids, str):
+            structure_list = [structure_ids]
+        else:
+            structure_list = list(structure_ids)
+
+        loaded: List[str] = []
+        for structure_id in structure_list:
+            try:
+                df = self.load_entity(structure_id)
+                if df is not None:
+                    loaded.append(structure_id)
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(
+                    "Could not load structure %s via compatibility wrapper: %s",
+                    structure_id,
+                    exc,
+                )
+        return loaded
+
+    def get_chains(self, structure_id: str) -> List[str]:
+        """Return chain identifiers for a structure (legacy helper)."""
+
+        df = self.frames.get(structure_id)
+        if df is None:
+            df = self.load_entity(structure_id)
+        if df is None:
+            return []
+
+        df_reset = df.reset_index()
+        chains_series = (
+            df_reset['auth_chain_id']
+            if 'auth_chain_id' in df_reset
+            else df_reset.get('chain_id')
+        )
+        if chains_series is None:
+            return []
+
+        chain_values = sorted(
+            {
+                str(c).strip()
+                for c in chains_series.dropna().unique()
+                if str(c).strip()
+            }
+        )
+        return chain_values
+
+    def get_sequence(self, structure_id: str, chain_id: str = 'A') -> Optional[str]:
+        """Return a single chain sequence using the unified extractor."""
+
+        collected = self.collect_chain_sequences(
+            [structure_id],
+            chain_filter={structure_id: [chain_id]},
+        )
+        chains = collected.get(structure_id, {})
+        payload = chains.get(chain_id)
+        if not payload:
+            # Attempt relaxed match for legacy callers with stripped chain IDs
+            for key, value in chains.items():
+                if key.strip() == chain_id:
+                    payload = value
+                    break
+        if not payload:
+            return None
+        return payload.get('sequence')
+
+    def get_seq(self, structure_id: str, chain_id: str = 'A') -> Optional[str]:
+        """Alias maintained for backward compatibility."""
+
+        return self.get_sequence(structure_id, chain_id)
+
+    def get_all_sequences(
+        self,
+        structure_ids: Optional[Union[str, Iterable[str]]] = None,
+    ) -> Dict[str, str]:
+        """Aggregate chain sequences for one or more structures."""
+
+        if structure_ids is None:
+            if self.frames:
+                structure_list = list(self.frames.keys())
+            else:
+                structure_list = list(self.list_entities())
+        elif isinstance(structure_ids, str):
+            structure_list = [structure_ids]
+        else:
+            structure_list = list(structure_ids)
+
+        collected = self.collect_chain_sequences(structure_list)
+
+        sequences: Dict[str, str] = {}
+        for struct_id, chains in collected.items():
+            for chain_id, payload in chains.items():
+                seq_name = payload.get('entity_name') or f"{struct_id}_chain_{chain_id}"
+                sequence = payload.get('sequence')
+                if sequence:
+                    sequences[seq_name] = sequence
+
+        # Cache for compatibility with legacy workflows
+        self.chain_dict = sequences.copy()
+        return sequences
+
+    def get_seq_dict(
+        self,
+        load_file: bool = False,
+        *_args,
+        **_kwargs,
+    ) -> Dict[str, str]:
+        """Compatibility wrapper mimicking legacy get_seq_dict."""
+
+        if load_file:
+            raise NotImplementedError(
+                "Loading legacy chain FASTA files is no longer supported"
+            )
+        return self.get_all_sequences()
+
+    def get_chain_dict(self) -> Dict[str, str]:
+        """Alias for legacy get_chain_dict semantics."""
+
+        return self.get_all_sequences()
+
+    def get_ca_coordinates(self, structure_id: str, chain_id: str) -> np.ndarray:
+        """Return CA coordinates for a specific chain (legacy helper)."""
+
+        df = self.frames.get(structure_id)
+        if df is None:
+            df = self.load_entity(structure_id)
+        if df is None:
+            raise ValueError(f"Structure {structure_id} not found")
+
+        df_reset = df.reset_index()
+        if 'auth_chain_id' not in df_reset and 'chain_id' not in df_reset:
+            raise ValueError("Structure data missing 'auth_chain_id' column")
+
+        chain_series = (
+            df_reset['auth_chain_id']
+            if 'auth_chain_id' in df_reset
+            else df_reset['chain_id']
+        ).astype(str).str.strip()
+        mask = chain_series == chain_id
+
+        atom_col = 'atom_name' if 'atom_name' in df_reset else 'label_atom_id'
+        atom_series = df_reset[atom_col].astype(str).str.upper()
+        chain_df = df_reset[mask & (atom_series == 'CA')]
+
+        if chain_df.empty:
+            raise ValueError(f"No CA atoms found for {structure_id} chain {chain_id}")
+
+        return chain_df[['x', 'y', 'z']].to_numpy(dtype=float)
+
     # ---------- Deprecation Warnings ----------
-    
+
     @property
     def pdb_ids(self) -> List[str]:
         """Deprecated: use structure_ids"""

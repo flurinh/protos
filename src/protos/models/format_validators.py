@@ -1,4 +1,4 @@
-"""Format validation utilities for model inputs and outputs.
+"""Format validation utilities for models inputs and outputs.
 
 This module provides validation and conversion utilities to ensure
 data compatibility between Protos processors and AI models.
@@ -216,7 +216,7 @@ class FormatValidator:
     def prepare_input(self, data: Dict[str, Any], 
                      required_formats: List[str]) -> Dict[str, Any]:
         """
-        Prepare and validate input data for model.
+        Prepare and validate input data for models.
         
         Args:
             data: Raw input data from Protos processors
@@ -268,10 +268,10 @@ class FormatValidator:
     
     def validate_output(self, data: Any, format_type: str) -> Tuple[bool, Optional[str]]:
         """
-        Validate model output data.
+        Validate models output data.
         
         Args:
-            data: Output data from model
+            data: Output data from models
             format_type: Expected output format
             
         Returns:
@@ -316,7 +316,7 @@ class FormatValidator:
 
 
 class FormatAdapter:
-    """Adapts between Protos and model-specific formats."""
+    """Adapts between Protos and models-specific formats."""
     
     def __init__(self):
         """Initialize adapter with converters."""
@@ -326,11 +326,11 @@ class FormatAdapter:
     def adapt_for_model(self, data: Dict[str, Any], model_name: str, 
                        model_config: Dict[str, Any]) -> Any:
         """
-        Adapt Protos data for specific model input.
+        Adapt Protos data for specific models input.
         
         Args:
             data: Validated input data
-            model_name: Name of the model
+            model_name: Name of the models
             model_config: Model configuration
             
         Returns:
@@ -371,7 +371,7 @@ class FormatAdapter:
         raise ValueError("Ankh requires sequence input")
     
     def _adapt_for_lambda(self, data: Dict[str, Any], config: Dict[str, Any]) -> Any:
-        """Adapt for Lambda graph model format."""
+        """Adapt for Lambda graph models format."""
         # Lambda can use multiple inputs
         if 'graph' in data:
             # Already in graph format
@@ -416,12 +416,12 @@ class FormatAdapter:
     def adapt_from_model(self, output: Any, output_format: str, 
                         model_name: str) -> Any:
         """
-        Adapt model output to Protos format.
+        Adapt models output to Protos format.
         
         Args:
-            output: Raw model output
+            output: Raw models output
             output_format: Expected output format
-            model_name: Name of the model
+            model_name: Name of the models
             
         Returns:
             Protos-compatible output format
@@ -429,7 +429,7 @@ class FormatAdapter:
         # Validate output
         is_valid, error = self.validator.validate_output(output, output_format)
         if not is_valid:
-            logger.warning(f"Invalid model output: {error}")
+            logger.warning(f"Invalid models output: {error}")
         
         # Model-specific adaptations
         if model_name == "esm2" and output_format == "embedding":
@@ -460,11 +460,11 @@ class FormatAdapter:
 def validate_model_compatibility(entity_formats: List[str], 
                                model_inputs: List[str]) -> bool:
     """
-    Check if entity has required formats for model.
+    Check if entity has required formats for models.
     
     Args:
         entity_formats: Available formats for entity
-        model_inputs: Required input formats for model
+        model_inputs: Required input formats for models
         
     Returns:
         True if compatible

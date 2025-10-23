@@ -9,7 +9,7 @@ from typing import Dict
 
 import pandas as pd
 import protos
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 
 DATA_RELATIVE_ROOT = Path(__file__).resolve().parents[2] / "data"
 LIGAND_DATASET = "P24941_chembl_ligands"
@@ -41,7 +41,7 @@ def ensure_data_root() -> Path:
 
 
 def load_dataset_metadata() -> Dict[str, object]:
-    dataset_path = DATA_RELATIVE_ROOT / "ligand" / "datasets" / f"{LIGAND_DATASET}.json"
+    dataset_path = DATA_RELATIVE_ROOT / "molecule" / "datasets" / f"{LIGAND_DATASET}.json"
     if not dataset_path.exists():
         raise FileNotFoundError(f"Ligand dataset metadata not found: {dataset_path}")
     return json.loads(dataset_path.read_text(encoding="utf-8"))
@@ -50,7 +50,7 @@ def load_dataset_metadata() -> Dict[str, object]:
 def summarize_dataset(metadata: Dict[str, object]) -> DatasetSummary:
     entities = metadata.get("entities", [])
     data_file = metadata.get("data_file")
-    table_path = DATA_RELATIVE_ROOT / "ligand" / "tables" / Path(data_file).name
+    table_path = DATA_RELATIVE_ROOT / "property" / "tables" / Path(data_file).name
     activities = pd.read_csv(table_path)
 
     median_value = float(activities["value_nm"].median()) if "value_nm" in activities else 0.0
@@ -65,11 +65,11 @@ def summarize_dataset(metadata: Dict[str, object]) -> DatasetSummary:
     )
 
 
-def summarize_caches(processor: LigandProcessor) -> CacheSummary:
-    databases_dir = Path(processor.get_subdirectory_path("databases"))
-    ccd_index = databases_dir / "ccd" / "ccd_index.json"
-    qm9_archive = databases_dir / "qm9" / "qm9.tar.bz2"
-    enamine_manifest = databases_dir / "enamine" / "datasets.json"
+def summarize_caches(processor: MoleculeProcessor) -> CacheSummary:
+    records_dir = processor.records_dir if hasattr(processor, "records_dir") else Path(processor.get_subdirectory_path("records_dir"))
+    ccd_index = records_dir / "ccd_index.json"
+    qm9_archive = records_dir / "qm9_archive.json"
+    enamine_manifest = records_dir / "enamine_manifest.json"
 
     return CacheSummary(
         ccd_index_present=ccd_index.exists(),
@@ -82,7 +82,7 @@ def main() -> None:
     ensure_data_root()
     metadata = load_dataset_metadata()
     dataset_summary = summarize_dataset(metadata)
-    processor = LigandProcessor()
+    processor = MoleculeProcessor()
     cache_summary = summarize_caches(processor)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

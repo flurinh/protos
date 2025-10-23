@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 from protos.io.paths.path_config import ProtosPaths
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 
 def test_ligand_integration():
     """Test ligand processor with all three databases."""
@@ -22,7 +22,7 @@ def test_ligand_integration():
     os.environ["PROTOS_DATA_ROOT"] = str(data_dir.absolute())
     
     # Initialize processor
-    processor = LigandProcessor(name="test_integration")
+    processor = MoleculeProcessor(name="test_integration")
     
     # 1. Test CCD integration
     print("1. Testing CCD Integration...")

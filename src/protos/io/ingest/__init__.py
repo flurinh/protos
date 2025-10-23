@@ -15,6 +15,7 @@ __all__ = [
     'enamine_loader',
     'gpcrdb_loader',
     'gpcrdb_loader_utils',
+    'ligand_loader',
     'ligand_utils',
     'qm9_loader',
     'structure_loader',

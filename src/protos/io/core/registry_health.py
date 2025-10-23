@@ -353,7 +353,7 @@ class RegistryHealthChecker:
             'grn': ProcessorType.GRN,
             'property': ProcessorType.PROPERTY,
             'embedding': ProcessorType.EMBEDDING,
-            'ligand': ProcessorType.LIGAND,
+            'ligand': ProcessorType.MOLECULE,
             'graph': ProcessorType.GRAPH
         }
         

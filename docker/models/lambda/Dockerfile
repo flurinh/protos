@@ -1,5 +1,5 @@
 # Lambda Model Service
-# This model requires specific versions due to geometric deep learning dependencies
+# This models requires specific versions due to geometric deep learning dependencies
 FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime
 
 # Install system dependencies

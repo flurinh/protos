@@ -140,22 +140,6 @@ Manages 3D protein structures from PDB/mmCIF files with intelligent caching:
 - Caches preprocessed structures (PKL) for performance
 - Supports dataset-level caching for large-scale analysis
 
-```python
-from protos.processing.structure import StructureProcessor
-
-struct_proc = StructureProcessor()
-
-# Annotate GPCR chains with GRNs and persist the table
-grn_df = struct_proc.annotate_structures_with_grn(
-    ["3sn6", "5d5a", "6b73"],
-    reference_table="gpcrdb_ref",
-    protein_family="gpcr_a",
-    output_table="gpcr_structure_grn",
-)
-
-print(grn_df.head())
-```
-
 ### SeqProcessor
 
 Handles protein sequences and FASTA files:
@@ -164,6 +148,9 @@ Handles protein sequences and FASTA files:
 - Sequence analysis and comparison
 - Multiple sequence alignment
 - Batch sequence processing
+- Managed storage: datasets live under `sequence/fasta/datasets` while
+  entity files materialize under `sequence/fasta/entities`; exports always use
+  these locations—no custom paths required.
 
 ### GRNBaseProcessor
 
@@ -174,22 +161,6 @@ Generic Residue Numbering for protein families:
 - Position conservation analysis
 - Functional site identification
 - Table-based storage with reference tables and configurations
-
-```python
-from protos.processing.sequence import SequenceProcessor
-
-seq_proc = SequenceProcessor()
-
-# Annotate a sequence dataset using the bundled GPCR reference
-grn_df = seq_proc.annotate_with_grn(
-    dataset_name="gpcr_sequences",
-    reference_table="gpcrdb_ref",
-    protein_family="gpcr_a",
-    output_table="gpcr_sequences_grn",
-)
-
-print(grn_df.head())  # residue-by-residue GRN mapping
-```
 
 ### PropertyProcessor
 
@@ -213,18 +184,16 @@ Machine learning embeddings for sequences:
 
 ```bash
 # Data management
-protos init --path ./data      # Initialize (or refresh) a data directory
-protos clear --force           # Delete and optionally reinitialize the active data root
-
-# Legacy helpers (maintained for compatibility)
-protos-init                    # Equivalent to `protos init`
-protos-cleanup --reinit        # Equivalent to `protos clear`
+protos init-data              # Initialize data directory
+protos cleanup-data           # Clean and organize data
+protos list-entities          # Browse available entities
+protos list-datasets          # Browse datasets
 
 # Analysis tools
-protos assign-grns             # Assign GRN numbers to sequences
-protos expand-annotation       # Expand GRN annotations
-protos process-structures      # Batch structure analysis
-protos generate-embeddings     # Batch embedding generation
+protos assign-grns            # Assign GRN numbers to sequences
+protos expand-annotation      # Expand GRN annotations
+protos process-structures     # Batch structure processing
+protos generate-embeddings    # Batch embedding generation
 ```
 
 ## Examples
@@ -273,19 +242,19 @@ Import and query experimental data:
 from protos.processing.property import PropertyProcessor
 import pandas as pd
 
-# Import properties from DataFrame (dataset-level storage by default)
+# Import properties from DataFrame
 properties = pd.DataFrame({
-    "entity_name": ["BACR_HALSA", "ChR2", "NpHR"],
-    "lambda_max": [568, 470, 590],
-    "photocycle": ["fast", "slow", "fast"],
-    "scope": [[{"format": "sequence", "name": seq}] for seq in ["BACR_HALSA", "ChR2", "NpHR"]],
+    'entity_name': ['BACR_HALSA', 'ChR2', 'NpHR'],
+    'lambda_max': [568, 470, 590],
+    'photocycle': ['fast', 'slow', 'fast']
 })
 prop_proc = PropertyProcessor()
-prop_proc.record_properties("opsin_properties", properties)
+prop_proc.import_properties("opsin_properties", properties)
 
-# Retrieve rows associated with a given sequence when needed
-blue_opsins = prop_proc.load_dataset_rows(
-    "opsin_properties", entity_name="ChR2", format_type="sequence"
+# Query properties
+blue_opsins = prop_proc.filter_entities_by_property(
+    "opsin_properties",
+    {"lambda_max": {"lt": 500}}
 )
 ```
 

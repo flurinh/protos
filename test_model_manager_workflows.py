@@ -514,7 +514,7 @@ def workflow_6_binder_design():
 
 
 def demonstrate_output_parsing():
-    """Demonstrate parsing model outputs back into Protos."""
+    """Demonstrate parsing models outputs back into Protos."""
     print("\n=== Output Parsing and Registration ===")
     
     manager = ModelManager()
@@ -618,7 +618,7 @@ def main():
         len(homolog_predictions) + 
         len(binder_designs)
     )
-    print(f"Total model inputs prepared: {total_inputs}")
+    print(f"Total models inputs prepared: {total_inputs}")
     print("\nKey capabilities demonstrated:")
     print("✓ Sequence to structure prediction with mutations")
     print("✓ Interface-focused mutation design") 

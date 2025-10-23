@@ -1,4 +1,4 @@
-"""Simple test of model format system without complex imports."""
+"""Simple test of models format system without complex imports."""
 
 import numpy as np
 import pandas as pd
@@ -201,7 +201,7 @@ def test_validation_system():
 
 
 def test_model_compatibility():
-    """Test checking model compatibility."""
+    """Test checking models compatibility."""
     print("\n\n=== Testing Model Compatibility ===\n")
     
     # Different scenarios
@@ -320,7 +320,7 @@ def main():
     print("✓ Creates and validates all format types")
     print("✓ Converts between formats (structure→sequence, structure→graph)")
     print("✓ Validates various input types")
-    print("✓ Checks model compatibility")
+    print("✓ Checks models compatibility")
     print("✓ Adapts data for specific models")
     print("\nThe system is ready for integration with Protos processors!")
 

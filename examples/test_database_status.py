@@ -10,7 +10,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 
 # Set up environment
 test_data_root = Path(__file__).parent / "data"
@@ -21,7 +21,7 @@ print(f"Data root: {test_data_root}")
 
 try:
     # Initialize processor
-    lig_proc = LigandProcessor()
+    lig_proc = MoleculeProcessor()
     
     # Check database status
     stats = lig_proc.get_database_statistics()

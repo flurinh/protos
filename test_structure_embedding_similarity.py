@@ -369,7 +369,7 @@ def register_similarity_table(df: pd.DataFrame) -> pd.DataFrame:
     recorded = prop_proc.record_properties(
         PROPERTY_TABLE,
         payload,
-        metadata={"model": EMBEDDING_MODEL, "embedding_type": EMBEDDING_TYPE},
+        metadata={"models": EMBEDDING_MODEL, "embedding_type": EMBEDDING_TYPE},
     )
     return recorded
 

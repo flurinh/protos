@@ -54,7 +54,7 @@ def setup_project_data(refresh: bool = False) -> bool:
         "sequence",
         "property",
         "embedding",
-        "ligand",
+        "molecule",
         "graph",
         "input",
         "temp",

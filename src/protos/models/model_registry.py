@@ -20,12 +20,12 @@ class ModelRegistry:
     
     The registry:
     - Tracks available models and their configurations
-    - Provides model discovery and loading
-    - Manages model versioning
+    - Provides models discovery and loading
+    - Manages models versioning
     - Follows Protos patterns (zero config, human names)
     """
     
-    # Built-in model types and their implementations
+    # Built-in models types and their implementations
     BUILTIN_MODELS = {
         'lambda': 'protos.models.lambda_model.LambdaModel',
         'boltz': 'protos.models.boltz.BoltzModel',
@@ -33,7 +33,7 @@ class ModelRegistry:
     
     def __init__(self, paths: Optional[ProtosPaths] = None):
         """
-        Initialize model registry.
+        Initialize models registry.
         
         Args:
             paths: ProtosPaths instance (created if not provided)
@@ -65,11 +65,11 @@ class ModelRegistry:
     
     def register_model_class(self, model_type: str, model_class: Type[BaseModel]):
         """
-        Register a model class for dynamic loading.
+        Register a models class for dynamic loading.
         
         Args:
-            model_type: Type identifier for the model
-            model_class: The model class (must inherit from BaseModel)
+            model_type: Type identifier for the models
+            model_class: The models class (must inherit from BaseModel)
         """
         if not issubclass(model_class, BaseModel):
             raise TypeError(f"{model_class} must inherit from BaseModel")
@@ -81,11 +81,11 @@ class ModelRegistry:
         Discover all available models.
         
         Returns:
-            Dictionary of model info keyed by model path
+            Dictionary of models info keyed by models path
         """
         models = {}
         
-        # Check for model directories
+        # Check for models directories
         for model_type_dir in self.models_path.iterdir():
             if model_type_dir.is_dir() and not model_type_dir.name.startswith('_'):
                 for model_name_dir in model_type_dir.iterdir():
@@ -114,10 +114,10 @@ class ModelRegistry:
         List available models.
         
         Args:
-            model_type: Filter by model type (e.g., 'lambda', 'esm')
+            model_type: Filter by models type (e.g., 'lambda', 'esm')
             
         Returns:
-            List of model identifiers
+            List of models identifiers
         """
         models = list(self._registry.keys())
         
@@ -128,7 +128,7 @@ class ModelRegistry:
     
     def get_model_info(self, model_identifier: str) -> Optional[dict]:
         """
-        Get information about a specific model.
+        Get information about a specific models.
         
         Args:
             model_identifier: Model identifier (e.g., 'lambda/opsin_v1')
@@ -141,16 +141,16 @@ class ModelRegistry:
     def load_model(self, model_identifier: str, 
                    device: Optional[str] = None) -> BaseModel:
         """
-        Load a model by identifier.
+        Load a models by identifier.
         
         Args:
             model_identifier: Model identifier (e.g., 'lambda/opsin_v1')
-            device: Device to load model on (overrides config)
+            device: Device to load models on (overrides config)
             
         Returns:
-            Loaded model instance
+            Loaded models instance
         """
-        # Get model info
+        # Get models info
         model_info = self.get_model_info(model_identifier)
         if not model_info:
             raise ValueError(f"Model '{model_identifier}' not found")
@@ -158,7 +158,7 @@ class ModelRegistry:
         # Parse identifier
         model_type, model_name = model_identifier.split('/', 1)
         
-        # Get model class
+        # Get models class
         model_class = self._get_model_class(model_type)
         
         # Create config
@@ -168,7 +168,7 @@ class ModelRegistry:
         
         config = ModelConfig(**config_data)
         
-        # Create model instance
+        # Create models instance
         model = model_class(config=config, paths=self.paths, name=model_name)
         
         # Load weights if available
@@ -181,7 +181,7 @@ class ModelRegistry:
         return model
     
     def _get_model_class(self, model_type: str) -> Type[BaseModel]:
-        """Get model class for a type."""
+        """Get models class for a type."""
         # Check cache
         if model_type in self._model_classes:
             return self._model_classes[model_type]
@@ -197,9 +197,9 @@ class ModelRegistry:
                 self._model_classes[model_type] = model_class
                 return model_class
             except (ImportError, AttributeError) as e:
-                raise ImportError(f"Could not load model class for '{model_type}': {e}")
+                raise ImportError(f"Could not load models class for '{model_type}': {e}")
         
-        raise ValueError(f"Unknown model type: '{model_type}'")
+        raise ValueError(f"Unknown models type: '{model_type}'")
     
     def _find_latest_checkpoint(self, weights_dir: Path) -> Optional[Path]:
         """Find the latest checkpoint in a weights directory."""
@@ -212,24 +212,24 @@ class ModelRegistry:
     def create_model(self, model_type: str, model_name: str, 
                     config: ModelConfig) -> BaseModel:
         """
-        Create and register a new model.
+        Create and register a new models.
         
         Args:
-            model_type: Type of model (e.g., 'lambda')
-            model_name: Name for this model instance
+            model_type: Type of models (e.g., 'lambda')
+            model_name: Name for this models instance
             config: Model configuration
             
         Returns:
-            Created model instance
+            Created models instance
         """
-        # Get model class
+        # Get models class
         model_class = self._get_model_class(model_type)
         
-        # Ensure config has correct model type
+        # Ensure config has correct models type
         config.model_type = model_type
         config.model_name = model_name
         
-        # Create model
+        # Create models
         model = model_class(config=config, paths=self.paths, name=model_name)
         
         # Register in registry
@@ -245,11 +245,11 @@ class ModelRegistry:
     
     def delete_model(self, model_identifier: str, remove_files: bool = False):
         """
-        Delete a model from the registry.
+        Delete a models from the registry.
         
         Args:
             model_identifier: Model to delete
-            remove_files: Whether to remove model files
+            remove_files: Whether to remove models files
         """
         if model_identifier not in self._registry:
             raise ValueError(f"Model '{model_identifier}' not found")
@@ -277,7 +277,7 @@ class ModelRegistry:
             output_format: Filter by output format
             
         Returns:
-            List of compatible model identifiers
+            List of compatible models identifiers
         """
         from protos.io.core.entity_registry import EntityRegistry
         

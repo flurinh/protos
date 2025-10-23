@@ -167,7 +167,7 @@ def test_format_conversion():
 
 
 def test_model_compatibility():
-    """Test model compatibility checking."""
+    """Test models compatibility checking."""
     print("=== Testing Model Compatibility ===")
     
     # Simulate different entity format scenarios

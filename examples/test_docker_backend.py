@@ -61,7 +61,7 @@ def test_service_config():
     # Example custom service config
     custom_config = ServiceConfig(
         name="custom_model",
-        image="myorg/custom-model:latest",
+        image="myorg/custom-models:latest",
         port=8100,
         environment={
             "MODEL_PATH": "/models/custom",
@@ -90,12 +90,12 @@ def test_service_config():
 
 
 def test_model_info():
-    """Test model information retrieval."""
+    """Test models information retrieval."""
     print("\n\n=== Testing Model Information ===\n")
     
     client = UnifiedModelClient()
     
-    # Get info for each model
+    # Get info for each models
     for model_name in ["esm2", "ankh", "lambda"]:
         info = client.get_model_info(model_name)
         print(f"\n{info['full_name']}:")
@@ -117,7 +117,7 @@ def main():
     
     print("\n" + "=" * 60)
     print("Docker backend provides:")
-    print("- Isolated environments for each model")
+    print("- Isolated environments for each models")
     print("- No dependency conflicts")
     print("- Easy scaling and deployment")
     print("- Consistent behavior across machines")

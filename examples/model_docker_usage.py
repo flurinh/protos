@@ -1,7 +1,7 @@
 """Example of using Protos models with Docker backend.
 
 This example shows how to use models without worrying about
-dependency conflicts - each model runs in its own container.
+dependency conflicts - each models runs in its own container.
 """
 
 from protos.models import (
@@ -11,7 +11,7 @@ from protos.models import (
 
 
 def example_docker_usage():
-    """Show basic Docker-based model usage."""
+    """Show basic Docker-based models usage."""
     print("=== Protos Model System - Docker Backend ===\n")
     
     # Create client with Docker backend
@@ -36,7 +36,7 @@ def example_docker_usage():
     except Exception as e:
         print(f"   Error: {e}\n")
     
-    # Example 2: Using different model with conflicting dependencies
+    # Example 2: Using different models with conflicting dependencies
     print("2. Using Ankh (different PyTorch version):")
     try:
         result = client.predict(
@@ -68,7 +68,7 @@ def example_auto_backend():
     # Client automatically chooses best backend
     client = UnifiedModelClient(backend=ModelBackend.AUTO)
     
-    # Try to use a model
+    # Try to use a models
     try:
         # If Docker is available, it will use that
         # Otherwise falls back to local (if dependencies installed)
@@ -135,14 +135,14 @@ def example_quick_prediction():
 
 
 def show_docker_commands():
-    """Show useful Docker commands for model management."""
+    """Show useful Docker commands for models management."""
     print("\n=== Docker Commands for Model Management ===\n")
     
-    print("Build all model images:")
+    print("Build all models images:")
     print("  docker-compose -f docker/docker-compose.yml build")
     print()
     
-    print("Start specific model:")
+    print("Start specific models:")
     print("  docker-compose -f docker/docker-compose.yml up -d esm2")
     print()
     
@@ -151,10 +151,10 @@ def show_docker_commands():
     print()
     
     print("Check running models:")
-    print("  docker ps --filter 'label=protos.type=model-service'")
+    print("  docker ps --filter 'label=protos.type=models-service'")
     print()
     
-    print("View model logs:")
+    print("View models logs:")
     print("  docker logs protos-esm2")
     print()
     
@@ -194,7 +194,7 @@ def main():
     print("\n" + "=" * 60)
     print("Benefits of Docker backend:")
     print("- No dependency conflicts between models")
-    print("- Each model runs in isolation")
+    print("- Each models runs in isolation")
     print("- Easy to update individual models")
     print("- Consistent environment across machines")
     print("- GPU support with nvidia-docker")

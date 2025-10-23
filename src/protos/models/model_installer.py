@@ -1,4 +1,4 @@
-"""Model installer for managing model dependencies.
+"""Model installer for managing models dependencies.
 
 This module handles installing required dependencies for different models,
 including pip packages, conda packages, and system requirements.
@@ -17,7 +17,7 @@ from protos.models.model_definitions import get_model_definition, list_available
 
 class ModelInstaller:
     """
-    Manages installation of model dependencies.
+    Manages installation of models dependencies.
     
     Features:
     - Checks for existing installations
@@ -71,7 +71,7 @@ class ModelInstaller:
     
     def check_requirements(self, model_name: str) -> Dict[str, bool]:
         """
-        Check if model requirements are met.
+        Check if models requirements are met.
         
         Returns:
             Dict with requirement status
@@ -126,10 +126,10 @@ class ModelInstaller:
     
     def install_model(self, model_name: str, force: bool = False) -> bool:
         """
-        Install dependencies for a model.
+        Install dependencies for a models.
         
         Args:
-            model_name: Name of the model
+            model_name: Name of the models
             force: Force reinstall even if already installed
             
         Returns:
@@ -236,7 +236,7 @@ class ModelInstaller:
     
     def create_environment(self, model_name: str, env_name: Optional[str] = None) -> str:
         """
-        Create conda environment for a model.
+        Create conda environment for a models.
         
         Returns:
             Environment setup script
@@ -306,7 +306,7 @@ echo "Activate with: conda activate {env_name}"
         return list(self.registry["installed"].keys())
     
     def uninstall_model(self, model_name: str):
-        """Remove model from registry (doesn't uninstall packages)."""
+        """Remove models from registry (doesn't uninstall packages)."""
         if model_name in self.registry["installed"]:
             del self.registry["installed"][model_name]
             self._save_registry()
@@ -348,7 +348,7 @@ def install_model_cli(model_name: str, force: bool = False):
     """CLI function for installing models."""
     installer = ModelInstaller()
     
-    # Show model info
+    # Show models info
     definition = get_model_definition(model_name)
     print(f"\nModel: {definition.full_name} ({definition.version})")
     print(f"Description: {definition.description}")

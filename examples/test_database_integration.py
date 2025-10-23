@@ -10,7 +10,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from protos.processing.ligand import LigandProcessor
+from protos.processing.molecule import MoleculeProcessor
 from protos.io.ingest import qm9_loader, ccd_loader
 
 # Set up test environment
@@ -21,7 +21,7 @@ print("=== Testing Database Integration ===")
 print(f"Data root: {test_data_root}")
 
 # Initialize processor
-lig_proc = LigandProcessor()
+lig_proc = MoleculeProcessor()
 
 # Test 1: Direct loader test for CCD
 print("\n--- Test 1: CCD Direct Loader Test ---")
