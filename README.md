@@ -62,7 +62,8 @@ entity_info = struct_proc.entity_registry.find_entity("1ubq")
 ```
 
 ```bash
-protos init
+protos init                   # Initialize at the default data root
+protos init ~/my/protos-data  # Initialize in a custom location
 ```
 ## Architecture
 
@@ -184,7 +185,7 @@ Machine learning embeddings for sequences:
 
 ```bash
 # Data management
-protos init-data              # Initialize data directory
+protos init [PATH]            # Initialize data directory
 protos cleanup-data           # Clean and organize data
 protos list-entities          # Browse available entities
 protos list-datasets          # Browse datasets
