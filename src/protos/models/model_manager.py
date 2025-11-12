@@ -35,6 +35,7 @@ from .model_specs import (
     ArtifactBundle,
     ArtifactSpec,
     ExecutionSpec,
+    ModelBatch,
     ModelCard,
     ModelInvocation,
     PreparedJob,
@@ -68,7 +69,9 @@ class ModelAdapterBase(ABC):
                 return bundle
         raise KeyError(f"Required artifact '{name}' not available")
 
-    def _ensure_pdb_file(self, source: Path, ctx: "ModelRunContext", *, purpose: str) -> Path:
+    def _ensure_pdb_file(
+        self, source: Path, ctx: "ModelRunContext", *, purpose: str
+    ) -> Path:
         """Ensure a PDB file exists for a given source structure path.
 
         - If source is CIF/MMCIF, convert to PDB using gemmi and write into ctx.inputs_dir
@@ -79,6 +82,7 @@ class ModelAdapterBase(ABC):
         if pdb_src.suffix.lower() in {".cif", ".mmcif"}:
             try:
                 import gemmi  # type: ignore
+
                 st = gemmi.read_structure(str(pdb_src))
                 pdb_dst = ctx.inputs_dir / (pdb_src.stem + ".pdb")
                 pdb_dst.parent.mkdir(parents=True, exist_ok=True)
@@ -197,12 +201,17 @@ class ModelRunContext:
     - config_path: optional, when a config file is created
     """
 
-    def __init__(self, paths: ProtosPaths, card: ModelCard, run_prefix: str = "job") -> None:
+    def __init__(
+        self, paths: ProtosPaths, card: ModelCard, run_prefix: str = "job"
+    ) -> None:
         self.paths = paths
         self.card = card
         self.run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.work_dir = (
-            Path(self.paths.data_root) / "models" / card.name / f"{run_prefix}_{self.run_id}"
+            Path(self.paths.data_root)
+            / "models"
+            / card.name
+            / f"{run_prefix}_{self.run_id}"
         )
         self.inputs_dir = self.work_dir / "inputs"
         self.outputs_dir = self.work_dir / "outputs"
@@ -242,6 +251,7 @@ class ModelRunContext:
             "config_path": str(self.config_path) if self.config_path else None,
         }
 
+
 class ConfigurableRuntimeAdapter(RuntimeAdapter):
     """Runtime adapter driven by ModelCard.execution.entrypoint.
 
@@ -276,7 +286,12 @@ class ConfigurableRuntimeAdapter(RuntimeAdapter):
         module = importlib.import_module(module_name)
         func = getattr(module, attr)
 
-        kwargs = {"card": card, "request": request, "inputs": inputs, "paths": self.paths}
+        kwargs = {
+            "card": card,
+            "request": request,
+            "inputs": inputs,
+            "paths": self.paths,
+        }
         sig = inspect.signature(func)
         filtered = {k: v for k, v in kwargs.items() if k in sig.parameters}
 
@@ -313,10 +328,12 @@ class ConfigurableRuntimeAdapter(RuntimeAdapter):
 
         # Always include run context paths in metadata
         meta = dict(metadata)
-        meta.update({
-            "work_dir": str(ctx.work_dir),
-            "outputs_dir": str(ctx.outputs_dir),
-        })
+        meta.update(
+            {
+                "work_dir": str(ctx.work_dir),
+                "outputs_dir": str(ctx.outputs_dir),
+            }
+        )
         return RuntimeResult(outputs=outputs, artifacts=artifacts, metadata=meta)
 
 
@@ -354,12 +371,16 @@ class ConfigurableExternalAdapter(ExternalJobAdapter):
             ext_hint = str(card.execution.expected_config).lower()
             if ext_hint.endswith(".json") or "json" in ext_hint:
                 config_path = working_dir / "config.json"
-                payload = self._build_config_payload(card, request, inputs, packaged_inputs)
+                payload = self._build_config_payload(
+                    card, request, inputs, packaged_inputs
+                )
                 with open(config_path, "w", encoding="utf-8") as fh:
                     json.dump(payload, fh, indent=2)
             else:
                 config_path = working_dir / "config.yaml"
-                payload = self._build_config_payload(card, request, inputs, packaged_inputs)
+                payload = self._build_config_payload(
+                    card, request, inputs, packaged_inputs
+                )
                 with open(config_path, "w", encoding="utf-8") as fh:
                     yaml.safe_dump(payload, fh, sort_keys=False)
             cmd.append(str(config_path))
@@ -390,7 +411,11 @@ class ConfigurableExternalAdapter(ExternalJobAdapter):
         packaged: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         artifacts = {
-            b.spec.name: {"path": str(b.path), "kind": b.spec.kind, "format": b.spec.format}
+            b.spec.name: {
+                "path": str(b.path),
+                "kind": b.spec.kind,
+                "format": b.spec.format,
+            }
             for b in inputs
         }
         return {
@@ -401,6 +426,7 @@ class ConfigurableExternalAdapter(ExternalJobAdapter):
             "config": dict(request.config),
             "metadata": dict(request.metadata),
         }
+
 
 class ModelRequest:
     """Simple container for invocation parameters."""
@@ -534,7 +560,9 @@ class BoltzAdapter(ExternalJobAdapter):
         return job
 
     def _config_identifier(self, mutations: Iterable[Dict[str, Any]]) -> str:
-        labels = [mut.get("name") or f"{mut['position']}{mut['mutant']}" for mut in mutations]
+        labels = [
+            mut.get("name") or f"{mut['position']}{mut['mutant']}" for mut in mutations
+        ]
         return "_".join(labels)
 
     def _get_input_dir(self, entity: str, config_id: str) -> Path:
@@ -636,7 +664,9 @@ class BoltzAdapter(ExternalJobAdapter):
             entry_body: Dict[str, Any] = OrderedDict()
 
             identifier = override.get("id") or self._default_identifier(index)
-            entry_body["id"] = identifier if isinstance(identifier, list) else [identifier]
+            entry_body["id"] = (
+                identifier if isinstance(identifier, list) else [identifier]
+            )
 
             override_sequence = override.get("sequence")
             if override_sequence is not None:
@@ -681,6 +711,7 @@ class LambdaAdapter(RuntimeAdapter):
         inputs: List[ArtifactBundle],
     ) -> RuntimeResult:
         import logging
+
         logger = logging.getLogger("LambdaAdapter")
 
         # Minimal run context for optional debug artifacts
@@ -690,13 +721,19 @@ class LambdaAdapter(RuntimeAdapter):
         logger.info("[lambda] Resolving inputs")
         sequence_bundle = self._require_bundle(inputs, "sequence_dataset")
         grn_bundle = self._require_bundle(inputs, "grn_table")
-        embedding_bundle = next((b for b in inputs if b.spec.name == "embedding_dataset"), None)
+        embedding_bundle = next(
+            (b for b in inputs if b.spec.name == "embedding_dataset"), None
+        )
 
         sequences: Dict[str, str] = sequence_bundle.metadata.get("sequences", {})
         grn_table: pd.DataFrame = grn_bundle.metadata.get("table")
         dataset_name: str = sequence_bundle.metadata.get("dataset") or "lambda_dataset"
 
-        logger.info("[lambda] Sequences: %d | GRN rows: %d", len(sequences), int(len(grn_table) if grn_table is not None else 0))
+        logger.info(
+            "[lambda] Sequences: %d | GRN rows: %d",
+            len(sequences),
+            int(len(grn_table) if grn_table is not None else 0),
+        )
 
         embeddings_map: Dict[str, np.ndarray] = {}
         embedding_dataset_name: Optional[str] = None
@@ -709,16 +746,18 @@ class LambdaAdapter(RuntimeAdapter):
         if grn_table is None or grn_table.empty:
             raise ValueError("Lambda adapter requires a populated GRN table")
 
-        protein_family = (
-            request.get_input("protein_family")
-            or request.config.get("protein_family")
+        protein_family = request.get_input("protein_family") or request.config.get(
+            "protein_family"
         )
         if not protein_family:
             raise ValueError("Lambda adapter requires 'protein_family' input")
 
         # Resolve embeddings: either from provided dataset or compute via embedding card
         if embedding_bundle is not None:
-            logger.info("[lambda] Using provided embedding dataset '%s'", embedding_bundle.metadata.get("dataset"))
+            logger.info(
+                "[lambda] Using provided embedding dataset '%s'",
+                embedding_bundle.metadata.get("dataset"),
+            )
             embeddings_map = embedding_bundle.metadata.get("embeddings", {})
             embedding_dataset_name = embedding_bundle.metadata.get("dataset")
         else:
@@ -739,7 +778,11 @@ class LambdaAdapter(RuntimeAdapter):
             if not emb_inv.runtime:
                 raise RuntimeError("Embedding runtime did not execute")
 
-            status = emb_inv.runtime.outputs.get("status") if emb_inv.runtime.outputs else None
+            status = (
+                emb_inv.runtime.outputs.get("status")
+                if emb_inv.runtime.outputs
+                else None
+            )
             if status == "skipped":
                 reason = emb_inv.runtime.outputs.get("reason", "unknown")
                 raise RuntimeError(f"Embedding dependencies missing ({reason})")
@@ -761,7 +804,10 @@ class LambdaAdapter(RuntimeAdapter):
                 for key in npz.files:
                     arr = np.asarray(npz[key])
                     embeddings_map[key] = arr
-                logger.info("[lambda] Loaded embeddings: %d entities from NPZ", len(embeddings_map))
+                logger.info(
+                    "[lambda] Loaded embeddings: %d entities from NPZ",
+                    len(embeddings_map),
+                )
             except Exception as exc:
                 raise RuntimeError(f"Failed to load embedding artifact: {exc}")
 
@@ -779,13 +825,17 @@ class LambdaAdapter(RuntimeAdapter):
                     embedding_dataset_name = ds_name
                     logger.info("[lambda] Ingested embeddings as dataset '%s'", ds_name)
                 except Exception as exc:
-                    logger.warning("[lambda] Failed to ingest embeddings dataset: %s", exc)
+                    logger.warning(
+                        "[lambda] Failed to ingest embeddings dataset: %s", exc
+                    )
 
         if not embeddings_map:
             raise ValueError("Lambda adapter requires embedding tensors")
 
         assignments = build_grn_assignments(grn_table)
-        grn_dict, aligned_embeddings = align_embeddings_to_grn(assignments, embeddings_map)
+        grn_dict, aligned_embeddings = align_embeddings_to_grn(
+            assignments, embeddings_map
+        )
         if not grn_dict:
             raise RuntimeError(
                 "No embeddings aligned to GRN positions; aborting Lambda prediction"
@@ -966,6 +1016,7 @@ class LambdaAdapter(RuntimeAdapter):
         normalizer: Optional[Callable[[Path], Path]] = None,
     ) -> Path:
         import logging
+
         logger = logging.getLogger("LambdaAdapter")
         if explicit:
             candidate = Path(explicit)
@@ -976,7 +1027,12 @@ class LambdaAdapter(RuntimeAdapter):
 
         if not candidate.exists():
             fallback = self._fallback_path(default_rel)
-            logger.info("[lambda] Resolving resource '%s' -> fallback '%s' -> target '%s'", default_rel, fallback, candidate)
+            logger.info(
+                "[lambda] Resolving resource '%s' -> fallback '%s' -> target '%s'",
+                default_rel,
+                fallback,
+                candidate,
+            )
             candidate = copy_if_missing(fallback, candidate)
 
         if normalizer is not None:
@@ -992,6 +1048,7 @@ class LambdaAdapter(RuntimeAdapter):
         binding_config: Optional[Path] = None,
     ) -> Path:
         import logging
+
         logger = logging.getLogger("LambdaAdapter")
         if explicit:
             candidate = Path(explicit)
@@ -1004,7 +1061,12 @@ class LambdaAdapter(RuntimeAdapter):
             return candidate
 
         fallback = self._fallback_path(default_rel)
-        logger.info("[lambda] Resolving positional map '%s' -> fallback '%s' -> target '%s'", default_rel, fallback, candidate)
+        logger.info(
+            "[lambda] Resolving positional map '%s' -> fallback '%s' -> target '%s'",
+            default_rel,
+            fallback,
+            candidate,
+        )
         if fallback.exists():
             return copy_if_missing(fallback, candidate)
 
@@ -1037,6 +1099,13 @@ class LambdaAdapter(RuntimeAdapter):
 class ModelManager:
     """Coordinate model invocations based on ModelCards and adapters."""
 
+    _DATASET_FIELD_MAP = {
+        "sequence": "sequence_dataset",
+        "structure": "structure_dataset",
+        "graph": "graph_dataset",
+        "property": "property_table",
+    }
+
     def __init__(self, data_root: Optional[Path] = None) -> None:
         self.paths = ProtosPaths(data_root=str(data_root) if data_root else None)
         self.cards: Dict[str, ModelCard] = {}
@@ -1068,6 +1137,7 @@ class ModelManager:
         metadata: Optional[MutableMapping[str, Any]] = None,
     ) -> ModelInvocation:
         import logging
+
         logger = logging.getLogger("ModelManager")
         card = self.cards.get(model_name)
         if card is None:
@@ -1077,11 +1147,122 @@ class ModelManager:
             raise ValueError(f"No adapter registered for '{model_name}'")
 
         request = ModelRequest(inputs=inputs, config=config, metadata=metadata)
-        logger.info("[manager] Preparing model '%s' mode=%s", model_name, card.execution.mode)
+        logger.info(
+            "[manager] Preparing model '%s' mode=%s", model_name, card.execution.mode
+        )
         invocation = adapter.prepare(card, request)
-        logger.info("[manager] Prepared invocation for '%s' external=%s runtime=%s", model_name, bool(invocation.job), bool(invocation.runtime))
+        logger.info(
+            "[manager] Prepared invocation for '%s' external=%s runtime=%s",
+            model_name,
+            bool(invocation.job),
+            bool(invocation.runtime),
+        )
         invocation.metadata.update(request.metadata)
         return invocation
+
+    def prepare_input(
+        self,
+        model_name: str,
+        *,
+        entity_name: Optional[str] = None,
+        entity_format: str = "sequence",
+        dataset_name: Optional[str] = None,
+        dataset_input_key: Optional[str] = None,
+        inputs: Optional[MutableMapping[str, Any]] = None,
+        config: Optional[MutableMapping[str, Any]] = None,
+        metadata: Optional[MutableMapping[str, Any]] = None,
+    ) -> ModelInvocation:
+        """Convenience wrapper for preparing a model for a single entity."""
+
+        resolved_inputs: Dict[str, Any] = dict(inputs or {})
+        if entity_name:
+            resolved_inputs.setdefault("entity", entity_name)
+
+        dataset_field = dataset_input_key or self._dataset_field_for_format(
+            entity_format
+        )
+        if dataset_name:
+            if not dataset_field:
+                raise ValueError(
+                    f"No dataset input mapping available for format '{entity_format}'"
+                )
+            resolved_inputs.setdefault(dataset_field, dataset_name)
+
+        return self.prepare(
+            model_name,
+            inputs=resolved_inputs,
+            config=config,
+            metadata=metadata,
+        )
+
+    def prepare_batch(
+        self,
+        model_name: str,
+        entity_configs: Iterable[MutableMapping[str, Any]],
+        *,
+        batch_name: Optional[str] = None,
+        default_entity_format: str = "sequence",
+        base_config: Optional[MutableMapping[str, Any]] = None,
+        batch_metadata: Optional[MutableMapping[str, Any]] = None,
+    ) -> ModelBatch:
+        """Normalize a batch of entity configurations for downstream execution."""
+
+        normalized_inputs: List[Dict[str, Any]] = []
+        for index, entry in enumerate(entity_configs, start=1):
+            entity = entry.get("entity")
+            if not entity:
+                raise ValueError(f"Batch entry {index} is missing 'entity'")
+
+            entry_format = str(entry.get("format") or default_entity_format).lower()
+            entry_inputs = dict(entry.get("inputs", {}))
+            dataset_name = entry.get("dataset_name")
+            dataset_field = entry.get(
+                "dataset_input_key"
+            ) or self._dataset_field_for_format(entry_format)
+            if dataset_name and dataset_field:
+                entry_inputs.setdefault(dataset_field, dataset_name)
+
+            final_config = self._merge_dicts(base_config, entry.get("config"))
+            entry_metadata = dict(entry.get("metadata", {}))
+
+            normalized_inputs.append(
+                {
+                    "entity": entity,
+                    "format": entry_format,
+                    "inputs": entry_inputs,
+                    "config": final_config,
+                    "metadata": entry_metadata,
+                }
+            )
+
+        batch_label = (
+            batch_name
+            or f"{model_name}_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        payload_metadata = dict(batch_metadata or {})
+        payload_metadata.setdefault("entry_count", len(normalized_inputs))
+
+        return ModelBatch(
+            name=batch_label,
+            model=model_name,
+            inputs=normalized_inputs,
+            metadata=payload_metadata,
+        )
+
+    def _dataset_field_for_format(self, entity_format: Optional[str]) -> Optional[str]:
+        if not entity_format:
+            return None
+        return self._DATASET_FIELD_MAP.get(str(entity_format).lower())
+
+    @staticmethod
+    def _merge_dicts(
+        base: Optional[MutableMapping[str, Any]],
+        override: Optional[MutableMapping[str, Any]],
+    ) -> Dict[str, Any]:
+        result: Dict[str, Any] = dict(base or {})
+        if override:
+            result.update(override)
+        return result
 
     def prepare_boltz_mutations(
         self,
@@ -1089,6 +1270,7 @@ class ModelManager:
         mutations: List[Dict[str, Any]],
         *,
         base_config: Optional[MutableMapping[str, Any]] = None,
+        model_name: str = "boltz2",
     ) -> List[ModelInvocation]:
         """Prepare Boltz jobs for a list of mutation configurations.
 
@@ -1098,6 +1280,7 @@ class ModelManager:
                 optional "mutations" / "config" overrides.
             base_config: Shared configuration options applied to every job before
                 per-entry overrides.
+            model_name: Registered model name to delegate to (defaults to "boltz2").
         """
 
         invocations: List[ModelInvocation] = []
@@ -1113,11 +1296,18 @@ class ModelManager:
             if "mutations" in entry:
                 config["mutations"] = entry["mutations"]
 
+            entry_model = entry.get("model_name", model_name) or "boltz2"
+
+            entry_metadata = dict(entry.get("metadata") or {})
+            entry_metadata.setdefault("entity", entity)
+            entry_metadata.setdefault("dataset", dataset_name)
+            entry_metadata["mutation_entry"] = entry
+
             invocation = self.prepare(
-                "boltz2",
+                entry_model,
                 inputs={"sequence_dataset": dataset_name, "entity": entity},
                 config=config,
-                metadata={"mutation_entry": entry},
+                metadata=entry_metadata,
             )
             invocations.append(invocation)
 
@@ -1223,9 +1413,7 @@ class ModelManager:
         ligand_mpnn_card = ModelCard(
             name="ligand_mpnn",
             version="0.1",
-            description=(
-                "LigandMPNN: design sequences conditioned on a protein PDB"
-            ),
+            description=("LigandMPNN: design sequences conditioned on a protein PDB"),
             execution=ExecutionSpec(
                 mode="external_config",
                 entrypoint="python",
@@ -1410,7 +1598,9 @@ class ModelManager:
             name="pocket2mol",
             version="1.0",
             description="Pocket2Mol: generate molecules for a protein pocket",
-            execution=ExecutionSpec(mode="external_config", entrypoint="python", environment={"gpu": True}),
+            execution=ExecutionSpec(
+                mode="external_config", entrypoint="python", environment={"gpu": True}
+            ),
             input_spec=[
                 ArtifactSpec(
                     name="structure_pdb",
@@ -1468,7 +1658,9 @@ class ModelManager:
             if bundle is None:
                 if spec.optional:
                     continue
-                raise ValueError(f"Required artifact '{spec.name}' could not be resolved")
+                raise ValueError(
+                    f"Required artifact '{spec.name}' could not be resolved"
+                )
             bundles.append(bundle)
         return bundles
 
@@ -1521,7 +1713,10 @@ class ModelManager:
             raise ValueError(f"Graph entity '{entity}' not found")
         path = Path(self.paths.data_root) / info.file_path
         payload = gp.load_graph(entity)
-        metadata = {"entity": entity, "graph_metadata": payload.get("graph_metadata", {})}
+        metadata = {
+            "entity": entity,
+            "graph_metadata": payload.get("graph_metadata", {}),
+        }
         return ArtifactBundle(spec=spec, path=path, metadata=metadata)
 
     def _provide_ligand_file(
@@ -1529,7 +1724,11 @@ class ModelManager:
         spec: ArtifactSpec,
         request: ModelRequest,
     ) -> ArtifactBundle:
-        value = request.get_input(spec.name) or request.get_input("ligand") or request.get_input("ligand_file")
+        value = (
+            request.get_input(spec.name)
+            or request.get_input("ligand")
+            or request.get_input("ligand_file")
+        )
         if not value:
             if spec.optional:
                 return None  # type: ignore[return-value]
@@ -1552,7 +1751,11 @@ class ModelManager:
         spec: ArtifactSpec,
         request: ModelRequest,
     ) -> ArtifactBundle:
-        value = request.get_input(spec.name) or request.get_input("payload") or request.get_input("metadata")
+        value = (
+            request.get_input(spec.name)
+            or request.get_input("payload")
+            or request.get_input("metadata")
+        )
         payload_dir = Path(self.paths.data_root) / "models" / "_payloads"
         payload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1569,7 +1772,9 @@ class ModelManager:
                 path = payload_dir / f"{spec.name}.json"
                 with open(path, "w", encoding="utf-8") as fh:
                     fh.write(value)
-                return ArtifactBundle(spec=spec, path=path, metadata={"source": "inline"})
+                return ArtifactBundle(
+                    spec=spec, path=path, metadata={"source": "inline"}
+                )
 
             # Treat as filesystem path
             p = Path(value)
@@ -1595,7 +1800,11 @@ class ModelManager:
     ) -> ArtifactBundle:
         from protos.processing.structure import StructureProcessor
 
-        name = request.get_input(spec.name) or request.get_input("structure") or request.get_input("receptor_structure")
+        name = (
+            request.get_input(spec.name)
+            or request.get_input("structure")
+            or request.get_input("receptor_structure")
+        )
         if not name:
             raise ValueError("Structure entity name not provided")
 
@@ -1612,7 +1821,9 @@ class ModelManager:
         path = Path(self.paths.data_root) / info.file_path
         if not path.exists():
             raise FileNotFoundError(f"Structure file not found: {path}")
-        return ArtifactBundle(spec=spec, path=path, metadata={"entity": name, "format": "pkl"})
+        return ArtifactBundle(
+            spec=spec, path=path, metadata={"entity": name, "format": "pkl"}
+        )
 
     def _provide_file_path(
         self,
@@ -1661,7 +1872,9 @@ class ModelManager:
         spec: ArtifactSpec,
         request: ModelRequest,
     ) -> ArtifactBundle:
-        dataset_name = request.get_input(spec.name) or request.get_input("embedding_dataset")
+        dataset_name = request.get_input(spec.name) or request.get_input(
+            "embedding_dataset"
+        )
         if not dataset_name:
             if spec.optional:
                 return None  # type: ignore[return-value]
@@ -1675,7 +1888,11 @@ class ModelManager:
         if len(parts) >= 3:
             initial_model = parts[1] or None
 
-        emb_proc = EmbeddingProcessor(model_name=initial_model) if initial_model else EmbeddingProcessor()
+        emb_proc = (
+            EmbeddingProcessor(model_name=initial_model)
+            if initial_model
+            else EmbeddingProcessor()
+        )
         dataset_info = emb_proc.get_dataset_info(dataset_name)
         if not dataset_info:
             raise ValueError(f"Embedding dataset '{dataset_name}' not found")
@@ -1723,7 +1940,10 @@ class ModelManager:
 
         # Ingest explicit artifacts bundled by adapters
         for bundle in invocation.outputs or []:
-            if bundle.spec.kind == "property" and bundle.spec.provider == "property_processor":
+            if (
+                bundle.spec.kind == "property"
+                and bundle.spec.provider == "property_processor"
+            ):
                 table_path = Path(bundle.path)
                 table_name = table_path.stem
                 try:
@@ -1731,26 +1951,35 @@ class ModelManager:
                     # Load and save to update dataset metadata/index
                     df = prop.load_property_table(table_name)
                     prop.save_property_table(table_name)
-                    summary["ingested"].append({
-                        "type": "property_table",
-                        "name": table_name,
-                        "rows": int(len(df)) if df is not None else None,
-                    })
+                    summary["ingested"].append(
+                        {
+                            "type": "property_table",
+                            "name": table_name,
+                            "rows": int(len(df)) if df is not None else None,
+                        }
+                    )
                 except Exception:
                     continue
             elif bundle.spec.kind == "ligand":
                 # Register SDF artifact as a molecule record for discovery later
                 try:
                     from protos.processing.molecule import MoleculeProcessor
+
                     mp = MoleculeProcessor()
                     rel = Path(bundle.path).relative_to(self.paths.data_root)
                     ent_name = Path(bundle.path).stem
-                    mp.save_entity(ent_name, {"kind": "sdf", "file_path": str(rel)}, metadata={"source_model": invocation.model})
-                    summary["ingested"].append({
-                        "type": "ligand_sdf",
-                        "name": ent_name,
-                        "path": str(rel),
-                    })
+                    mp.save_entity(
+                        ent_name,
+                        {"kind": "sdf", "file_path": str(rel)},
+                        metadata={"source_model": invocation.model},
+                    )
+                    summary["ingested"].append(
+                        {
+                            "type": "ligand_sdf",
+                            "name": ent_name,
+                            "path": str(rel),
+                        }
+                    )
                 except Exception:
                     pass
 
@@ -1762,15 +1991,121 @@ class ModelManager:
                     prop = PropertyProcessor()
                     df = prop.load_property_table(table_name)
                     prop.save_property_table(table_name)
-                    summary["ingested"].append({
-                        "type": "property_table",
-                        "name": table_name,
-                        "rows": int(len(df)) if df is not None else None,
-                    })
+                    summary["ingested"].append(
+                        {
+                            "type": "property_table",
+                            "name": table_name,
+                            "rows": int(len(df)) if df is not None else None,
+                        }
+                    )
                 except Exception:
                     pass
 
         return summary
+
+
+def prepare_mutation_screen(
+    *,
+    seq_proc: Optional[SequenceProcessor] = None,
+    dataset_name: str,
+    grn_positions: Iterable[str],
+    mutations: Iterable[str],
+    grn_table_name: Optional[str] = None,
+    protein_family: str = "gpcr_a",
+    reference_table: str = "gpcrdb_ref",
+    manager: Optional[ModelManager] = None,
+    model_name: str = "boltz2",
+    base_config: Optional[MutableMapping[str, Any]] = None,
+    metadata: Optional[MutableMapping[str, Any]] = None,
+) -> List[ModelInvocation]:
+    """Prepare Boltz-style mutation predictions across GRN positions."""
+
+    if not dataset_name:
+        raise ValueError("dataset_name is required for mutation screening")
+
+    seq_proc = seq_proc or SequenceProcessor()
+    manager = manager or ModelManager(data_root=Path(seq_proc.paths.data_root))
+
+    sequences = seq_proc.load_dataset(dataset_name)
+    if not sequences:
+        raise ValueError(f"Sequence dataset '{dataset_name}' is empty or missing")
+
+    if grn_table_name:
+        grn_proc = GRNProcessor()
+        grn_table = grn_proc.load_table(grn_table_name)
+    else:
+        grn_table = seq_proc.annotate_with_grn(
+            dataset_name=dataset_name,
+            reference_table=reference_table,
+            protein_family=protein_family,
+            output_table=None,
+            allow_create=True,
+            return_summary=False,
+        )
+
+    if grn_table is None or grn_table.empty:
+        raise ValueError("GRN annotations are required to prepare mutations")
+
+    invocations: List[ModelInvocation] = []
+    normalized_labels = [str(label) for label in grn_positions]
+
+    for entity_name, sequence in sequences.items():
+        mapping = GRNProcessor.build_grn_to_seq_index(
+            grn_table, sequence_id=entity_name
+        )
+        if not mapping:
+            continue
+
+        for grn_label in normalized_labels:
+            seq_idx = mapping.get(grn_label)
+            if not seq_idx:
+                continue
+
+            position = int(seq_idx)
+            if position < 1 or position > len(sequence):
+                continue
+            original = sequence[position - 1]
+
+            for mutant in mutations:
+                mutant_residue = str(mutant).strip()
+                if len(mutant_residue) != 1 or mutant_residue == original:
+                    continue
+
+                mutation_payload = {
+                    "position": position,
+                    "original": original,
+                    "mutant": mutant_residue,
+                    "name": f"{original}{position}{mutant_residue}",
+                    "grn": grn_label,
+                }
+
+                entry_config = deepcopy(base_config) if base_config else {}
+                entry_config["mutations"] = [mutation_payload]
+                entry_config.setdefault(
+                    "output_name", f"{entity_name}_{mutation_payload['name']}"
+                )
+
+                entry_metadata = dict(metadata or {})
+                entry_metadata.update(
+                    {
+                        "entity": entity_name,
+                        "grn_label": grn_label,
+                        "mutations": [mutation_payload],
+                        "dataset": dataset_name,
+                    }
+                )
+
+                invocation = manager.prepare_input(
+                    model_name,
+                    entity_name=entity_name,
+                    entity_format="sequence",
+                    dataset_name=dataset_name,
+                    config=entry_config,
+                    metadata=entry_metadata,
+                )
+                invocations.append(invocation)
+
+    return invocations
 
 
 __all__ = [
@@ -1783,7 +2118,9 @@ __all__ = [
     "ModelRequest",
     "BoltzAdapter",
     "LambdaAdapter",
+    "prepare_mutation_screen",
 ]
+
 
 class UniDockAdapter(ExternalJobAdapter):
     """Prepare a Uni-Dock docking job.
@@ -1809,7 +2146,10 @@ class UniDockAdapter(ExternalJobAdapter):
     def _add_unidock_tools_to_path(self) -> None:
         try:
             import sys  # noqa: F401
-            base = Path(__file__).resolve().parent / "Uni-Dock" / "unidock_tools" / "src"
+
+            base = (
+                Path(__file__).resolve().parent / "Uni-Dock" / "unidock_tools" / "src"
+            )
             if str(base) not in sys.path:
                 sys.path.insert(0, str(base))
         except Exception:
@@ -1830,6 +2170,7 @@ class UniDockAdapter(ExternalJobAdapter):
             try:
                 self._add_unidock_tools_to_path()
                 from unidock_tools.modules.protein_prep.pdb2pdbqt import pdb2pdbqt  # type: ignore
+
                 target = ctx.inputs_dir / f"{pdb_src.stem}.pdbqt"
                 # First attempt: direct conversion
                 try:
@@ -1842,9 +2183,10 @@ class UniDockAdapter(ExternalJobAdapter):
                 # Fallback: sanitize PDB to protein-only ATOM records, then convert
                 sanitized = ctx.inputs_dir / f"{pdb_src.stem}_protein_only.pdb"
                 try:
-                    with open(pdb_src, "r", encoding="utf-8", errors="ignore") as fh, open(
-                        sanitized, "w", encoding="utf-8"
-                    ) as out:
+                    with (
+                        open(pdb_src, "r", encoding="utf-8", errors="ignore") as fh,
+                        open(sanitized, "w", encoding="utf-8") as out,
+                    ):
                         for line in fh:
                             if line.startswith("ATOM"):
                                 out.write(line)
@@ -1864,6 +2206,7 @@ class UniDockAdapter(ExternalJobAdapter):
     def _center_from_ligand(self, ligand_path: Path) -> Optional[List[float]]:
         try:
             from rdkit import Chem  # type: ignore
+
             mol = None
             if ligand_path.suffix.lower() == ".sdf":
                 suppl = Chem.SDMolSupplier(str(ligand_path), removeHs=False)
@@ -1934,9 +2277,14 @@ class UniDockAdapter(ExternalJobAdapter):
             # Fallback: CA centroid via gemmi if receptor is PDB/PDBQT with matching PDB available
             try:
                 import gemmi  # type: ignore
+
                 pdb_for_center = pdb_src
                 if pdb_for_center.suffix.lower() not in {".pdb", ".cif", ".mmcif"}:
-                    pdb_for_center = pdb_src.with_suffix(".pdb") if pdb_src.with_suffix(".pdb").exists() else pdb_src
+                    pdb_for_center = (
+                        pdb_src.with_suffix(".pdb")
+                        if pdb_src.with_suffix(".pdb").exists()
+                        else pdb_src
+                    )
                 st = gemmi.read_structure(str(pdb_for_center))
                 coords = []
                 for model in st:
@@ -1963,7 +2311,11 @@ class UniDockAdapter(ExternalJobAdapter):
         else:
             # Support bbox.size as well
             size_val = (
-                (cfg.get("size") if not isinstance(cfg.get("size"), (list, tuple)) else None)
+                (
+                    cfg.get("size")
+                    if not isinstance(cfg.get("size"), (list, tuple))
+                    else None
+                )
                 or cfg.get("bbox_size")
                 or cfg.get("box_size")
                 or 22.5
@@ -1981,10 +2333,12 @@ class UniDockAdapter(ExternalJobAdapter):
             try:
                 self._add_unidock_tools_to_path()
                 from unidock_tools.modules.docking.gen_grid import generate_ad4_grid  # type: ignore
+
                 map_dir = ctx.inputs_dir / "mapdir"
                 map_dir.mkdir(parents=True, exist_ok=True)
                 map_prefix = generate_ad4_grid(
-                    str(receptor_pdbqt), str(map_dir),
+                    str(receptor_pdbqt),
+                    str(map_dir),
                     (float(center[0]), float(center[1]), float(center[2])),
                     (float(sx), float(sy), float(sz)),
                 )
@@ -2001,20 +2355,34 @@ class UniDockAdapter(ExternalJobAdapter):
             command += ["--receptor", str(receptor_pdbqt)]
 
         command += [
-            "--gpu_batch", str(lig_target),
-            "--dir", str(ctx.outputs_dir),
-            "--center_x", str(center[0]),
-            "--center_y", str(center[1]),
-            "--center_z", str(center[2]),
-            "--size_x", str(sx),
-            "--size_y", str(sy),
-            "--size_z", str(sz),
-            "--scoring", scoring,
-            "--num_modes", str(num_modes),
-            "--energy_range", str(energy_range),
-            "--refine_step", str(refine_step),
-            "--seed", str(seed),
-            "--verbosity", "2",
+            "--gpu_batch",
+            str(lig_target),
+            "--dir",
+            str(ctx.outputs_dir),
+            "--center_x",
+            str(center[0]),
+            "--center_y",
+            str(center[1]),
+            "--center_z",
+            str(center[2]),
+            "--size_x",
+            str(sx),
+            "--size_y",
+            str(sy),
+            "--size_z",
+            str(sz),
+            "--scoring",
+            scoring,
+            "--num_modes",
+            str(num_modes),
+            "--energy_range",
+            str(energy_range),
+            "--refine_step",
+            str(refine_step),
+            "--seed",
+            str(seed),
+            "--verbosity",
+            "2",
             "--keep_nonpolar_H",
         ]
 
@@ -2024,7 +2392,12 @@ class UniDockAdapter(ExternalJobAdapter):
         else:
             exhaustiveness = int(cfg.get("exhaustiveness", 256))
             max_step = int(cfg.get("max_step", 10))
-            command += ["--exhaustiveness", str(exhaustiveness), "--max_step", str(max_step)]
+            command += [
+                "--exhaustiveness",
+                str(exhaustiveness),
+                "--max_step",
+                str(max_step),
+            ]
 
         # Package minimal manifest
         manifest = {
@@ -2053,6 +2426,8 @@ class UniDockAdapter(ExternalJobAdapter):
             },
         )
         return job
+
+
 class EquiBindAdapter(ExternalJobAdapter):
     """Prepare EquiBind input layout and config."""
 
@@ -2117,6 +2492,7 @@ class EquiBindAdapter(ExternalJobAdapter):
         )
         return job
 
+
 class PocketDtaAdapter(ExternalJobAdapter):
     """Prepare PocketDTA training/inference run using repo-expected inputs.
 
@@ -2179,6 +2555,7 @@ class PocketDtaAdapter(ExternalJobAdapter):
             },
         )
         return job
+
 
 class GraphscoreDtaAdapter(ExternalJobAdapter):
     """Stage GraphscoreDTA test_set layout and build a predict job.
@@ -2248,6 +2625,7 @@ class GraphscoreDtaAdapter(ExternalJobAdapter):
         )
         return job
 
+
 class Pocket2MolAdapter(ExternalJobAdapter):
     """Prepare Pocket2Mol sampling run from protein structure and optional ligand.
 
@@ -2264,7 +2642,10 @@ class Pocket2MolAdapter(ExternalJobAdapter):
         inputs: List[ArtifactBundle],
     ) -> PreparedJob:
         protein = self._require_bundle(inputs, "structure_pdb")
-        ligand = next((b for b in inputs if b.spec.name in ("ligand_molecule", "ligand_file")), None)
+        ligand = next(
+            (b for b in inputs if b.spec.name in ("ligand_molecule", "ligand_file")),
+            None,
+        )
 
         ctx = ModelRunContext(self.manager.paths, card)
         ctx.create()
@@ -2278,6 +2659,7 @@ class Pocket2MolAdapter(ExternalJobAdapter):
         if center is None and ligand is not None:
             try:
                 from rdkit import Chem  # type: ignore
+
                 lig_path = Path(ligand.path)
                 mol = None
                 if lig_path.suffix.lower() == ".sdf":
@@ -2299,6 +2681,7 @@ class Pocket2MolAdapter(ExternalJobAdapter):
             # Fallback: CA centroid via gemmi
             try:
                 import gemmi  # type: ignore
+
                 st = gemmi.read_structure(str(pdb_src))
                 coords = []
                 for model in st:
@@ -2319,7 +2702,9 @@ class Pocket2MolAdapter(ExternalJobAdapter):
                 center = [0.0, 0.0, 0.0]
 
         # Build command
-        sample_script = Path(__file__).resolve().parent / "Pocket2Mol" / "sample_for_pdb.py"
+        sample_script = (
+            Path(__file__).resolve().parent / "Pocket2Mol" / "sample_for_pdb.py"
+        )
         command = [
             "python",
             str(sample_script),
@@ -2333,7 +2718,12 @@ class Pocket2MolAdapter(ExternalJobAdapter):
             str(ctx.outputs_dir),
         ]
         # Config path in repo
-        config_path = Path(__file__).resolve().parent / "Pocket2Mol" / "configs" / "sample_for_pdb.yml"
+        config_path = (
+            Path(__file__).resolve().parent
+            / "Pocket2Mol"
+            / "configs"
+            / "sample_for_pdb.yml"
+        )
         if config_path.exists():
             command.extend(["--config", str(config_path)])
             ctx.config_path = config_path
@@ -2349,6 +2739,7 @@ class Pocket2MolAdapter(ExternalJobAdapter):
             },
         )
         return job
+
 
 class LigandMpnnAdapter(ExternalJobAdapter):
     """Prepare CLI invocation for LigandMPNN run.py with staged outputs.
@@ -2369,17 +2760,23 @@ class LigandMpnnAdapter(ExternalJobAdapter):
         inputs: List[ArtifactBundle],
     ) -> PreparedJob:
         pdb_bundle = self._require_bundle(inputs, "structure_pdb")
-        ligand_bundle = next((b for b in inputs if b.spec.name in ("ligand_molecule", "ligand_file")), None)
+        ligand_bundle = next(
+            (b for b in inputs if b.spec.name in ("ligand_molecule", "ligand_file")),
+            None,
+        )
         ctx = ModelRunContext(self.manager.paths, card)
         ctx.create()
 
         # Ensure PDB input exists; convert CIF→PDB if necessary
-        pdb_src = self._ensure_pdb_file(Path(pdb_bundle.path), ctx, purpose="ligand_mpnn")
+        pdb_src = self._ensure_pdb_file(
+            Path(pdb_bundle.path), ctx, purpose="ligand_mpnn"
+        )
 
         # If ligand provided, merge into combined PDB
         if ligand_bundle is not None:
             try:
                 from rdkit import Chem  # type: ignore
+
                 lig_path = Path(ligand_bundle.path)
                 mol = None
                 if lig_path.suffix.lower() == ".sdf":
@@ -2394,9 +2791,10 @@ class LigandMpnnAdapter(ExternalJobAdapter):
                 lig_block = Chem.MolToPDBBlock(mol)
 
                 combined = ctx.inputs_dir / f"{pdb_src.stem}_with_ligand.pdb"
-                with open(pdb_src, "r", encoding="utf-8", errors="ignore") as ph, open(
-                    combined, "w", encoding="utf-8"
-                ) as out:
+                with (
+                    open(pdb_src, "r", encoding="utf-8", errors="ignore") as ph,
+                    open(combined, "w", encoding="utf-8") as out,
+                ):
                     for line in ph:
                         if not line.startswith("END"):
                             out.write(line)
@@ -2421,6 +2819,7 @@ class LigandMpnnAdapter(ExternalJobAdapter):
         ]
 
         cfg = request.config or {}
+
         def add_flag(name: str, flag: str):
             val = cfg.get(name)
             if val is not None:
@@ -2433,7 +2832,10 @@ class LigandMpnnAdapter(ExternalJobAdapter):
         add_flag("model_type", "--model_type")
 
         # Residue selections as space-separated strings
-        for key, flag in (("fixed_residues", "--fixed_residues"), ("redesigned_residues", "--redesigned_residues")):
+        for key, flag in (
+            ("fixed_residues", "--fixed_residues"),
+            ("redesigned_residues", "--redesigned_residues"),
+        ):
             vals = cfg.get(key)
             if isinstance(vals, list):
                 cmd.extend([flag, " ".join(str(v) for v in vals)])

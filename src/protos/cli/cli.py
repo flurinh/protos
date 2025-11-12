@@ -32,16 +32,11 @@ def _initialize_data_root(target_root: Path) -> Dict[str, object]:
 
 @app.command()
 def init(
-    path_argument: Optional[Path] = typer.Argument(
-        None,
-        metavar="PATH",
-        help="Target directory for Protos data. Defaults to ~/protos_data or PROTOS_DATA_ROOT.",
-    ),
     path: Optional[Path] = typer.Option(
         None,
         "--path",
         "-p",
-        help="Deprecated. Use the positional PATH argument instead.",
+        help="Target directory for Protos data. Defaults to ~/protos_data or PROTOS_DATA_ROOT.",
     ),
     force: bool = typer.Option(
         False,
@@ -51,18 +46,7 @@ def init(
 ) -> None:
     """Initialize a Protos data directory."""
 
-    if path_argument is not None and path is not None:
-        raise typer.BadParameter(
-            "Use either PATH or --path/--p, not both.", param_hint="PATH / --path"
-        )
-
-    if path is not None and path_argument is None:
-        typer.echo(
-            "Warning: --path is deprecated. Use the positional PATH argument instead.",
-            err=True,
-        )
-
-    target_root = _resolve_target_path(path_argument or path)
+    target_root = _resolve_target_path(path)
 
     if target_root.exists() and force:
         typer.echo(f"Removing existing data directory: {target_root}")

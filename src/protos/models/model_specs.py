@@ -88,3 +88,21 @@ class ModelInvocation:
     def is_runtime(self) -> bool:
         return self.runtime is not None
 
+
+@dataclass
+class ModelBatch:
+    """Lightweight container describing a batch of model inputs."""
+
+    name: str
+    model: str
+    inputs: List[Dict[str, Any]] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "model": self.model,
+            "input_count": len(self.inputs),
+            "inputs": self.inputs,
+            "metadata": self.metadata,
+        }

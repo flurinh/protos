@@ -49,6 +49,21 @@ class StructureLoader(BaseLoader):
             'alphafold': 'mmcif/alphafold',
             'local': 'mmcif/imported'
         }
+        
+        # Allow multiple user-facing names to map onto the canonical sources
+        self.source_aliases = {
+            'rcsb': 'rcsb',
+            'pdb': 'rcsb',
+            'cif': 'rcsb',
+            'mmcif': 'rcsb',
+            'alphafold': 'alphafold',
+            'alpha_fold': 'alphafold',
+            'alphafold_db': 'alphafold',
+            'af': 'alphafold',
+            'local': 'local',
+            'file': 'local',
+            'filesystem': 'local',
+        }
     
     def parse_identifier(self, identifier: str) -> Dict[str, Any]:
         """
@@ -124,6 +139,13 @@ class StructureLoader(BaseLoader):
             'original_id': identifier
         }
     
+    def _normalize_source(self, source: Optional[str]) -> Optional[str]:
+        """Normalize user-provided source names to canonical loader keys."""
+        if source is None:
+            return None
+        normalized = source.strip().lower()
+        return self.source_aliases.get(normalized, normalized)
+    
     def fetch_entity(self, identifier: str, source: Optional[str] = None, **kwargs) -> Optional[Path]:
         """
         Fetch a structure from the appropriate source.
@@ -144,7 +166,9 @@ class StructureLoader(BaseLoader):
             except ValueError:
                 # Try RCSB by default for unknown formats
                 source = 'rcsb'
-        
+        else:
+            source = self._normalize_source(source)
+
         # Route to appropriate download method
         if source == 'rcsb':
             return self._fetch_from_rcsb(identifier, **kwargs)
@@ -321,7 +345,11 @@ class StructureLoader(BaseLoader):
     
     def list_sources(self) -> List[str]:
         """List available structure sources."""
-        return ['rcsb', 'alphafold', 'local']
+        sources = list(self.source_dirs.keys())
+        for alias in sorted(self.source_aliases.keys()):
+            if alias not in sources:
+                sources.append(alias)
+        return sources
     
     def download_and_register(
         self,
