@@ -34,6 +34,29 @@ COMMON_HETERO = {
 
 WATER_RES_NAMES = {'HOH', 'WAT'}
 
+def _load_structure_frame(cif_processor, pdb_id: str) -> pd.DataFrame:
+    """Return a DataFrame for the requested structure, regardless of backend."""
+
+    data_frame = getattr(cif_processor, "data", None)
+    if isinstance(data_frame, pd.DataFrame) and "pdb_id" in data_frame.columns:
+        subset = data_frame[data_frame["pdb_id"] == pdb_id]
+        if not subset.empty:
+            return subset.copy()
+
+    entity_frame = cif_processor.load_entity(pdb_id)
+    if entity_frame is None:
+        raise ValueError(f"Structure '{pdb_id}' not found for ligand analysis")
+
+    if hasattr(entity_frame, "reset_index"):
+        structure_data = entity_frame.reset_index()
+    else:
+        structure_data = pd.DataFrame(entity_frame)
+
+    if "pdb_id" not in structure_data.columns:
+        structure_data["pdb_id"] = pdb_id
+
+    return structure_data
+
 
 def extract_all_ligands(
     cif_processor,
@@ -182,7 +205,7 @@ def get_binding_site(cif_processor, pdb_id: str, ligand_atoms: pd.DataFrame,
         Dictionary with 'residues' DataFrame and 'atoms' DataFrame
     """
     # Get protein atoms
-    structure_data = cif_processor.data[cif_processor.data['pdb_id'] == pdb_id]
+    structure_data = _load_structure_frame(cif_processor, pdb_id)
     protein_atoms = structure_data[structure_data['group'] == 'ATOM'].copy()
     
     if not include_backbone:
@@ -244,9 +267,13 @@ def get_binding_site(cif_processor, pdb_id: str, ligand_atoms: pd.DataFrame,
     }
 
 
-def calculate_ligand_interactions(cif_processor, pdb_id: str, 
-                                ligand_atoms: pd.DataFrame,
-                                detailed: bool = True) -> Dict:
+def calculate_ligand_interactions(
+    cif_processor,
+    pdb_id: str,
+    ligand_atoms: pd.DataFrame,
+    detailed: bool = True,
+    cutoff: float = 5.0,
+) -> Dict:
     """
     Calculate detailed interactions between ligand and protein.
     
@@ -255,20 +282,21 @@ def calculate_ligand_interactions(cif_processor, pdb_id: str,
         pdb_id: Structure identifier
         ligand_atoms: DataFrame of ligand atoms
         detailed: Whether to include detailed interaction lists
+        cutoff: Distance cutoff passed to the interaction analyzer
         
     Returns:
         Dictionary of interaction analysis
     """
     from protos.processing.structure.ligand_interactions import LigandInteractionAnalyzer
     
-    # Get structure data
-    structure_data = cif_processor.data[cif_processor.data['pdb_id'] == pdb_id]
+    # Get structure data (fall back to loading entity if the wide table is unavailable)
+    structure_data = _load_structure_frame(cif_processor, pdb_id)
     
     # Initialize analyzer
     analyzer = LigandInteractionAnalyzer(structure_data)
     
     # Get interactions
-    interactions = analyzer.get_all_interactions(ligand_atoms)
+    interactions = analyzer.get_all_interactions(ligand_atoms, cutoff=cutoff)
     
     # Add binding site analysis
     binding_site = get_binding_site(cif_processor, pdb_id, ligand_atoms)

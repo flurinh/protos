@@ -15,6 +15,7 @@ if SRC_DIR.exists():
 
 import protos
 from protos.models.model_manager import ModelManager
+from protos.models.model_specs import ModelInvocation
 from protos.processing.property import PropertyProcessor
 from protos.processing.sequence import SequenceProcessor
 
@@ -66,7 +67,7 @@ def run_lambda_prediction(
     *,
     verbose: bool = True,
     debug: bool = False,
-) -> tuple[pd.DataFrame, str]:
+) -> tuple[ModelInvocation, Optional[pd.DataFrame], Optional[str]]:
     ensure_data_root(data_root)
     if verbose:
         print(f"[lambda] data_root: {data_root}")
@@ -118,21 +119,29 @@ def run_lambda_prediction(
     )
 
     runtime = invocation.runtime
-    if runtime is None:
-        raise RuntimeError("Lambda invocation did not return runtime results")
+    if runtime is not None:
+        predictions = runtime.outputs["predictions"]
+        property_table = runtime.metadata["property_table"]
 
-    predictions = runtime.outputs["predictions"]
-    property_table = runtime.metadata["property_table"]
+        if verbose:
+            print(f"[lambda] predictions rows: {len(predictions)}")
+
+        prop_proc = PropertyProcessor()
+        table_df = prop_proc.load_table(property_table)
+        if verbose:
+            print(
+                f"[lambda] property table '{property_table}' rows: {len(table_df)}"
+            )
+        return invocation, predictions, property_table
 
     if verbose:
-        print(f"[lambda] predictions rows: {len(predictions)}")
+        job = invocation.job
+        if job:
+            print("[lambda] prepared external job:")
+            print("  command:", " ".join(job.command))
+            print("  working_dir:", job.working_dir)
 
-    prop_proc = PropertyProcessor()
-    table_df = prop_proc.load_table(property_table)
-    if verbose:
-        print(f"[lambda] property table '{property_table}' rows: {len(table_df)}")
-
-    return predictions, property_table
+    return invocation, None, None
 
 
 
@@ -156,7 +165,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     debug = not args.quiet
     try:
-        predictions, property_table = run_lambda_prediction(
+        invocation, predictions, property_table = run_lambda_prediction(
             args.data_root,
             verbose=not args.quiet,
             debug=debug,
@@ -165,11 +174,26 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"Lambda workflow failed: {exc}")
         return 1
 
-    prop_proc = PropertyProcessor()
-    property_path = prop_proc.tables_dir / f"{property_table}.csv"
-
-    print(f"Prediction rows: {len(predictions)}")
-    print(f"Property table saved to: {property_path}")
+    if invocation.runtime is not None and predictions is not None and property_table:
+        prop_proc = PropertyProcessor()
+        property_path = prop_proc.tables_dir / f"{property_table}.csv"
+        print(f"Prediction rows: {len(predictions)}")
+        print(f"Property table saved to: {property_path}")
+    else:
+        job = invocation.job
+        if job is None:
+            print("Lambda invocation produced no runtime or job metadata")
+            return 1
+        print("Prepared Lambda submission (no local runtime):")
+        print("  command:", " ".join(job.command))
+        print("  working_dir:", job.working_dir)
+        if job.metadata:
+            context = job.metadata.get("context") if isinstance(job.metadata, dict) else None
+            if context:
+                print("  context work_dir:", context.get("work_dir"))
+        print("  artifacts:")
+        for bundle in job.artifacts:
+            print("   -", bundle.spec.name, bundle.spec.kind, bundle.path)
     return 0
 
 
@@ -182,17 +206,27 @@ def test_lambda_workflow(tmp_path):
 
     data_root = tmp_path / "protos_data"
     try:
-        predictions, property_table = run_lambda_prediction(data_root, debug=True)
+        invocation, predictions, property_table = run_lambda_prediction(
+            data_root, debug=True
+        )
     except RuntimeError as exc:
         pytest.skip(str(exc))
 
-    assert isinstance(predictions, pd.DataFrame)
-    assert not predictions.empty
+    if invocation.runtime is not None and predictions is not None and property_table:
+        assert isinstance(predictions, pd.DataFrame)
+        assert not predictions.empty
 
-    prop_proc = PropertyProcessor()
-    table_df = prop_proc.load_table(property_table)
-    assert not table_df.empty
-    assert any(col.endswith("007061") for col in table_df.columns)
+        prop_proc = PropertyProcessor()
+        table_df = prop_proc.load_table(property_table)
+        assert not table_df.empty
+        assert any(col.endswith("007061") for col in table_df.columns)
+    else:
+        job = invocation.job
+        assert job is not None, "Lambda submission did not include a job"
+        assert job.command, "Prepared job missing command"
+        assert job.working_dir is not None
+        assert job.working_dir.exists(), "Job working dir missing"
+        assert job.artifacts, "Lambda submission should package artifacts"
 
 
 if __name__ == "__main__":

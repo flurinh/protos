@@ -11,6 +11,7 @@ import protos
 from protos.io.paths import get_protos_paths
 from protos.io.formats.fasta_utils import read_fasta
 from protos.models.model_manager import ModelManager
+from protos.models.model_specs import ModelInvocation
 from protos.processing.property import PropertyProcessor
 from protos.processing.sequence import SequenceProcessor
 
@@ -68,7 +69,9 @@ def _load_fish2_sequences() -> Tuple[str, dict[str, str]]:
     return "fish2", sequences
 
 
-def run_fish2_lambda_prediction(*, verbose: bool = True, debug: bool = False) -> tuple[pd.DataFrame, str]:
+def run_fish2_lambda_prediction(
+    *, verbose: bool = True, debug: bool = False
+) -> tuple[ModelInvocation, Optional[pd.DataFrame], Optional[str]]:
     _set_repo_data_root()
     if verbose:
         print(f"[fish2] data_root: {get_protos_paths().data_root}")
@@ -120,21 +123,27 @@ def run_fish2_lambda_prediction(*, verbose: bool = True, debug: bool = False) ->
     )
 
     runtime = invocation.runtime
-    if runtime is None:
-        raise RuntimeError("Lambda invocation did not return runtime results")
+    if runtime is not None:
+        predictions = runtime.outputs["predictions"]
+        property_table = runtime.metadata["property_table"]
 
-    predictions = runtime.outputs["predictions"]
-    property_table = runtime.metadata["property_table"]
+        if verbose:
+            print(f"[fish2] predictions rows: {len(predictions)}")
 
-    if verbose:
-        print(f"[fish2] predictions rows: {len(predictions)}")
+        prop_proc = PropertyProcessor()
+        table_df = prop_proc.load_table(property_table)
+        if verbose:
+            print(
+                f"[fish2] property table '{property_table}' rows: {len(table_df)}"
+            )
+        return invocation, predictions, property_table
 
-    prop_proc = PropertyProcessor()
-    table_df = prop_proc.load_table(property_table)
-    if verbose:
-        print(f"[fish2] property table '{property_table}' rows: {len(table_df)}")
+    if verbose and invocation.job is not None:
+        print("[fish2] prepared Lambda submission (no runtime)")
+        print("  command:", " ".join(invocation.job.command))
+        print("  working_dir:", invocation.job.working_dir)
 
-    return predictions, property_table
+    return invocation, None, None
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -149,17 +158,29 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
 
     try:
-        predictions, property_table = run_fish2_lambda_prediction(
+        invocation, predictions, property_table = run_fish2_lambda_prediction(
             verbose=not args.quiet, debug=not args.quiet
         )
     except Exception as exc:  # noqa: BLE001
         print(f"Fish2 workflow failed: {exc}")
         return 1
 
-    prop_proc = PropertyProcessor()
-    property_path = prop_proc.tables_dir / f"{property_table}.csv"
-    print(f"Prediction rows: {len(predictions)}")
-    print(f"Property table saved to: {property_path}")
+    if invocation.runtime is not None and predictions is not None and property_table:
+        prop_proc = PropertyProcessor()
+        property_path = prop_proc.tables_dir / f"{property_table}.csv"
+        print(f"Prediction rows: {len(predictions)}")
+        print(f"Property table saved to: {property_path}")
+    else:
+        job = invocation.job
+        if job is None:
+            print("Lambda invocation produced neither runtime results nor job metadata")
+            return 1
+        print("Prepared Lambda submission (fish2)")
+        print("  command:", " ".join(job.command))
+        print("  working_dir:", job.working_dir)
+        print("  artifacts:")
+        for bundle in job.artifacts:
+            print("   -", bundle.spec.name, bundle.spec.kind, bundle.path)
     return 0
 
 
@@ -172,21 +193,29 @@ def test_fish2_workflow():
 
     # Use repo data root; ensure input file remains intact
     try:
-        predictions, property_table = run_fish2_lambda_prediction(debug=True)
+        invocation, predictions, property_table = run_fish2_lambda_prediction(
+            debug=True
+        )
     except RuntimeError as exc:
         pytest.skip(str(exc))
 
-    assert isinstance(predictions, pd.DataFrame)
-    assert not predictions.empty
+    if invocation.runtime is not None and predictions is not None and property_table:
+        assert isinstance(predictions, pd.DataFrame)
+        assert not predictions.empty
 
-    prop_proc = PropertyProcessor()
-    table_df = prop_proc.load_table(property_table)
-    assert not table_df.empty
-    assert "prediction_run_id" in table_df.columns
-    # Run ID normalized to zero-padded string in runtime metadata
-    assert any(str(v).endswith("007061") for v in table_df["prediction_run_id"]) 
+        prop_proc = PropertyProcessor()
+        table_df = prop_proc.load_table(property_table)
+        assert not table_df.empty
+        assert "prediction_run_id" in table_df.columns
+        assert any(str(v).endswith("007061") for v in table_df["prediction_run_id"]) 
+    else:
+        job = invocation.job
+        assert job is not None
+        assert job.command
+        assert job.working_dir is not None
+        assert job.working_dir.exists()
+        assert job.artifacts
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
