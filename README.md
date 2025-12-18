@@ -5,7 +5,7 @@
 ## Why Protos?
 Structural biology workflows suck: scattered data formats, path hell, inconsistent IDs, and endless boilerplate. Protos fixes that. It's a developer kit that lets protein engineers focus on science, not plumbing.
 
-## Zero Setup: Clone, pip install, done. 
+## Zero Setup: Clone, pip install, done.
 ProtosPaths auto-manages your data—no configs, no env vars required (but customizable if you want).
 - **Unified Entities**: Track the same protein across PDB, FASTA, GRN tables, properties, and embeddings.
 - **Use human-readable names**: Protos handles the rest.
@@ -17,13 +17,13 @@ If you're tired of wrestling with Biopython wrappers or custom scripts, Protos s
 
 ## Key Features
 
-- **🏗️ Structure Management**: PDB/mmCIF parsing, coordinate analysis, structural alignments, and intelligent caching
-- **🧬 Sequence Processing**: FASTA handling, database downloads, and sequence analysis
-- **📊 GRN System**: Generic Residue Numbering for protein family comparisons
-- **📋 Property Management**: Associate experimental data with entities using familiar identifiers
-- **🤖 ML Integration**: Protein embeddings generation and management
-- **🔗 Universal Tracking**: Same entity across multiple data formats
-- **⚙️ CLI Tools**: Command-line utilities for automation and batch processing
+- **Structure Management**: PDB/mmCIF parsing, coordinate analysis, structural alignments, and intelligent caching
+- **Sequence Processing**: FASTA handling, database downloads, and sequence analysis
+- **GRN System**: Generic Residue Numbering for protein family comparisons
+- **Property Management**: Associate experimental data with entities using familiar identifiers
+- **ML Integration**: Protein embeddings generation and management (ESM-2, Ankh, etc.)
+- **Universal Tracking**: Same entity across multiple data formats
+- **CLI Tools**: Command-line utilities for automation and batch processing
 
 ## Quick Start
 
@@ -36,34 +36,48 @@ cd protos
 
 # Install in development mode
 pip install -e .
+
+# With embedding support (optional)
+pip install -e ".[embedding]"
+
+# With GPU support (optional)
+pip install -e ".[gpu]"
 ```
 
 ### Basic Usage
 
 ```python
-from protos.processing.structure import CifBaseProcessor
-from protos.processing.sequence import SeqProcessor
+import protos
+from protos.processing.structure import StructureProcessor
+from protos.processing.sequence import SequenceProcessor
+
+# Optional: Set custom data path before creating processors
+# protos.set_data_path("/path/to/your/data")
 
 # Initialize processors (paths handled automatically)
-struct_proc = CifBaseProcessor(name="my_structures")
-seq_proc = SeqProcessor(name="my_sequences")
+struct_proc = StructureProcessor(name="my_structures")
+seq_proc = SequenceProcessor(name="my_sequences")
 
-# Download and process a structure
-struct_proc.download_structures(["1ubq"])
-structure_data = struct_proc.load_structure("1ubq")
+# Load a structure entity
+structure_df = struct_proc.load_entity("1ubq")
+print(f"Loaded structure with {len(structure_df)} atoms")
 
-# Extract sequence from structure
-sequences = struct_proc.extract_sequence("1ubq")
-seq_proc.save_sequence("1ubq", sequences)
+# Extract sequences from structure
+sequences = struct_proc.get_all_sequences("1ubq")
+
+# Save sequence entity
+for name, seq in sequences.items():
+    seq_proc.save_entity(name, seq)
 
 # Same entity, multiple formats - automatically tracked
-entity_info = struct_proc.entity_registry.find_entity("1ubq")
-# Entity ID works across all processors for the same biological entity
 ```
+
+### Initialize Data Directory
 
 ```bash
 protos init
 ```
+
 ## Architecture
 
 ### Core Principle: ProtosPaths Manages Everything
@@ -129,71 +143,150 @@ working_dir/
 
 ## Processors
 
-### CifBaseProcessor
+### StructureProcessor
 
 Manages 3D protein structures from PDB/mmCIF files with intelligent caching:
 
-- Automatic structure downloads from PDB
-- Coordinate parsing and analysis
-- Chain and residue filtering
-- Cross-format sequence extraction
-- Caches preprocessed structures (PKL) for performance
-- Supports dataset-level caching for large-scale analysis
+```python
+from protos.processing.structure import StructureProcessor
 
-### SeqProcessor
+processor = StructureProcessor(name="structures")
+
+# Load a structure
+structure_df = processor.load_entity("1ubq")
+
+# Extract sequences from all chains
+sequences = processor.get_all_sequences("1ubq")
+
+# Get single chain sequence
+sequence = processor.get_sequence("1ubq", chain_id="A")
+
+# Align structures
+processor.align_and_record(
+    structure_ids=["1ubq", "2ubq"],
+    reference_id="1ubq",
+    method="cealign"
+)
+```
+
+### SequenceProcessor
 
 Handles protein sequences and FASTA files:
 
-- UniProt database integration
-- Sequence analysis and comparison
-- Multiple sequence alignment
-- Batch sequence processing
-- Managed storage: datasets live under `sequence/fasta/datasets` while
-  entity files materialize under `sequence/fasta/entities`; exports always use
-  these locations—no custom paths required.
+```python
+from protos.processing.sequence import SequenceProcessor
 
-### GRNBaseProcessor
+processor = SequenceProcessor(name="sequences")
+
+# Load a sequence entity
+sequence = processor.load_entity("my_protein")
+
+# Save a sequence
+processor.save_entity("new_protein", "MVLSPADKTN...")
+
+# Perform pairwise alignment
+seq1 = processor.load_entity("protein_1")
+seq2 = processor.load_entity("protein_2")
+score, alignment = processor.align_sequences(seq1, seq2, "protein_1", "protein_2")
+
+# Apply mutations to a sequence
+mutant = processor.mutate_sequence(sequence, ["V91A", "T219F"], "my_mutant")
+
+# Generate all variants at positions
+variants = processor.generate_variants(
+    sequence,
+    positions=[91, 219],
+    possible_aas=[["A", "V", "L"], ["F", "W"]],
+    base_id="variant"
+)
+```
+
+### GRNProcessor
 
 Generic Residue Numbering for protein families:
 
-- Standardized position numbering across homologs
-- Support for GPCRs, opsins, and custom schemes
-- Position conservation analysis
-- Functional site identification
-- Table-based storage with reference tables and configurations
+```python
+from protos.processing.grn import GRNProcessor
+
+processor = GRNProcessor(name="grn_annotations")
+
+# Load a GRN reference table
+processor.load_grn_table("mo_ref")
+
+# Get sequences from GRN table
+sequences = processor.get_seq_dict()
+
+# Save GRN annotations
+processor.save_grn_table("my_annotations")
+```
 
 ### PropertyProcessor
 
 Associates experimental data with entities:
 
-- Flexible CSV import with human-readable identifiers
-- Property filtering and analysis
-- Cross-format property queries
-- Experimental metadata tracking
+```python
+from protos.processing.property import PropertyProcessor
+
+processor = PropertyProcessor(name="properties")
+
+# Assign properties to entities
+processor.assign_property(
+    entity_identifier="opsin_001",
+    property_name="lambda_max",
+    property_value=568,
+    dataset_name="spectral_properties"
+)
+
+# Query properties
+props = processor.get_entity_properties("opsin_001")
+
+# Filter entities by property
+blue_opsins = processor.filter_entities_by_property(
+    "spectral_properties",
+    {"lambda_max": {"lt": 500}}
+)
+```
 
 ### EmbeddingProcessor
 
 Machine learning embeddings for sequences:
 
-- ESM-2, Ankh, and other protein language models
-- Mean, CLS, and per-residue embeddings
-- Automatic caching and reuse
-- ML-ready dataset preparation
+```python
+from protos.processing.embedding import EmbeddingProcessor
+
+processor = EmbeddingProcessor(
+    name="embeddings",
+    model_name="esm2_t6_8m",  # Small model for demo
+    batch_size=2
+)
+
+# Check if dependencies are available
+deps = processor.check_dependencies()
+
+# Generate embeddings
+embeddings = processor.embed_sequences(
+    {"protein_1": "MVLSPAD...", "protein_2": "MTEYKL..."},
+    embedding_type="mean"  # or "cls", "per_residue"
+)
+
+# Save embeddings as dataset
+processor.embed_sequences(
+    sequences,
+    save_dataset="my_embeddings"
+)
+```
 
 ## CLI Tools
 
 ```bash
-# Data management
-protos init-data              # Initialize data directory
-protos cleanup-data           # Clean and organize data
-protos list-entities          # Browse available entities
-protos list-datasets          # Browse datasets
+# Initialize data directory
+protos init                     # Initialize at default location
+protos init --path /custom/path # Initialize at custom location
 
-# Analysis tools
-protos assign-grns            # Assign GRN numbers to sequences
-protos expand-annotation      # Expand GRN annotations
-protos process-structures     # Batch structure processing
-protos generate-embeddings    # Batch embedding generation
+# Clear data directory
+protos clear                    # Clear with confirmation
+protos clear --force            # Clear without confirmation
+protos clear --no-reinit        # Clear without reinitializing
 ```
 
 ## Examples
@@ -203,14 +296,18 @@ protos generate-embeddings    # Batch embedding generation
 Add PDB files to the `data/structure/mmcif/` folder and use them immediately:
 
 ```python
-from protos.processing.structure import CifBaseProcessor
+from protos.processing.structure import StructureProcessor
 
 # Files in data/structure/mmcif/6xyz.cif
-processor = CifBaseProcessor()
-structure = processor.load_structure("6xyz")  # Loads directly
+processor = StructureProcessor(name="my_processor")
+structure = processor.load_entity("6xyz")  # Loads directly
 
-# Create dataset
-processor.create_dataset("my_structures", ["6xyz", "7abc"])
+# Create and load a dataset
+processor.dataset_manager.create_dataset(
+    dataset_id="my_structures",
+    name="My Structure Dataset",
+    content=["6xyz", "7abc"]
+)
 structures = processor.load_dataset("my_structures")
 ```
 
@@ -219,19 +316,66 @@ structures = processor.load_dataset("my_structures")
 Work with the same entity across multiple formats:
 
 ```python
-from protos.processing.structure import CifBaseProcessor
-from protos.processing.sequence import SeqProcessor
+from protos.processing.structure import StructureProcessor
+from protos.processing.sequence import SequenceProcessor
 
 # Load structure
-struct_proc = CifBaseProcessor()
-structure = struct_proc.load_structure("1ubq")
+struct_proc = StructureProcessor(name="structures")
+structure = struct_proc.load_entity("1ubq")
 
-# Extract and save sequence
-sequence = struct_proc.extract_sequence("1ubq")
-seq_proc = SeqProcessor()
-seq_proc.save_sequence("1ubq", sequence)
+# Extract and save sequences
+sequences = struct_proc.get_all_sequences("1ubq")
+seq_proc = SequenceProcessor(name="sequences")
+for name, seq in sequences.items():
+    seq_proc.save_entity(name, seq)
 
 # Entity tracked across formats in entity_registry.json
+```
+
+### GRN Annotation Workflow
+
+Annotate sequences with Generic Residue Numbers:
+
+```python
+from protos.processing.grn import GRNProcessor
+from protos.processing.sequence import SequenceProcessor
+
+# Initialize processors
+grn_proc = GRNProcessor(name="annotation")
+seq_proc = SequenceProcessor(name="sequences")
+
+# Load reference GRN table
+grn_proc.load_grn_table("mo_ref")
+
+# Get reference sequences
+ref_sequences = grn_proc.get_seq_dict()
+
+# Align query sequences and transfer GRN annotations
+# (See examples/grn_basic_annotation.py for full workflow)
+```
+
+### Embedding Generation
+
+Generate protein language model embeddings:
+
+```python
+from protos.processing.embedding import EmbeddingProcessor
+
+# Initialize with desired model
+processor = EmbeddingProcessor(
+    name="esm_embeddings",
+    model_name="esm2_t36_3b",
+    batch_size=4
+)
+
+# Check dependencies
+if processor.check_dependencies()['ready']:
+    # Generate mean embeddings
+    embeddings = processor.embed_sequences(
+        {"protein_1": sequence_1, "protein_2": sequence_2},
+        embedding_type="mean",
+        save_dataset="my_embeddings"
+    )
 ```
 
 ### Property-Based Analysis
@@ -240,43 +384,52 @@ Import and query experimental data:
 
 ```python
 from protos.processing.property import PropertyProcessor
-import pandas as pd
 
-# Import properties from DataFrame
-properties = pd.DataFrame({
-    'entity_name': ['BACR_HALSA', 'ChR2', 'NpHR'],
-    'lambda_max': [568, 470, 590],
-    'photocycle': ['fast', 'slow', 'fast']
-})
-prop_proc = PropertyProcessor()
-prop_proc.import_properties("opsin_properties", properties)
+# Initialize processor
+prop_proc = PropertyProcessor(name="opsin_properties")
 
-# Query properties
-blue_opsins = prop_proc.filter_entities_by_property(
-    "opsin_properties",
-    {"lambda_max": {"lt": 500}}
+# Batch assign properties
+assignments = [
+    {'entity_identifier': 'br_1', 'property_name': 'lambda_max', 'property_value': 568},
+    {'entity_identifier': 'br_1', 'property_name': 'photocycle', 'property_value': 'fast'},
+    {'entity_identifier': 'chr_1', 'property_name': 'lambda_max', 'property_value': 470},
+]
+prop_proc.assign_properties_batch(assignments, "opsin_data")
+
+# Query and filter
+high_lambda = prop_proc.filter_entities_by_property(
+    "opsin_data",
+    {"lambda_max": {"gt": 550}}
 )
 ```
 
-## Comprehensive Review
+### Model Input Preparation
 
-Run the complete framework demonstration:
+Prepare inputs for structure prediction models:
 
-```bash
-# Full comprehensive review
-python protos_review.py
+```python
+from protos.models.model_manager import ModelManager
+from protos.processing.sequence import SequenceProcessor
 
-# Quick overview only
-python protos_review.py --quick
+# Initialize model manager
+manager = ModelManager()
 
-# Interactive demo mode
-python protos_review.py --demo
-```
+# List available models
+print(manager.list_models())  # ['boltz2', 'rfdiffusion', ...]
 
-Or explore the Jupyter notebook:
+# Prepare Boltz-2 input
+config = {
+    "recycling": 5,
+    "num_samples": 3,
+    "device": "cuda"
+}
 
-```bash
-jupyter notebook protos_review.ipynb
+model_input = manager.prepare_input(
+    model_name="boltz2",
+    entity_name="my_protein",
+    entity_format="sequence",
+    config=config
+)
 ```
 
 ## Research Applications
@@ -299,16 +452,15 @@ We welcome contributions! Please see our contributing guidelines and:
 
 ## Documentation
 
-- **Framework Overview**: See `protos_review.py` for comprehensive examples
+- **Examples**: Available in the `examples/` directory
 - **API Documentation**: Generated from docstrings
-- **Tutorials**: Available in the `examples/` directory
 - **CLI Reference**: Run `protos --help` for command-line usage
 
 ## Support
 
 - **Issues**: Report bugs and request features on GitHub
 - **Discussions**: Join our community discussions
-- **Documentation**: Check the comprehensive review and examples
+- **Documentation**: Check the examples directory
 
 ## License
 
@@ -329,4 +481,4 @@ If you use Protos in your research, please cite:
 
 ---
 
-**Ready to accelerate your structural biology research? Start with** `python protos_review.py` **to see everything Protos can do!** 🚀
+**Ready to accelerate your structural biology research? Start with** `protos init` **to set up your data directory!**
