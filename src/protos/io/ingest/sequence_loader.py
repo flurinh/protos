@@ -109,7 +109,7 @@ class SequenceLoader(BaseLoader):
         identifier: str,
         name: Optional[str] = None,
         source: str = "local",
-        materialize_entities: bool = True,
+        materialize_entities: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs,
     ) -> Optional[str]:

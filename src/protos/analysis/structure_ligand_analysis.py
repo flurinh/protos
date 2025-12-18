@@ -90,8 +90,8 @@ def extract_all_ligands(
     else:
         excluded_residues = set()
     
-    # Get structure data
-    structure_data = cif_processor.data[cif_processor.data['pdb_id'] == pdb_id].copy()
+    # Get structure data using helper that works with both old and new processor APIs
+    structure_data = _load_structure_frame(cif_processor, pdb_id)
     hetatoms = structure_data[structure_data['group'] == 'HETATM']
     
     ligands = []
