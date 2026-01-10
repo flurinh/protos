@@ -6,7 +6,7 @@ A no-nonsense Python framework for handling structural biology data: structures,
 
 ```bash
 # Clone and install
-git clone https://github.com/your-org/protos.git
+git clone https://github.com/flurinh/protos.git
 cd protos
 pip install -e .
 
