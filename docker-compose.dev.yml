@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  protos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: protos/dev:latest
+    container_name: protos-dev
+    volumes:
+      # Mount source code for live development
+      - ./src:/app/src:ro
+      # Mount tests for running
+      - ./tests:/app/tests:ro
+      - ./examples:/app/examples:ro
+      # Mount test files from root
+      - ./test_*.py:/app/
+      # Persistent data directory
+      - protos-data:/data/protos
+      # Mount resources
+      - ./resources:/app/resources:ro
+      # Mount host model cache for HuggingFace/Torch models
+      - /data/fast/cache:/data/fast/cache
+    environment:
+      - PROTOS_DATA_ROOT=/data/protos
+      - PYTHONPATH=/app/src
+      - HF_HOME=/data/fast/cache/huggingface
+      - TRANSFORMERS_CACHE=/data/fast/cache/huggingface
+      - TORCH_HOME=/data/fast/cache/torch
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    # Default: drop into bash shell
+    command: /bin/bash
+
+  # Service for running tests
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: protos/dev:latest
+    container_name: protos-test
+    volumes:
+      - ./src:/app/src:ro
+      - ./examples:/app/examples:ro
+      - protos-data:/data/protos
+      - ./resources:/app/resources:ro
+      # Mount host model cache for HuggingFace/Torch models
+      - /data/fast/cache:/data/fast/cache
+    environment:
+      - PROTOS_DATA_ROOT=/data/protos
+      - PYTHONPATH=/app/src
+      - HF_HOME=/data/fast/cache/huggingface
+      - TRANSFORMERS_CACHE=/data/fast/cache/huggingface
+      - TORCH_HOME=/data/fast/cache/torch
+    working_dir: /app
+    command: pytest -v
+
+  # Service for running specific test files
+  pytest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: protos/dev:latest
+    volumes:
+      - ./src:/app/src:ro
+      - ./examples:/app/examples:ro
+      - protos-data:/data/protos
+      - ./resources:/app/resources:ro
+      - /data/fast/cache:/data/fast/cache
+    environment:
+      - PROTOS_DATA_ROOT=/data/protos
+      - PYTHONPATH=/app/src
+      - HF_HOME=/data/fast/cache/huggingface
+      - TRANSFORMERS_CACHE=/data/fast/cache/huggingface
+      - TORCH_HOME=/data/fast/cache/torch
+    working_dir: /app
+    # Override with: docker compose -f docker-compose.dev.yml run pytest <test_file.py>
+    entrypoint: ["pytest", "-v"]
+
+volumes:
+  protos-data:
+    driver: local

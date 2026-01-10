@@ -268,7 +268,8 @@ class EmbeddingProcessor(BaseProcessor):
                        sequences: Union[str, List[str], Dict[str, str]],
                        embedding_type: EmbeddingType = "mean",
                        save_dataset: Optional[str] = None,
-                       register_entities: bool = True) -> Union["torch.Tensor", Dict[str, "torch.Tensor"]]:
+                       register_entities: bool = True,
+                       stream_to_disk: bool = False) -> Union["torch.Tensor", Dict[str, "torch.Tensor"]]:
         """
         Generate embeddings for protein sequences with entity support.
         
@@ -323,21 +324,50 @@ class EmbeddingProcessor(BaseProcessor):
         # Return appropriate format
         return embeddings["seq_0"] if is_single else embeddings
     
-    def _generate_embeddings(self,
-                           seq_dict: Dict[str, str],
-                           embedding_type: EmbeddingType) -> Dict[str, "torch.Tensor"]:
-        """Generate embeddings for a dictionary of sequences."""
+    def _generate_embeddings(
+        self,
+        seq_dict: Dict[str, str],
+        embedding_type: EmbeddingType,
+        stream_to_disk: bool = False,
+        dataset_name: Optional[str] = None,
+    ) -> Dict[str, "torch.Tensor"]:
+        """Generate embeddings for a dictionary of sequences.
+
+        Args:
+            seq_dict: Mapping of sequence IDs to sequences.
+            embedding_type: Type of embedding to generate.
+            stream_to_disk: If True, write each batch immediately to disk to save memory.
+            dataset_name: Dataset name for organizing streamed output files.
+
+        Returns:
+            Dictionary mapping sequence IDs to embedding tensors (empty if stream_to_disk=True).
+        """
+        from tqdm import tqdm
+
         results = {}
         seq_ids = list(seq_dict.keys())
         sequences = list(seq_dict.values())
-        
+
         self.logger.info(f"Generating {embedding_type} embeddings for {len(sequences)} sequences")
-        
+
+        num_batches = (len(sequences) + self.batch_size - 1) // self.batch_size
+
+        # Setup streaming directory if needed
+        if stream_to_disk:
+            target_dir = self.embeddings_dir / self.model_name / (dataset_name or "_stream")
+            target_dir.mkdir(parents=True, exist_ok=True)
+            self.logger.info(f"Streaming embeddings to: {target_dir}")
+
         with torch.no_grad():
-            for i in range(0, len(sequences), self.batch_size):
+            for i in tqdm(
+                range(0, len(sequences), self.batch_size),
+                total=num_batches,
+                desc=f"Embedding ({embedding_type})",
+                unit="batch",
+            ):
                 batch_ids = seq_ids[i:i + self.batch_size]
                 batch_seqs = sequences[i:i + self.batch_size]
-                
+
                 # Tokenize
                 inputs = self.tokenizer(
                     batch_seqs,
@@ -364,15 +394,60 @@ class EmbeddingProcessor(BaseProcessor):
                     attention_mask,
                     embedding_type
                 )
-                
-                # Store results
+
+                # Process each sequence in the batch
                 for j, seq_id in enumerate(batch_ids):
                     if embedding_type == "per_residue":
                         # Trim padding for per-residue embeddings
                         seq_len = attention_mask[j].sum().item()
-                        results[seq_id] = batch_embeddings[j, :seq_len].cpu()
+                        emb_tensor = batch_embeddings[j, :seq_len].cpu()
                     else:
-                        results[seq_id] = batch_embeddings[j].cpu()
+                        emb_tensor = batch_embeddings[j].cpu()
+
+                    if stream_to_disk:
+                        # Write immediately to disk
+                        entity_name = self._build_entity_name(seq_id, embedding_type, dataset_name)
+                        file_path = target_dir / f"{entity_name}.pkl"
+                        array = self._to_numpy(emb_tensor)
+
+                        payload = {
+                            "embedding": array,
+                            "models": self.model_name,
+                            "embedding_type": embedding_type,
+                            "source_sequence": seq_id,
+                            "dataset": dataset_name,
+                        }
+                        with open(file_path, "wb") as handle:
+                            pickle.dump(payload, handle)
+
+                        # Register entity
+                        relative_path = str(file_path.relative_to(self.paths.data_root))
+                        metadata = {
+                            "models": self.model_name,
+                            "embedding_type": embedding_type,
+                            "shape": list(array.shape),
+                            "dtype": str(array.dtype),
+                            "source_sequence": seq_id,
+                        }
+                        if dataset_name:
+                            metadata["dataset"] = dataset_name
+
+                        self.entity_registry.register_entity(
+                            name=entity_name,
+                            format_type=self.processor_type,
+                            file_path=relative_path,
+                            metadata=metadata,
+                        )
+                        # Don't keep in memory
+                        del emb_tensor
+                    else:
+                        results[seq_id] = emb_tensor
+
+                # Clear GPU memory after each batch
+                if stream_to_disk:
+                    del batch_embeddings, hidden_states, inputs
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
 
         return results
 

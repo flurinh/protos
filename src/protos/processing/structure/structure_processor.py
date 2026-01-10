@@ -398,6 +398,511 @@ class StructureProcessor(BaseProcessor):
             'total_groups': total,
             'chains': chains,
         }
+
+    # ---------- Ligand & Contact Analysis ----------
+
+    # Common hetero codes to exclude when listing ligands
+    _COMMON_HETERO = {'HOH', 'WAT', 'NA', 'CL', 'K', 'CA', 'MG', 'ZN', 'SO4', 'PO4'}
+    _WATER_CODES = {'HOH', 'WAT'}
+    _ION_CODES = {'NA', 'CL', 'K', 'CA', 'MG', 'ZN', 'FE', 'CU', 'MN', 'CO', 'NI'}
+
+    def list_ligands(
+        self,
+        structure_id: str,
+        *,
+        exclude_common: bool = True,
+        min_atoms: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """
+        List all ligands in a structure.
+
+        Args:
+            structure_id: Structure identifier
+            exclude_common: Exclude water, common ions, and buffer molecules
+            min_atoms: Minimum number of atoms for a molecule to be considered a ligand
+
+        Returns:
+            List of ligand dictionaries with keys:
+            - res_name: 3-letter ligand code
+            - chain_id: Chain containing the ligand
+            - res_id: Residue sequence ID
+            - num_atoms: Number of atoms in the ligand
+            - centroid: (x, y, z) coordinates of ligand center
+        """
+        df = self.load_entity(structure_id)
+        if df is None:
+            raise ValueError(f"Structure '{structure_id}' not found")
+        df = df.reset_index()
+
+        # Filter to HETATM only
+        if 'group' not in df.columns:
+            return []
+        hetatoms = df[df['group'].str.upper() == 'HETATM']
+        if hetatoms.empty:
+            return []
+
+        ligands = []
+        # Group by residue
+        group_cols = ['res_name3l', 'auth_chain_id', 'auth_seq_id']
+        group_cols = [c for c in group_cols if c in hetatoms.columns]
+        if not group_cols:
+            return []
+
+        for keys, atoms in hetatoms.groupby(group_cols, dropna=False):
+            res_name = keys[0] if len(keys) > 0 else 'UNK'
+            chain_id = keys[1] if len(keys) > 1 else '?'
+            res_id = keys[2] if len(keys) > 2 else None
+
+            # Skip common molecules if requested
+            if exclude_common and res_name in self._COMMON_HETERO:
+                continue
+
+            # Skip small molecules
+            if len(atoms) < min_atoms:
+                continue
+
+            # Calculate centroid
+            coords = atoms[['x', 'y', 'z']].values
+            centroid = tuple(coords.mean(axis=0))
+
+            ligands.append({
+                'res_name': res_name,
+                'chain_id': chain_id,
+                'res_id': int(res_id) if pd.notna(res_id) else None,
+                'num_atoms': len(atoms),
+                'centroid': centroid,
+            })
+
+        return ligands
+
+    def get_ligand_interactions(
+        self,
+        structure_id: str,
+        ligand_id: Optional[str] = None,
+        *,
+        chain_id: Optional[str] = None,
+        cutoff: float = 4.5,
+        include_water_bridges: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Get protein residues that interact with a ligand.
+
+        Args:
+            structure_id: Structure identifier
+            ligand_id: 3-letter ligand code (if None, uses largest ligand)
+            chain_id: Specific chain for the ligand (optional)
+            cutoff: Distance cutoff in Angstroms for binding residues
+            include_water_bridges: Include water-mediated contacts
+
+        Returns:
+            Dictionary with:
+            - ligand: ligand info dict
+            - binding_residues: list of residue dicts with chain_id, res_id, res_name, min_distance, grn (if available)
+            - summary: counts of different interaction types
+        """
+        from .ligand_interactions import LigandInteractionAnalyzer
+
+        df = self.load_entity(structure_id)
+        if df is None:
+            raise ValueError(f"Structure '{structure_id}' not found")
+        df = df.reset_index()
+
+        # Initialize analyzer
+        analyzer = LigandInteractionAnalyzer(df)
+
+        # Find ligand(s)
+        ligands = analyzer.extract_ligands(exclude_common=True)
+        if not ligands:
+            return {'ligand': None, 'binding_residues': [], 'summary': {}}
+
+        # Select specific ligand or largest
+        if ligand_id:
+            matching = [l for l in ligands if l['res_name3l'] == ligand_id]
+            if chain_id:
+                matching = [l for l in matching if l['chain_id'] == chain_id]
+            if not matching:
+                return {'ligand': None, 'binding_residues': [], 'summary': {}}
+            ligand = matching[0]
+        else:
+            ligand = max(ligands, key=lambda x: x.get('num_atoms', 0))
+
+        ligand_atoms = ligand['atoms']
+
+        # Get binding residues
+        binding_df = analyzer.get_binding_site_residues(ligand_atoms, cutoff=cutoff)
+
+        # Build result
+        binding_residues = []
+        if not binding_df.empty:
+            # Check if structure has GRN annotations
+            has_grn = 'grn' in df.columns
+
+            for _, row in binding_df.iterrows():
+                res_info = {
+                    'chain_id': row.get('chain_id'),
+                    'res_id': int(row['res_id']) if pd.notna(row.get('res_id')) else None,
+                    'res_name': row.get('res_name'),
+                    'min_distance': float(row.get('min_distance', 0)),
+                    'num_contacts': int(row.get('num_contacts', 1)),
+                }
+
+                # Add GRN if available
+                if has_grn and res_info['chain_id'] and res_info['res_id']:
+                    grn_mask = (
+                        (df['auth_chain_id'] == res_info['chain_id']) &
+                        (df['auth_seq_id'] == res_info['res_id'])
+                    )
+                    grn_vals = df.loc[grn_mask, 'grn'].dropna().unique()
+                    if len(grn_vals) > 0 and grn_vals[0]:
+                        res_info['grn'] = str(grn_vals[0])
+
+                binding_residues.append(res_info)
+
+        # Get interaction summary
+        summary = {
+            'num_binding_residues': len(binding_residues),
+        }
+
+        # Optionally include water bridges
+        if include_water_bridges:
+            water_bridges = analyzer.get_water_mediated_contacts(ligand_atoms)
+            summary['num_water_bridges'] = len(water_bridges)
+
+        return {
+            'ligand': {
+                'res_name': ligand['res_name3l'],
+                'chain_id': ligand['chain_id'],
+                'res_id': ligand['res_id'],
+                'num_atoms': ligand['num_atoms'],
+            },
+            'binding_residues': binding_residues,
+            'summary': summary,
+        }
+
+    def get_water_contacts(
+        self,
+        structure_id: str,
+        *,
+        cutoff: float = 3.5,
+        protein_chain: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get protein residues in contact with water molecules.
+
+        Args:
+            structure_id: Structure identifier
+            cutoff: Distance cutoff in Angstroms
+            protein_chain: Filter to specific protein chain
+
+        Returns:
+            List of contact dicts with water_id, protein residue info, and distance
+        """
+        from scipy.spatial import cKDTree
+
+        df = self.load_entity(structure_id)
+        if df is None:
+            raise ValueError(f"Structure '{structure_id}' not found")
+        df = df.reset_index()
+
+        # Get water molecules
+        waters = df[
+            (df['group'].str.upper() == 'HETATM') &
+            (df['res_name3l'].isin(self._WATER_CODES))
+        ]
+        if waters.empty:
+            return []
+
+        # Get protein atoms
+        protein = df[df['group'].str.upper() == 'ATOM']
+        if protein_chain:
+            protein = protein[protein['auth_chain_id'] == protein_chain]
+        if protein.empty:
+            return []
+
+        # Build KD-tree for protein atoms
+        protein_coords = protein[['x', 'y', 'z']].values
+        protein_tree = cKDTree(protein_coords)
+
+        contacts = []
+        has_grn = 'grn' in df.columns
+
+        # Group waters by residue
+        water_groups = waters.groupby(['auth_chain_id', 'auth_seq_id'], dropna=False)
+
+        for (water_chain, water_seq), water_atoms in water_groups:
+            water_coords = water_atoms[['x', 'y', 'z']].values
+
+            # Find nearby protein atoms
+            nearby_indices = set()
+            for coord in water_coords:
+                indices = protein_tree.query_ball_point(coord, cutoff)
+                nearby_indices.update(indices)
+
+            if not nearby_indices:
+                continue
+
+            # Get unique residues
+            nearby_protein = protein.iloc[list(nearby_indices)]
+            for (chain, res_id, res_name), res_atoms in nearby_protein.groupby(
+                ['auth_chain_id', 'auth_seq_id', 'res_name3l'], dropna=False
+            ):
+                # Calculate minimum distance
+                res_coords = res_atoms[['x', 'y', 'z']].values
+                from scipy.spatial import distance_matrix
+                dists = distance_matrix(water_coords, res_coords)
+                min_dist = float(dists.min())
+
+                contact = {
+                    'water_chain': water_chain,
+                    'water_seq': int(water_seq) if pd.notna(water_seq) else None,
+                    'protein_chain': chain,
+                    'protein_res_id': int(res_id) if pd.notna(res_id) else None,
+                    'protein_res_name': res_name,
+                    'min_distance': min_dist,
+                }
+
+                # Add GRN if available
+                if has_grn:
+                    grn_mask = (
+                        (df['auth_chain_id'] == chain) &
+                        (df['auth_seq_id'] == res_id)
+                    )
+                    grn_vals = df.loc[grn_mask, 'grn'].dropna().unique()
+                    if len(grn_vals) > 0 and grn_vals[0]:
+                        contact['grn'] = str(grn_vals[0])
+
+                contacts.append(contact)
+
+        return contacts
+
+    def get_ion_contacts(
+        self,
+        structure_id: str,
+        *,
+        cutoff: float = 3.5,
+        protein_chain: Optional[str] = None,
+        ion_types: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get protein residues in contact with ions.
+
+        Args:
+            structure_id: Structure identifier
+            cutoff: Distance cutoff in Angstroms
+            protein_chain: Filter to specific protein chain
+            ion_types: List of ion codes to include (default: common ions)
+
+        Returns:
+            List of contact dicts with ion info, protein residue info, and distance
+        """
+        from scipy.spatial import cKDTree
+
+        df = self.load_entity(structure_id)
+        if df is None:
+            raise ValueError(f"Structure '{structure_id}' not found")
+        df = df.reset_index()
+
+        # Get ions
+        ion_codes = set(ion_types) if ion_types else self._ION_CODES
+        ions = df[
+            (df['group'].str.upper() == 'HETATM') &
+            (df['res_name3l'].isin(ion_codes))
+        ]
+        if ions.empty:
+            return []
+
+        # Get protein atoms
+        protein = df[df['group'].str.upper() == 'ATOM']
+        if protein_chain:
+            protein = protein[protein['auth_chain_id'] == protein_chain]
+        if protein.empty:
+            return []
+
+        # Build KD-tree for protein atoms
+        protein_coords = protein[['x', 'y', 'z']].values
+        protein_tree = cKDTree(protein_coords)
+
+        contacts = []
+        has_grn = 'grn' in df.columns
+
+        for _, ion in ions.iterrows():
+            ion_coord = ion[['x', 'y', 'z']].values.reshape(1, -1)
+
+            # Find nearby protein atoms
+            indices = protein_tree.query_ball_point(ion_coord[0], cutoff)
+            if not indices:
+                continue
+
+            # Get unique residues
+            nearby_protein = protein.iloc[indices]
+            for (chain, res_id, res_name), res_atoms in nearby_protein.groupby(
+                ['auth_chain_id', 'auth_seq_id', 'res_name3l'], dropna=False
+            ):
+                # Calculate minimum distance
+                res_coords = res_atoms[['x', 'y', 'z']].values
+                from scipy.spatial import distance_matrix
+                dists = distance_matrix(ion_coord, res_coords)
+                min_dist = float(dists.min())
+
+                contact = {
+                    'ion_type': ion['res_name3l'],
+                    'ion_chain': ion['auth_chain_id'],
+                    'ion_seq': int(ion['auth_seq_id']) if pd.notna(ion['auth_seq_id']) else None,
+                    'protein_chain': chain,
+                    'protein_res_id': int(res_id) if pd.notna(res_id) else None,
+                    'protein_res_name': res_name,
+                    'min_distance': min_dist,
+                }
+
+                # Add GRN if available
+                if has_grn:
+                    grn_mask = (
+                        (df['auth_chain_id'] == chain) &
+                        (df['auth_seq_id'] == res_id)
+                    )
+                    grn_vals = df.loc[grn_mask, 'grn'].dropna().unique()
+                    if len(grn_vals) > 0 and grn_vals[0]:
+                        contact['grn'] = str(grn_vals[0])
+
+                contacts.append(contact)
+
+        return contacts
+
+    def annotate_with_grn(
+        self,
+        structure_id: str,
+        *,
+        reference_table: str = "gpcrdb_ref",
+        protein_family: str = "gpcr_a",
+        chains: Optional[List[str]] = None,
+        save: bool = True,
+    ) -> pd.DataFrame:
+        """
+        Directly annotate a structure with Generic Residue Numbers (GRN).
+
+        This method handles the full workflow internally:
+        1. Extracts chain sequences from the structure
+        2. Aligns sequences to GRN reference
+        3. Maps GRN positions back to structure residues
+
+        Args:
+            structure_id: Structure identifier
+            reference_table: GRN reference table name
+            protein_family: Protein family for GRN reference
+            chains: Specific chains to annotate (default: all protein chains)
+            save: Whether to save the annotated structure
+
+        Returns:
+            Structure DataFrame with 'grn' column populated
+        """
+        from protos.processing.grn import GRNProcessor
+
+        df = self.load_entity(structure_id)
+        if df is None:
+            raise ValueError(f"Structure '{structure_id}' not found")
+        df = df.reset_index()
+
+        # Initialize GRN column if needed
+        if 'grn' not in df.columns:
+            df['grn'] = ''
+
+        # Get protein atoms only
+        protein = df[df['group'].str.upper() == 'ATOM']
+        if protein.empty:
+            self.logger.warning(f"No protein atoms in {structure_id}")
+            return self._ensure_canonical(df, structure_id)
+
+        # Filter chains if specified
+        available_chains = protein['auth_chain_id'].unique().tolist()
+        target_chains = chains if chains else available_chains
+
+        grn_proc = GRNProcessor()
+
+        for chain_id in target_chains:
+            if chain_id not in available_chains:
+                continue
+
+            # Extract sequence for this chain
+            chain_atoms = protein[protein['auth_chain_id'] == chain_id]
+
+            # Get unique residues in order
+            residue_data = []
+            for (res_id, res_name), atoms in chain_atoms.groupby(
+                ['auth_seq_id', 'res_name3l'], sort=True, dropna=False
+            ):
+                if pd.isna(res_id):
+                    continue
+                residue_data.append((int(res_id), res_name))
+
+            if not residue_data:
+                continue
+
+            # Convert to sequence (standard amino acid mapping)
+            THREE_TO_ONE = {
+                'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
+                'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
+                'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
+                'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V',
+            }
+            sequence = ''
+            res_id_list = []
+            for res_id, res_name in sorted(residue_data, key=lambda x: x[0]):
+                aa = THREE_TO_ONE.get(res_name, 'X')
+                sequence += aa
+                res_id_list.append(res_id)
+
+            if not sequence or len(sequence) < 10:
+                continue
+
+            # Annotate sequence with GRN
+            seq_name = f"{structure_id}_{chain_id}"
+            try:
+                annotations_df, summary = grn_proc.annotate_sequences(
+                    {seq_name: sequence},
+                    reference_table=reference_table,
+                    protein_family=protein_family,
+                )
+
+                if seq_name not in annotations_df.index:
+                    continue
+
+                # Get the annotation row for this sequence
+                # Values are like 'M1', 'E2' where the number is 1-indexed position in sequence
+                row = annotations_df.loc[seq_name]
+
+                # Map GRN annotations back to structure residues
+                import re
+                for grn_position, value in row.items():
+                    if value == '-' or not value:
+                        continue
+                    # Parse position from value like 'M1', 'E2', etc.
+                    match = re.match(r'([A-Z])(\d+)', str(value))
+                    if not match:
+                        continue
+                    seq_pos = int(match.group(2))  # 1-indexed position in sequence
+                    if seq_pos < 1 or seq_pos > len(res_id_list):
+                        continue
+                    res_id = res_id_list[seq_pos - 1]  # Convert to 0-indexed
+
+                    mask = (
+                        (df['auth_chain_id'] == chain_id) &
+                        (df['auth_seq_id'] == res_id)
+                    )
+                    df.loc[mask, 'grn'] = grn_position
+
+            except Exception as e:
+                self.logger.warning(f"GRN annotation failed for {structure_id} chain {chain_id}: {e}")
+                continue
+
+        # Canonicalize and optionally save
+        df_canonical = self._ensure_canonical(df, structure_id)
+        self._set_frame(structure_id, df_canonical)
+
+        if save:
+            self.save_entity(structure_id, df_canonical)
+
+        return df_canonical
+
     # ---------- Frame Management ----------
     
     def _set_frame(self, structure_id: str, df: pd.DataFrame):

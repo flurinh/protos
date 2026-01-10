@@ -12,7 +12,7 @@
       <excludeFolder url="file://$MODULE_DIR$/src/protos/reference_data" />
       <excludeFolder url="file://$MODULE_DIR$/tests" />
     </content>
-    <orderEntry type="jdk" jdkName="protos310" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="$MODULE_DIR$/../../envs/protos" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

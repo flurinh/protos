@@ -380,21 +380,20 @@ def validate_chirality(df: pd.DataFrame) -> pd.DataFrame:
         required = ['N', 'CA', 'C', 'CB']
         
         if all(atom in atoms.index for atom in required):
-            # Get coordinates
-            n_coord = atoms.loc['N', ['x', 'y', 'z']].values
-            ca_coord = atoms.loc['CA', ['x', 'y', 'z']].values
-            c_coord = atoms.loc['C', ['x', 'y', 'z']].values
-            cb_coord = atoms.loc['CB', ['x', 'y', 'z']].values
-            
-            # Handle multiple conformations
-            if n_coord.ndim > 1:
-                n_coord = n_coord[0]
-            if ca_coord.ndim > 1:
-                ca_coord = ca_coord[0]
-            if c_coord.ndim > 1:
-                c_coord = c_coord[0]
-            if cb_coord.ndim > 1:
-                cb_coord = cb_coord[0]
+            # Get coordinates - extract and ensure float64 dtype
+            def get_coords(atoms_df, atom_name):
+                data = atoms_df.loc[atom_name, ['x', 'y', 'z']]
+                if isinstance(data, pd.DataFrame):
+                    # Multiple conformations - take first
+                    return data.iloc[0].values.astype(np.float64)
+                else:
+                    # Single atom
+                    return data.values.astype(np.float64)
+
+            n_coord = get_coords(atoms, 'N')
+            ca_coord = get_coords(atoms, 'CA')
+            c_coord = get_coords(atoms, 'C')
+            cb_coord = get_coords(atoms, 'CB')
             
             # Calculate improper dihedral angle
             # Vectors from CA

@@ -42,17 +42,31 @@ from .model_specs import (
     RuntimeResult,
 )
 
-_lambda_runtime = importlib.import_module("protos.models.lambda.runtime_utils")
-InMemoryEmbeddingAdapter = _lambda_runtime.InMemoryEmbeddingAdapter
-InMemoryGRNAdapter = _lambda_runtime.InMemoryGRNAdapter
-align_embeddings_to_grn = _lambda_runtime.align_embeddings_to_grn
-build_grn_assignments = _lambda_runtime.build_grn_assignments
-build_property_rows = _lambda_runtime.build_property_rows
-copy_if_missing = _lambda_runtime.copy_if_missing
-ensure_positional_map = _lambda_runtime.ensure_positional_map
-prepare_predictor = _lambda_runtime.prepare_predictor
-build_positional_map_from_binding = _lambda_runtime.build_positional_map_from_binding
-normalize_binding_config = _lambda_runtime.normalize_binding_config
+# Lambda runtime imports are deprecated - models now run via remote/container execution
+try:
+    _lambda_runtime = importlib.import_module("protos.models.lambda.runtime_utils")
+    InMemoryEmbeddingAdapter = _lambda_runtime.InMemoryEmbeddingAdapter
+    InMemoryGRNAdapter = _lambda_runtime.InMemoryGRNAdapter
+    align_embeddings_to_grn = _lambda_runtime.align_embeddings_to_grn
+    build_grn_assignments = _lambda_runtime.build_grn_assignments
+    build_property_rows = _lambda_runtime.build_property_rows
+    copy_if_missing = _lambda_runtime.copy_if_missing
+    ensure_positional_map = _lambda_runtime.ensure_positional_map
+    prepare_predictor = _lambda_runtime.prepare_predictor
+    build_positional_map_from_binding = _lambda_runtime.build_positional_map_from_binding
+    normalize_binding_config = _lambda_runtime.normalize_binding_config
+except ImportError:
+    _lambda_runtime = None
+    InMemoryEmbeddingAdapter = None
+    InMemoryGRNAdapter = None
+    align_embeddings_to_grn = None
+    build_grn_assignments = None
+    build_property_rows = None
+    copy_if_missing = None
+    ensure_positional_map = None
+    prepare_predictor = None
+    build_positional_map_from_binding = None
+    normalize_binding_config = None
 
 
 class ModelAdapterBase(ABC):
@@ -692,8 +706,297 @@ class BoltzAdapter(ExternalJobAdapter):
         return f"{letter}{suffix}"
 
 
+class BoltzGenAdapter(ExternalJobAdapter):
+    """Adapter for preparing BoltzGen protein design configuration jobs.
+
+    BoltzGen uses a different YAML schema than Boltz, focused on protein design
+    with support for:
+    - Designed protein sequences with length ranges (e.g., "80..140")
+    - Structure files (.cif/.pdb) as design targets
+    - Binding site specifications
+    - Secondary structure constraints
+    - Bond constraints for stapled peptides and disulfides
+    """
+
+    MODEL_DIR = "boltzgen"
+
+    def build_job(
+        self,
+        card: ModelCard,
+        request: ModelRequest,
+        inputs: List[ArtifactBundle],
+    ) -> PreparedJob:
+        config = request.config
+        job_name = config.get("job_name", "design_job")
+
+        yaml_data = self._generate_yaml(config)
+        input_dir = self._get_input_dir(job_name)
+        input_dir.mkdir(parents=True, exist_ok=True)
+
+        yaml_path = input_dir / "config.yaml"
+
+        # Copy any referenced structure files to the input directory
+        self._copy_structure_files(yaml_data, input_dir, config)
+
+        with open(yaml_path, "w", encoding="utf-8") as fh:
+            yaml.dump(
+                yaml_data,
+                fh,
+                Dumper=BoltzYamlDumper,
+                default_flow_style=False,
+                sort_keys=False,
+                indent=2,
+            )
+
+        metadata_path = input_dir / "metadata.json"
+        metadata_content = {
+            "job_name": job_name,
+            "config": {k: v for k, v in config.items() if k != "entities"},
+        }
+        with open(metadata_path, "w", encoding="utf-8") as fh:
+            json.dump(metadata_content, fh, indent=2)
+
+        job = PreparedJob(
+            command=["boltz", "design", str(yaml_path)],
+            working_dir=input_dir,
+            artifacts=[
+                ArtifactBundle(
+                    spec=ArtifactSpec(
+                        name="boltzgen_config",
+                        kind="config",
+                        provider="boltzgen_adapter",
+                        format="yaml",
+                    ),
+                    path=yaml_path,
+                    metadata={"job_name": job_name},
+                ),
+            ],
+            metadata={"job_name": job_name},
+        )
+        return job
+
+    def _get_input_dir(self, job_name: str) -> Path:
+        return (
+            Path(self.paths.data_root)
+            / "models"
+            / self.MODEL_DIR
+            / job_name
+        )
+
+    def _copy_structure_files(
+        self,
+        yaml_data: OrderedDict,
+        input_dir: Path,
+        config: MutableMapping[str, Any],
+    ) -> None:
+        """Copy referenced structure files to the input directory."""
+        entities = yaml_data.get("entities", [])
+        structure_dir = config.get("structure_dir")
+
+        for entity in entities:
+            if "file" in entity:
+                file_spec = entity["file"]
+                orig_path = file_spec.get("path", "")
+                if orig_path:
+                    # Try to resolve the structure file
+                    src_path = None
+                    if structure_dir:
+                        candidate = Path(structure_dir) / orig_path
+                        if candidate.exists():
+                            src_path = candidate
+                    if src_path is None:
+                        candidate = Path(self.paths.data_root) / "structure" / "mmcif" / orig_path
+                        if candidate.exists():
+                            src_path = candidate
+                    if src_path is None:
+                        candidate = Path(orig_path)
+                        if candidate.exists():
+                            src_path = candidate
+
+                    if src_path and src_path.exists():
+                        dst_path = input_dir / Path(orig_path).name
+                        if not dst_path.exists():
+                            shutil.copy2(src_path, dst_path)
+                        # Update the path in yaml to be relative
+                        file_spec["path"] = Path(orig_path).name
+
+    def _generate_yaml(
+        self,
+        config: MutableMapping[str, Any],
+    ) -> OrderedDict:
+        """Generate BoltzGen YAML configuration.
+
+        Args:
+            config: Configuration dict that may contain:
+                - entities: List of entity specifications
+                - designed_proteins: List of designed protein specs
+                - target_structure: Path to target structure file
+                - constraints: Bond constraints
+                - And other BoltzGen-specific options
+
+        Returns:
+            OrderedDict with the BoltzGen YAML structure.
+        """
+        yaml_sections: OrderedDict[str, Any] = OrderedDict()
+
+        # Build entities section
+        entities = self._prepare_entities_section(config)
+        if entities:
+            yaml_sections["entities"] = entities
+
+        # Add constraints if present
+        constraints = config.get("constraints")
+        if constraints:
+            yaml_sections["constraints"] = deepcopy(constraints)
+
+        return yaml_sections
+
+    def _prepare_entities_section(
+        self,
+        config: MutableMapping[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Prepare the entities section of the BoltzGen YAML.
+
+        Handles three types of entities:
+        1. Designed proteins with sequence patterns (e.g., "80..140", "3..5C6C3")
+        2. Fixed proteins with explicit sequences
+        3. File references for target structures
+        4. Ligands (CCD codes or SMILES)
+        """
+        entities: List[Dict[str, Any]] = []
+
+        # If explicit entities are provided, use them directly
+        if "entities" in config:
+            return deepcopy(config["entities"])
+
+        # Handle designed proteins
+        designed = config.get("designed_proteins", [])
+        for dp in designed:
+            entity: Dict[str, Any] = OrderedDict()
+            entity["id"] = dp.get("id", "A")
+
+            # Handle sequence specification
+            seq = dp.get("sequence")
+            if seq:
+                entity["sequence"] = seq
+            else:
+                # Generate length range pattern
+                min_len = dp.get("min_length", 80)
+                max_len = dp.get("max_length", 140)
+                entity["sequence"] = f"{min_len}..{max_len}"
+
+            entities.append({"protein": entity})
+
+        # Handle fixed proteins (non-designed)
+        fixed = config.get("fixed_proteins", [])
+        for fp in fixed:
+            entity = OrderedDict()
+            entity["id"] = fp.get("id", "X")
+            entity["sequence"] = fp.get("sequence", "")
+            entities.append({"protein": entity})
+
+        # Handle target structure files
+        target = config.get("target_structure")
+        if target:
+            file_entity: Dict[str, Any] = OrderedDict()
+            file_entity["path"] = target if isinstance(target, str) else target.get("path")
+
+            # Include specific chains
+            include = target.get("include") if isinstance(target, dict) else None
+            if include:
+                file_entity["include"] = include
+
+            # Binding types specification
+            binding = target.get("binding_types") if isinstance(target, dict) else None
+            if binding:
+                file_entity["binding_types"] = binding
+
+            # Structure groups
+            groups = target.get("structure_groups") if isinstance(target, dict) else None
+            if groups:
+                file_entity["structure_groups"] = groups
+
+            # Design regions in target
+            design = target.get("design") if isinstance(target, dict) else None
+            if design:
+                file_entity["design"] = design
+
+            # Secondary structure constraints
+            ss = target.get("secondary_structure") if isinstance(target, dict) else None
+            if ss:
+                file_entity["secondary_structure"] = ss
+
+            entities.append({"file": file_entity})
+
+        # Handle ligands
+        ligands = config.get("ligands", [])
+        for lig in ligands:
+            lig_entity: Dict[str, Any] = OrderedDict()
+            lig_entity["id"] = lig.get("id", "LIG")
+            if "ccd" in lig:
+                lig_entity["ccd"] = lig["ccd"]
+            elif "smiles" in lig:
+                lig_entity["smiles"] = lig["smiles"]
+            entities.append({"ligand": lig_entity})
+
+        return entities
+
+    def generate_design_config(
+        self,
+        designed_protein_id: str = "B",
+        min_length: int = 80,
+        max_length: int = 140,
+        target_structure: Optional[str] = None,
+        target_chain: Optional[str] = None,
+        ligand_ccd: Optional[str] = None,
+        constraints: Optional[List[Dict[str, Any]]] = None,
+    ) -> OrderedDict:
+        """Convenience method to generate a simple design configuration.
+
+        Args:
+            designed_protein_id: Chain ID for the designed protein
+            min_length: Minimum length for designed protein
+            max_length: Maximum length for designed protein
+            target_structure: Path to target structure file (.cif or .pdb)
+            target_chain: Chain ID to use from target structure
+            ligand_ccd: CCD code for ligand (if any)
+            constraints: List of bond constraints
+
+        Returns:
+            OrderedDict with BoltzGen YAML configuration
+        """
+        config: Dict[str, Any] = {
+            "designed_proteins": [{
+                "id": designed_protein_id,
+                "min_length": min_length,
+                "max_length": max_length,
+            }],
+        }
+
+        if target_structure:
+            target_config: Dict[str, Any] = {"path": target_structure}
+            if target_chain:
+                target_config["include"] = [{"chain": {"id": target_chain}}]
+            config["target_structure"] = target_config
+
+        if ligand_ccd:
+            config["ligands"] = [{"id": "LIG", "ccd": ligand_ccd}]
+
+        if constraints:
+            config["constraints"] = constraints
+
+        return self._generate_yaml(config)
+
+
 class LambdaAdapter(RuntimeAdapter):
-    """Adapter executing Lambda predictions within the current process."""
+    """Adapter executing Lambda predictions within the current process or via Docker.
+
+    Supports two execution modes:
+    - Runtime mode (default): Runs in-process, requires torch/torch_geometric locally
+    - Docker mode: Prepares inputs and runs via Docker container
+
+    Set config["use_docker"] = True to use Docker execution.
+    """
 
     DEFAULT_RUN_ID = "007061"
     DEFAULT_BINDING_CONFIG = Path("grn/configs/binding_domain2.json")
@@ -703,6 +1006,29 @@ class LambdaAdapter(RuntimeAdapter):
         super().__init__(manager)
         self.lambda_root = Path(__file__).resolve().parent / "lambda"
         self._protos_data_root = Path(__file__).resolve().parents[3] / "data"
+
+    def _prepare(
+        self,
+        card: ModelCard,
+        request: "ModelRequest",
+        inputs: List[ArtifactBundle],
+    ) -> ModelInvocation:
+        """Prepare Lambda invocation - runtime or Docker based on config."""
+        use_docker = request.config.get("use_docker", False)
+
+        if use_docker:
+            # Use Docker-based execution
+            job = self.build_job(card, request, inputs)
+            return ModelInvocation(
+                model=card.name,
+                card=card,
+                job=job,
+                inputs=inputs,
+                metadata=dict(job.metadata) if job.metadata else {},
+            )
+        else:
+            # Use in-process runtime (original behavior)
+            return super()._prepare(card, request, inputs)
 
     def run_runtime(
         self,
@@ -1095,6 +1421,164 @@ class LambdaAdapter(RuntimeAdapter):
                 return path
         return search_paths[0]
 
+    def build_job(
+        self,
+        card: ModelCard,
+        request: "ModelRequest",
+        inputs: List[ArtifactBundle],
+    ) -> PreparedJob:
+        """Prepare Lambda inputs for Docker-based execution.
+
+        Creates an input directory with:
+        - aligned_embeddings.npz: Per-residue embeddings keyed by sequence ID
+        - grn_table.csv: GRN annotations with entity_name as index
+        - config.json: Runtime configuration
+
+        Returns a PreparedJob with Docker run command.
+        """
+        import logging
+
+        logger = logging.getLogger("LambdaAdapter")
+
+        # Create job directory
+        job_name = request.config.get("job_name", "lambda_job")
+        job_dir = Path(self.paths.data_root) / "models" / "lambda" / "jobs" / job_name
+        input_dir = job_dir / "input"
+        output_dir = job_dir / "output"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Resolve inputs
+        sequence_bundle = self._require_bundle(inputs, "sequence_dataset")
+        grn_bundle = self._require_bundle(inputs, "grn_table")
+        embedding_bundle = next(
+            (b for b in inputs if b.spec.name == "embedding_dataset"), None
+        )
+
+        sequences: Dict[str, str] = sequence_bundle.metadata.get("sequences", {})
+        grn_table: pd.DataFrame = grn_bundle.metadata.get("table")
+        dataset_name: str = sequence_bundle.metadata.get("dataset") or "lambda_dataset"
+
+        if not sequences:
+            raise ValueError("Lambda adapter requires sequence data")
+        if grn_table is None or grn_table.empty:
+            raise ValueError("Lambda adapter requires a populated GRN table")
+
+        protein_family = request.get_input("protein_family") or request.config.get(
+            "protein_family", "gpcr_a"
+        )
+
+        # Get or compute embeddings
+        embeddings_map: Dict[str, np.ndarray] = {}
+        embedding_model = str(request.config.get("embedding_model", "ankh_large"))
+        embedding_type = str(request.config.get("embedding_type", "per_residue"))
+
+        if embedding_bundle is not None:
+            embeddings_map = embedding_bundle.metadata.get("embeddings", {})
+            logger.info("[lambda] Using provided embeddings: %d entities", len(embeddings_map))
+        else:
+            # Try to compute embeddings via embedding card
+            logger.info("[lambda] Computing embeddings with %s", embedding_model)
+            try:
+                emb_inv = self.manager.prepare(
+                    f"embedding_{embedding_model}",
+                    inputs={"sequence_dataset": dataset_name},
+                    config={"embedding_type": embedding_type},
+                )
+                if emb_inv.runtime:
+                    for b in emb_inv.runtime.artifacts:
+                        if b.spec.kind == "embedding" and b.path.exists():
+                            npz = np.load(b.path, allow_pickle=False)
+                            for key in npz.files:
+                                embeddings_map[key] = np.asarray(npz[key])
+                            break
+            except Exception as exc:
+                logger.warning("[lambda] Failed to compute embeddings: %s", exc)
+
+        if not embeddings_map:
+            raise ValueError(
+                "Lambda adapter requires embeddings. Provide embedding_dataset "
+                "or ensure embedding model dependencies are available."
+            )
+
+        # Align embeddings to GRN positions
+        assignments = build_grn_assignments(grn_table)
+        grn_dict, aligned_embeddings = align_embeddings_to_grn(assignments, embeddings_map)
+
+        if not aligned_embeddings:
+            raise RuntimeError("No embeddings aligned to GRN positions")
+
+        # Write aligned embeddings
+        embeddings_path = input_dir / "aligned_embeddings.npz"
+        np.savez(embeddings_path, **aligned_embeddings)
+        logger.info("[lambda] Wrote embeddings: %s", embeddings_path)
+
+        # Write GRN table (filter to available entities)
+        available_ids = sorted(grn_dict.keys())
+        filtered_table = grn_table.loc[grn_table.index.intersection(available_ids)]
+        grn_path = input_dir / "grn_table.csv"
+        filtered_table.to_csv(grn_path)
+        logger.info("[lambda] Wrote GRN table: %s (%d rows)", grn_path, len(filtered_table))
+
+        # Write config
+        run_config = {
+            "run_id": str(request.config.get("run_id", self.DEFAULT_RUN_ID)),
+            "protein_family": protein_family,
+            "batch_size": int(request.config.get("batch_size", 8)),
+            "collect_attention": bool(request.config.get("collect_attention", False)),
+            "verbose": bool(request.config.get("verbose", False)),
+        }
+        config_path = input_dir / "config.json"
+        with open(config_path, "w", encoding="utf-8") as fh:
+            json.dump(run_config, fh, indent=2)
+
+        # Build Docker command
+        docker_image = request.config.get("docker_image", "protos/lambda:latest")
+        command = [
+            "docker", "run", "--rm",
+            "-v", f"{input_dir}:/srv/run/input:ro",
+            "-v", f"{output_dir}:/srv/run/output",
+            docker_image,
+            "--input", "/srv/run/input",
+            "--outputs", "/srv/run/output",
+            "--config", "/srv/run/input/config.json",
+        ]
+
+        # Add GPU support if requested
+        if request.config.get("use_gpu", False):
+            command.insert(3, "--gpus")
+            command.insert(4, "all")
+
+        job = PreparedJob(
+            command=command,
+            working_dir=job_dir,
+            artifacts=[
+                ArtifactBundle(
+                    spec=ArtifactSpec(
+                        name="lambda_input",
+                        kind="config",
+                        provider="lambda_adapter",
+                        format="directory",
+                    ),
+                    path=input_dir,
+                    metadata={
+                        "job_name": job_name,
+                        "embeddings_file": str(embeddings_path),
+                        "grn_table_file": str(grn_path),
+                        "config_file": str(config_path),
+                    },
+                ),
+            ],
+            metadata={
+                "job_name": job_name,
+                "docker_image": docker_image,
+                "input_dir": str(input_dir),
+                "output_dir": str(output_dir),
+                "run_config": run_config,
+            },
+        )
+        return job
+
 
 class ModelManager:
     """Coordinate model invocations based on ModelCards and adapters."""
@@ -1334,6 +1818,24 @@ class ModelManager:
             output_spec=[],
         )
         self.register_model(boltz_card, BoltzAdapter(self))
+
+        boltzgen_card = ModelCard(
+            name="boltzgen",
+            version="1",
+            description="BoltzGen protein design configuration",
+            execution=ExecutionSpec(mode="external_config", entrypoint="boltz design"),
+            input_spec=[
+                ArtifactSpec(
+                    name="structure_file",
+                    kind="structure",
+                    provider="structure_loader",
+                    format="cif",
+                    optional=True,
+                )
+            ],
+            output_spec=[],
+        )
+        self.register_model(boltzgen_card, BoltzGenAdapter(self))
 
         # Embedding runtime cards (delegated to embedding_runtime.run_embedding)
         for emb_model in ("esm2_t12_35m", "ankh_large", "esm2_t33_650m"):

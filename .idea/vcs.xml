@@ -2,6 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/protos/models/boltz" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/protos/models/boltzgen" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/protos/models/lambda" vcs="Git" />
   </component>
 </project>
