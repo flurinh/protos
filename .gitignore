@@ -33,4 +33,6 @@ tests/
 # Project folders (if temporary)
 projects
 
+src/protos/models
+
 protos/models/lambda
