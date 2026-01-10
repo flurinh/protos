@@ -192,8 +192,11 @@ def init_aligner(match_score=2, mismatch_score=-2, extend_gap_score=-.05, open_g
     aligner.mismatch_score = mismatch_score
     aligner.open_gap_score = open_gap_score
     aligner.extend_gap_score = extend_gap_score
-    aligner.target_end_gap_score = 0.0
-    aligner.query_end_gap_score = 0.0
+    # Use new attribute names (Biopython >= 1.82)
+    # Old names: target_end_gap_score, query_end_gap_score
+    # New names: end_insertion_score, end_deletion_score
+    aligner.end_insertion_score = 0.0
+    aligner.end_deletion_score = 0.0
     aligner.substitution_matrix = updated_matrix
     return aligner
 
