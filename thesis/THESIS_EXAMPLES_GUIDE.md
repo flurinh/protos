@@ -1,10 +1,63 @@
 # ProtOS Thesis Examples - Comprehensive Guide
 
-**Last Updated:** 2026-01-11
+**Last Updated:** 2026-01-12
 **Status:** 8 Processor Examples + 4 Advanced Workflows = COMPLETE
 
 This document serves as the complete reference for all thesis examples, their outputs,
 figures, and the story they tell about ProtOS capabilities.
+
+---
+
+## The Big Picture: Information Flow
+
+The examples demonstrate how data flows through ProtOS processors to answer increasingly
+complex biological questions. Each processor transforms or enriches data, and outputs
+from one processor become inputs to another.
+
+```
+                                    ┌─────────────────────────────────┐
+                                    │     ADVANCED WORKFLOWS          │
+                                    │  (Multi-processor pipelines)    │
+                                    └─────────────────────────────────┘
+                                               ▲
+         ┌─────────────────────────────────────┼─────────────────────────────────────┐
+         │                                     │                                     │
+         ▼                                     ▼                                     ▼
+┌─────────────────┐              ┌─────────────────┐              ┌─────────────────┐
+│  PropertyProc   │◄────────────►│  EmbeddingProc  │◄────────────►│   GraphProc     │
+│  (annotations)  │              │  (pLM vectors)  │              │  (contacts)     │
+└────────┬────────┘              └────────┬────────┘              └────────┬────────┘
+         │                                │                                │
+         │         ┌──────────────────────┼──────────────────────┐        │
+         │         │                      │                      │        │
+         ▼         ▼                      ▼                      ▼        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              GRNProcessor                                        │
+│                     (Generic Residue Numbers - cross-family mapping)             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                          ▲
+                    ┌─────────────────────┼─────────────────────┐
+                    │                     │                     │
+                    ▼                     ▼                     ▼
+         ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
+         │  SequenceProc   │   │  StructureProc  │   │  MoleculeProc   │
+         │  (FASTA, BLAST) │   │  (PDB, mmCIF)   │   │  (SMILES, FP)   │
+         └─────────────────┘   └─────────────────┘   └─────────────────┘
+                    ▲                     ▲                     ▲
+                    │                     │                     │
+                    └─────────────────────┼─────────────────────┘
+                                          │
+                              ┌───────────────────────┐
+                              │     ModelManager      │
+                              │ (External compute:    │
+                              │  Boltz2, ESM2, etc.)  │
+                              └───────────────────────┘
+```
+
+**Key Insight:** Understanding at one level enables applications at another:
+- Sequence similarity → Embedding clustering → Functional prediction
+- Structure analysis → GRN annotation → Cross-family comparison
+- Mechanism understanding → Ligand design → Drug discovery
 
 ---
 
@@ -21,10 +74,10 @@ The examples follow a logical progression:
 3. **ModelManager** - Orchestrate computational jobs for external compute
 
 4. **Advanced Workflows** - Combine processors to answer real biological questions:
-   - GPCR binding mechanisms
-   - pLM-enriched structural graphs
-   - Spectral tuning mutations
-   - Light-activated enzyme design
+   - **GPCR Mechanism** → Understanding enables drug design
+   - **pLM-Enriched Graphs** → Data structures for AI models
+   - **Prey Vision Enhancement** → Evolution of color vision
+   - **Light-Controlled Chemistry** → Spatiotemporal reaction control
 
 ---
 
@@ -49,7 +102,8 @@ thesis/
 │   ├── gpcr_binding_pocket_workflow.py
 │   ├── plm_graph_workflow.py
 │   ├── redshift_mutation_workflow.py
-│   └── rhodozyme_design_workflow.py
+│   ├── rhodozyme_design_workflow.py
+│   └── pymol_rhodozyme_visualization.py
 │
 └── outputs/                     # Data outputs by processor/workflow
 ```
@@ -65,23 +119,28 @@ These processors handle the fundamental biological data types.
 ## 1. SequenceProcessor
 **File:** `processors/sequence_processor_example.py`
 
-**Question:** "What is the sequence diversity across cone opsin types?"
+**Question:** "What is the sequence diversity across cone opsin spectral types?"
 
 **Connection to Other Processors:** This example creates the `cone_opsin_diversity` dataset
-that feeds directly into the EmbeddingProcessor example, demonstrating cross-processor data flow.
+(200 sequences) that feeds directly into the EmbeddingProcessor example, demonstrating
+cross-processor data flow. The same dataset is used by PropertyProcessor to associate
+experimental spectral measurements.
 
 **What It Does:**
-- Downloads human cone opsin query sequences (SW/MW/LW)
-- Runs separate NCBI BLAST searches for each spectral type
-- Fetches ~150 homolog sequences and annotates by opsin type
-- Creates dataset with spectral type annotations for downstream analysis
+- Downloads human cone opsin query sequences (SW and LW)
+- Runs NCBI BLAST searches for each spectral type (100 hits each)
+- Fetches 200 homolog sequences and annotates by opsin type
+- Computes all-vs-all sequence similarity using MMseqs2
+- Creates phylogenetic tree showing spectral type clustering
 
-**Model System:** 3 query opsins → ~150 total sequences
-| Gene | Type | λmax | Description |
-|------|------|------|-------------|
-| OPN1SW | short_wave | 420 nm | Blue cone opsin |
-| OPN1MW | medium_wave | 530 nm | Green cone opsin |
-| OPN1LW | long_wave | 560 nm | Red cone opsin |
+**Model System:** 2 query opsins → 200 total sequences
+| Gene | Type | λmax | Hits |
+|------|------|------|------|
+| OPN1SW | short_wave | 420 nm | 100 |
+| OPN1LW | long_wave | 560 nm | 100 |
+
+**Note:** Medium wave (OPN1MW) was removed because LW and MW are difficult to distinguish
+spectrally and phylogenetically - this is central to the Prey Vision workflow!
 
 **ProtOS Capabilities:**
 - `SequenceLoader.download_and_register()` - UniProt download
@@ -95,13 +154,21 @@ that feeds directly into the EmbeddingProcessor example, demonstrating cross-pro
 |--------|-------------|
 | `sequence_opsin_diversity.png` | Pie chart by type + identity box plots |
 | `sequence_blast_scatter.png` | Identity vs E-value by opsin type |
-| `sequence_phylogenetic_tree.png` | Dendrogram colored by opsin type (no leaf labels) |
+| `sequence_phylogenetic_tree.png` | Dendrogram colored by opsin type |
 
 **Key Results:**
-- ~50 sequences per opsin type from SwissProt
-- MMseqs2 all-vs-all similarity → distance matrix → phylogenetic tree
-- Tree shows clear separation of SW/MW/LW clades
+- 100 sequences per opsin type from SwissProt
+- Clear separation of SW (blue) and LW (red) clades
 - Dataset annotated with opsin_type for EmbeddingProcessor
+
+**Data Flow:**
+```
+SequenceProcessor → cone_opsin_diversity dataset
+                         ↓
+              EmbeddingProcessor (clustering)
+                         ↓
+              PropertyProcessor (spectral values)
+```
 
 ---
 
@@ -145,9 +212,11 @@ that feeds directly into the EmbeddingProcessor example, demonstrating cross-pro
 
 **Question:** "Which compounds are similar to carazolol (the inverse agonist in 2RH1)?"
 
-**Connection to Workflows:** Carazolol is the crystallographic inverse agonist in 2RH1,
-the key structure from the GPCR binding workflow. This search finds structurally related
-beta-blockers and adrenergic ligands.
+**Connection to GPCR Workflow:** Carazolol is the crystallographic inverse agonist in 2RH1,
+analyzed in the GPCR binding workflow. Once we understand *why* carazolol acts as an
+inverse agonist (binding closer to W6.48), we can use MoleculeProcessor to find
+structurally similar compounds that might share this mechanism - or deliberately
+search for compounds with different binding modes.
 
 **What It Does:**
 - Registers query ligand (carazolol from 2RH1 structure)
@@ -181,6 +250,10 @@ beta-blockers and adrenergic ligands.
 - Beta-blockers cluster together, agonists separate
 - Clear pharmacological class separation by structure
 
+**Insight:** Structure similarity predicts pharmacological class, but mechanism
+understanding (from GPCR workflow) reveals *why* - the binding pose matters more
+than the scaffold.
+
 ---
 
 # PART II: DERIVED DATA PROCESSORS
@@ -193,6 +266,11 @@ These processors build on basic data with specialized annotations.
 **File:** `processors/grn_processor_example.py`
 
 **Question:** "What are the conserved positions in beta-adrenergic receptors?"
+
+**Why GRN Matters:** Generic Residue Numbers enable comparison across GPCRs with
+<30% sequence identity. Position "6.48" in any Class A GPCR is the same functional
+position - the "toggle switch" tryptophan. This is essential for the GPCR workflow
+where we compare 8 structures across 2 receptor subtypes.
 
 **What It Does:**
 - Downloads 6 beta-AR sequences from UniProt
@@ -219,23 +297,26 @@ These processors build on basic data with specialized annotations.
 ## 5. PropertyProcessor
 **File:** `processors/property_processor_example.py`
 
-**Question:** "What is the absorption maximum (lambda_max) for these opsins?"
+**Question:** "What is the absorption maximum (lambda_max) for cone opsins in our dataset?"
 
 **Design Principle:** Store ANY annotation/property for ANY registered entity.
 The PropertyProcessor creates a unified interface for experimental measurements,
 computed predictions, and custom metadata - all linked to entities by name.
 
-**Connection to Workflows:** In the Red-Shift Mutation workflow, predicted lambda_max
-values are stored using PropertyProcessor - demonstrating that predictions become
-*associated data*, not just outputs. This enables querying predicted vs experimental values.
+**Connection to Workflows:** In the Prey Vision workflow, predicted lambda_max
+values from the LAMBDA model are stored using PropertyProcessor. This means
+predictions become *associated data*, not just outputs - enabling queries like
+"which mutations shift lambda_max by more than 5 nm?"
 
 **What It Does:**
-- Records experimental spectral properties for 12 opsins
-- Links properties to sequence entities by name
-- Filters by property values (UV-sensitive, long-wavelength)
-- Creates spectral sensitivity visualizations and property table
+- Loads annotations from the cone opsin dataset
+- Matches known spectral data to sequences in the dataset
+- Records properties linked to sequence entities
+- Creates spectral sensitivity visualizations
 
-**Model System:** 12 opsins with lambda_max values (360-568 nm)
+**Model System:** Subset of 200 cone opsins with known lambda_max values
+- Short wave (blue): ~360-440 nm
+- Long wave (red): ~555-565 nm
 
 **ProtOS Capabilities:**
 - `PropertyProcessor.record_properties()` - Store entity-linked properties
@@ -245,13 +326,20 @@ values are stored using PropertyProcessor - demonstrating that predictions becom
 **Key Figures:**
 | Figure | Description |
 |--------|-------------|
-| `property_spectral.png` | Lambda_max bar + box plot by type |
-| `property_sensitivity.png` | Gaussian curves on visible spectrum |
-| `property_table.png` | Property table with wavelength-colored cells |
+| `property_sensitivity.png` | Gaussian curves on visible spectrum, colored by type |
 
 **Key Results:**
-- UV-sensitive: OPSB_MOUSE (360 nm), OPN5_HUMAN (380 nm)
-- Long-wavelength: OPSR_HUMAN (560 nm), BRHOD_HALSA (568 nm)
+- Properties successfully linked to registered sequence entities
+- Spectral types clearly separated by lambda_max
+- Demonstrates partial coverage (not all sequences have measurements)
+
+**Data Flow:**
+```
+PropertyProcessor stores:
+  - Experimental lambda_max (from literature)
+  - Predicted lambda_max (from LAMBDA model in Workflow 3)
+  - Any future annotations (binding affinity, stability, etc.)
+```
 
 ---
 
@@ -260,19 +348,23 @@ values are stored using PropertyProcessor - demonstrating that predictions becom
 
 **Question:** "Do cone opsins cluster by spectral type in embedding space?"
 
-**Connection to SequenceProcessor:** This example loads the `cone_opsin_diversity` dataset
-created by the SequenceProcessor example, demonstrating cross-processor data flow.
+**Connection to SequenceProcessor:** Loads the `cone_opsin_diversity` dataset
+(200 sequences: 100 SW + 100 LW) created by the SequenceProcessor example.
 
-**Insight:** Sequences with similar function may cluster in embedding space even when
-sequence identity is not the highest predictor - pLMs capture functional relationships.
+**Connection to Workflow 2:** The pLM-enriched graph workflow uses per-residue
+embeddings to create node features for structural graphs. This example shows
+sequence-level (mean-pooled) embeddings; the workflow extends to residue-level.
+
+**Insight:** Sequences with similar function cluster in embedding space,
+demonstrating that pLMs capture functional relationships beyond sequence identity.
 
 **What It Does:**
-- Loads ~150 cone opsin sequences from SequenceProcessor dataset
-- Generates ESM2 embeddings for all sequences
-- Compares sequence identity vs embedding similarity by opsin type
-- Creates t-SNE visualization showing spectral type clustering
+- Loads 200 cone opsin sequences from SequenceProcessor dataset
+- Generates ESM2 embeddings (mean pooled per sequence)
+- Creates t-SNE visualization colored by opsin type
+- Creates similarity heatmap with 2x2 block structure showing SW vs LW clustering
 
-**Model System:** ~150 cone opsins from SequenceProcessor (short/medium/long wave)
+**Model System:** 200 cone opsins (100 short_wave + 100 long_wave)
 
 **ProtOS Capabilities:**
 - `SequenceProcessor.load_dataset()` - Load dataset from another processor
@@ -282,14 +374,13 @@ sequence identity is not the highest predictor - pLMs capture functional relatio
 **Key Figures:**
 | Figure | Description |
 |--------|-------------|
-| `embedding_tsne.png` | t-SNE colored by opsin type (blue/green/red) |
-| `embedding_similarity_analysis.png` | Same-type vs different-type similarity |
-| `embedding_heatmap.png` | Pairwise similarity heatmap |
+| `embedding_tsne.png` | t-SNE colored by opsin type (blue/red) |
+| `embedding_heatmap.png` | Pairwise similarity with 2x2 block structure, colored axis ticks |
 
 **Key Results:**
-- Same-type pairs have higher embedding similarity than different-type pairs
-- t-SNE shows clear clustering by spectral sensitivity (SW/MW/LW)
-- ESM2 embeddings capture functional relationships beyond sequence identity
+- Clear 2x2 block structure in similarity heatmap (SW-SW, SW-LW, LW-SW, LW-LW)
+- t-SNE shows clear clustering by spectral sensitivity
+- ESM2 embeddings capture functional relationships
 
 ---
 
@@ -297,6 +388,10 @@ sequence identity is not the highest predictor - pLMs capture functional relatio
 **File:** `processors/graph_processor_example.py`
 
 **Question:** "How do residues around retinal interact in bacteriorhodopsin?"
+
+**Connection to Workflow 2:** The pLM-enriched graph workflow combines this
+structural contact information with per-residue embeddings, creating multi-modal
+representations suitable for graph neural networks.
 
 **What It Does:**
 - Downloads bacteriorhodopsin structure (1C3W)
@@ -362,99 +457,385 @@ sequence identity is not the highest predictor - pLMs capture functional relatio
 # PART IV: ADVANCED WORKFLOWS
 
 Each workflow combines multiple processors to answer a biological question.
-Overview figures (showing processor connections) will be provided separately.
+The workflows are interconnected - understanding from one enables applications in another.
 
 ---
 
 ## Workflow 1: GPCR Binding Pocket Mechanism
 **File:** `workflows/gpcr_binding_pocket_workflow.py`
 
-**Question:** "What differentiates agonist vs inverse agonist binding in histamine receptors?"
+### The Question
+"What is the molecular basis for agonist vs inverse agonist vs antagonist action?"
 
-**Processors:** Structure -> GRN -> Analysis
+The same receptor protein (ADRB2) can be activated (agonist), inhibited below basal
+activity (inverse agonist), or blocked without changing basal activity (antagonist).
+What structural features determine these different outcomes?
 
-**Story:** Uses GRN numbering to compare binding pockets across receptor states,
-revealing how ligand type correlates with specific residue movements.
+### Real-World Impact
+Understanding GPCR mechanisms enables:
+- **Drug design:** Design ligands with specific signaling profiles
+- **Biased agonism:** Create drugs that activate only beneficial pathways
+- **Side effect prediction:** Understand why similar compounds have different effects
 
-**Key Figures:**
+### Connection to MoleculeProcessor
+Once we understand the mechanism (inverse agonists bind closer to W6.48), we can
+return to MoleculeProcessor to search for compounds that match or avoid this pattern.
+The carazolol similarity search gains new meaning - compounds with similar scaffolds
+but different binding poses may have opposite effects.
+
+### Processors Used
+```
+StructureProcessor → Load 8 GPCR structures
+        ↓
+annotate_with_grn() → Map residues to GRN positions
+        ↓
+LigandInteractionAnalyzer → Find binding residues
+        ↓
+Hypothesis Testing → Compare distances by ligand type
+        ↓
+PropertyProcessor → Store results for future queries
+```
+
+### Model System: 8 adrenergic receptor structures
+| PDB | Receptor | Ligand | Type | State |
+|-----|----------|--------|------|-------|
+| 3SN6 | ADRB2 | BI-167107 | full_agonist | active |
+| 4LDO | ADRB2 | Adrenaline | full_agonist | active |
+| 2Y02 | ADRB1 | Isoprenaline | full_agonist | active_like |
+| 2Y04 | ADRB1 | Salbutamol | partial_agonist | intermediate |
+| 2Y00 | ADRB1 | Dobutamine | partial_agonist | intermediate |
+| 2RH1 | ADRB2 | Carazolol | inverse_agonist | inactive |
+| 3NY9 | ADRB2 | ICI 118,551 | inverse_agonist | inactive |
+| 2VT4 | ADRB1 | Cyanopindolol | antagonist | inactive |
+
+### Hypotheses Tested
+- **H1:** Agonists bind CLOSER to S5.43 than inverse agonists
+- **H2:** Inverse agonists bind CLOSER to W6.48 (toggle switch) than agonists
+- **H3:** Water at N6.55 is EXCLUSIVE to agonist-bound active structures
+
+### Key Results
+| Hypothesis | Result |
+|------------|--------|
+| H1 | SUPPORTED: Agonists (3.05A) closer to S5.43 than inverse agonists (3.45A) |
+| H2 | SUPPORTED: Inverse agonists (3.43A) closer to W6.48 than agonists (4.34A) |
+| H3 | SUPPORTED: Water at N6.55 only in active states (4LDO, 2Y02) |
+
+### Cycling Back: From Mechanism to Molecules
+```
+GPCR Mechanism Understanding
+        ↓
+"Inverse agonists bind close to W6.48"
+        ↓
+MoleculeProcessor: Search for compounds that:
+  - Similar scaffold but different W6.48 distance → may be agonists
+  - Maximize W6.48 contact → potent inverse agonists
+  - No W6.48 contact → neutral antagonists
+```
+
+### Key Figures
 | Figure | Description |
 |--------|-------------|
-| `binding_pocket_comparison.html` | 3D pocket overlay |
-| `grn_heatmap.png` | Distance matrix at key positions |
-| PyMOL sessions for publication figures |
+| `hypothesis_analysis.html` | Interactive bar charts for H1, H2, H3 |
+| `hypothesis_analysis.png` | Static version for publication |
+| `gpcr_mechanism_analysis.pml` | PyMOL script with GRN selections |
 
 ---
 
 ## Workflow 2: pLM-Enriched Structural Graphs
 **File:** `workflows/plm_graph_workflow.py`
 
-**Question:** "How do sequence embeddings correlate with structural contacts?"
+### The Question
+"How do we create data structures suitable for AI models?"
 
-**Processors:** Structure -> Sequence -> GRN -> Embedding -> Graph
+Modern machine learning on proteins requires multi-modal representations: sequence
+information (what the protein is), structural information (how residues are arranged),
+and functional annotations (what positions matter).
 
-**Story:** Demonstrates multi-modal data integration - combining structural
-contact graphs with pLM embeddings to create enriched representations.
+### Real-World Impact
+Enriched graph representations enable:
+- **Property prediction:** Train GNNs to predict binding affinity, stability, activity
+- **Transfer learning:** Pre-computed embeddings accelerate model training
+- **Multi-task learning:** Same representation for multiple prediction tasks
 
-**Key Figures:**
+### Connection to Other Workflows
+This workflow creates the data structures used by:
+- **Workflow 3 (Prey Vision):** LAMBDA model uses similar sequence+structure features
+- **PropertyProcessor:** Any property can be linked to graph nodes for supervised learning
+
+### The Key Insight
+```
+Traditional: sequence → model → prediction
+Enriched:    sequence + structure + embeddings + properties → model → better prediction
+```
+
+### Processors Used
+```
+StructureProcessor → Load rhodopsin structure
+        ↓
+SequenceProcessor → Extract chain sequence
+        ↓
+GRNProcessor → Annotate functional positions
+        ↓
+EmbeddingProcessor → Generate per-residue pLM embeddings
+        ↓
+GraphProcessor → Build residue contact graph
+        ↓
+Combine → Enriched graph with node features
+```
+
+### What Gets Created
+Each node (residue) in the graph has:
+- **Position features:** 3D coordinates, secondary structure
+- **Sequence features:** Amino acid identity, conservation
+- **Embedding features:** 1536-dim pLM vector (ANKH-large)
+- **Functional annotations:** GRN position, binding pocket membership
+- **Properties:** Lambda_max (if known), any other annotations
+
+Each edge (contact) has:
+- **Distance:** CA-CA distance
+- **Embedding similarity:** Cosine similarity of node embeddings
+
+### Extending to New Properties
+```python
+# Any property can become a training target:
+PropertyProcessor.record_properties("binding_affinity", [
+    {"entity_name": "1U19_A", "Kd": 1.2, "source": "experiment"},
+    {"entity_name": "mutant_K296A", "Kd": 15.3, "source": "predicted"},
+])
+
+# Graph nodes automatically gain this annotation
+# Train a GNN to predict Kd from enriched graph features
+```
+
+### Key Figures
 | Figure | Description |
 |--------|-------------|
-| `plm_graph_3d.html` | 3D graph with embedding-colored nodes |
-| `embedding_contact_correlation.png` | Similarity vs structural distance |
+| `plm_enriched_graph.html` | 3D graph with embedding-colored nodes |
 
 ---
 
-## Workflow 3: Red-Shift Mutation Screen
+## Workflow 3: Prey Vision Enhancement (Red-Shift Mutation Screen)
 **File:** `workflows/redshift_mutation_workflow.py`
 
-**Question:** "Which single mutations could red-shift rhodopsin absorption?"
+### The Biological Story
 
-**Processors:** Structure -> GRN -> Sequence -> Property -> (Boltz2)
+**Why are tigers orange?**
 
-**Story:** Systematic mutation screen in the retinal binding pocket,
-scoring candidates by structural and evolutionary constraints.
+Tigers are orange because their main prey (deer, wild boar) are dichromats - they have
+only two types of cone opsins (SW and LW), not three like humans. To a dichromatic
+animal, orange and green are indistinguishable. The tiger's orange coat is
+*camouflaged* against green foliage from the prey's perspective.
 
-**Key Figures:**
+### The Visualization (3-panel figure)
+
+| Panel | Description |
+|-------|-------------|
+| **Human view** | Tiger in grass - orange clearly visible against green |
+| **Prey view (current)** | Same image through dichromatic filter - tiger blends with grass |
+| **Prey view (enhanced)** | With red-shifted opsin - tiger becomes visible |
+
+### The Question
+"Can we engineer a mutation that would give prey animals the ability to see tigers?"
+
+### The Approach
+1. Start with prey's LW opsin (absorbs ~560 nm)
+2. Screen mutations that red-shift absorption toward green sensitivity
+3. A duplicated, shifted opsin would create MW-like sensitivity
+4. Dichromat → Trichromat-like = ability to distinguish orange from green
+
+### Processors Used
+```
+StructureProcessor → Load rhodopsin structure
+        ↓
+GRNProcessor → Identify binding pocket positions
+        ↓
+Generate mutations → In silico mutagenesis
+        ↓
+EmbeddingProcessor → Per-residue features
+        ↓
+LAMBDA model → Predict lambda_max shift
+        ↓
+PropertyProcessor → Store predictions
+        ↓
+Rank candidates → Best mutations for enhanced vision
+```
+
+### Key Results
+| Mutation | λmax (nm) | Shift | Progress to Green |
+|----------|-----------|-------|-------------------|
+| L114S | 451.1 | +8.7 nm | 11% |
+| L114G | 447.6 | +5.3 nm | 7% |
+| F93I | 445.4 | +3.1 nm | 4% |
+| Wild-type | 442.3 | - | 0% |
+
+**Biological Interpretation:** Single mutations achieve modest shifts. Evolution
+of trichromacy likely required multiple mutations accumulated over time.
+
+### Real-World Connection
+This workflow demonstrates:
+- **Gene duplication + divergence:** How new sensory capabilities evolve
+- **Structure-function relationships:** Why specific positions affect absorption
+- **Computational screening:** Test hypotheses before expensive experiments
+
+### Key Figures
 | Figure | Description |
 |--------|-------------|
-| `redshift_candidates.png` | Ranked mutation scores |
-| `binding_pocket_mutations.html` | 3D view of mutation sites |
+| `prey_vision_enhancement.html` | Mutation screen results |
+| `tiger_trichromat.png` | Human view (to be added) |
+| `tiger_dichromat.png` | Prey view - camouflaged (to be added) |
+| `tiger_enhanced.png` | Enhanced prey view (to be added) |
 
 ---
 
-## Workflow 4: Rhodozyme Light-Activated Enzyme Design
+## Workflow 4: Rhodozyme - Light-Activated Enzyme Design
 **File:** `workflows/rhodozyme_design_workflow.py`
+**Visualization:** `workflows/pymol_rhodozyme_visualization.py`
 
-**Question:** "Can we design a light-activated enzyme using rhodopsin's conformational change?"
+### The Vision: Light-Controlled Chemistry
 
-**Processors:** Structure -> GRN -> Geometry matching -> Design ranking
+Imagine a single reaction vessel where you control multiple chemical reactions
+with light. Different wavelengths activate different enzymes. Reactions happen
+only where and when you shine the light.
 
-**Story:** Places catalytic triads (trypsin, chymotrypsin, papain, subtilisin)
-on GPCR helices that move during activation, creating "rhodozymes" that
-should be active only in one conformational state.
+**Spatiotemporal control:**
+- Step 1: Blue light → Protease cleaves substrate
+- Step 2: Green light → Ligase joins fragments
+- Step 3: Red light → Kinase adds phosphate
 
-**Key Innovation:** Requires at least one catalytic residue on TM5 or TM6
-(the helices that move 3-14A during GPCR activation).
+All in one container, controlled by light patterns.
 
-**Key Figures:**
+### The Question
+"Can we design an enzyme that is active only when illuminated?"
+
+### The Mechanism
+GPCRs undergo large conformational changes upon activation:
+- TM5 moves ~3Å
+- TM6 moves ~14Å outward
+- These movements are triggered by light (in rhodopsin) or ligand binding
+
+**The Rhodozyme Concept:**
+Place a catalytic triad on GPCR helices such that:
+- In dark state: Triad geometry is disrupted → inactive
+- In light state: Helices move, triad aligns → active
+
+### Processors Used
+```
+StructureProcessor → Load active rhodopsin (3PQR)
+        ↓
+GRNProcessor → Map helix positions
+        ↓
+For each enzyme (trypsin, chymotrypsin, papain, subtilisin):
+        ↓
+  Extract catalytic triad geometry
+        ↓
+  Screen GPCR surface for matching geometry
+        ↓
+  Require ≥1 residue on TM5 or TM6 (dynamic helices)
+        ↓
+  Rank by geometric fit + placement
+        ↓
+ModelManager → Prepare Boltz2 jobs for structure prediction
+```
+
+### Design Constraint
+At least one catalytic residue must be on TM5 or TM6 (the helices that move
+during activation). This ensures the catalytic geometry changes with light.
+
+### Key Results
+| Enzyme | Best Design | Score | Dynamic Helix Residues |
+|--------|-------------|-------|------------------------|
+| Trypsin | Rhodozyme-TRP_01 | 4.61 | F230(TM5), Q246(TM6) |
+| Chymotrypsin | Rhodozyme-CHY_01 | 4.69 | F230(TM5), Q246(TM6) |
+| Papain | Rhodozyme-PAP_01 | 4.37 | V139(TM3), F230(TM5) |
+| Subtilisin | Rhodozyme-SUB_01 | 4.84 | V139(TM3), F230(TM5) |
+
+**31 total designs** across 4 enzyme types, all with residues on dynamic helices.
+
+### Real-World Applications
+- **Prodrug activation:** Light-triggered drug release in tumors
+- **Biosensors:** Enzyme activity reports on illumination
+- **Synthetic biology:** Light-controlled metabolic pathways
+- **Biomanufacturing:** Precise reaction timing without chemical additives
+
+### Next Steps
+1. Boltz2 structure prediction of chimeras
+2. Verify catalytic geometry in both states
+3. Molecular dynamics of light-induced conformational change
+4. Experimental validation
+
+### Key Figures
 | Figure | Description |
 |--------|-------------|
-| PyMOL visualization script | Active vs inactive triad geometry |
-| Design summary tables | Per-enzyme ranked designs |
-
-**Key Results:**
-- 31 designs across 4 enzyme types
-- Best: Rhodozyme-SUB_01 (subtilisin, score=4.84)
-- All designs have residues on dynamic helices (TM5/TM6)
+| `rhodozyme_designs_combined.html` | All designs with scores |
+| PyMOL script | Active vs inactive triad geometry |
 
 ---
 
-## Figure Quality Notes
+## Running All Examples
 
-Current figures are functional drafts. For publication:
-- Increase font sizes
-- Standardize color schemes
-- Add proper axis labels and legends
-- Consider PyMOL for structural figures
+To run all processor examples:
+```bash
+cd thesis/processors
+for f in *_example.py; do python "$f"; done
+```
+
+To run all workflows:
+```bash
+cd thesis/workflows
+python gpcr_binding_pocket_workflow.py
+python plm_graph_workflow.py
+python redshift_mutation_workflow.py
+python rhodozyme_design_workflow.py
+```
+
+---
+
+## Information Flow Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              THE CYCLE OF UNDERSTANDING                          │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+     STRUCTURE                    MECHANISM                     APPLICATION
+         │                            │                              │
+         ▼                            ▼                              ▼
+  Load structures ──────────► Analyze binding ──────────► Design new molecules
+  (StructureProc)              (GPCR workflow)            (MoleculeProc)
+         │                            │                              │
+         │                            ▼                              │
+         │                    Test hypotheses                        │
+         │                    (H1, H2, H3)                          │
+         │                            │                              │
+         └────────────────────────────┼──────────────────────────────┘
+                                      │
+                                      ▼
+                          PREDICT NEW PROPERTIES
+                             (PropertyProc)
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    │                 │                 │
+                    ▼                 ▼                 ▼
+             Spectral shift    Binding affinity    Enzyme activity
+             (Workflow 3)      (future work)       (Workflow 4)
+```
+
+### Key Connections
+
+1. **SequenceProcessor → EmbeddingProcessor → PropertyProcessor**
+   - Sequences get embeddings, embeddings predict properties
+
+2. **StructureProcessor → GRNProcessor → Cross-family comparison**
+   - GRN enables comparison of structures with <30% sequence identity
+
+3. **GPCR Mechanism → MoleculeProcessor → Drug Design**
+   - Understanding binding modes guides molecular similarity searches
+
+4. **GraphProcessor + EmbeddingProcessor → AI Training Data**
+   - Enriched representations enable machine learning
+
+5. **All Workflows → PropertyProcessor → Queryable Results**
+   - Every prediction becomes associated data for future queries
 
 ---
 
@@ -474,3 +855,13 @@ Current figures are functional drafts. For publication:
    - Examples answer real questions
    - Model systems chosen for insight
    - Results connect to experimental data
+
+4. **ProtOS Utilities Throughout**
+   - Use ProtOS functions for each analytical step
+   - Avoid custom implementations when ProtOS provides the functionality
+   - GRN annotation, ligand analysis, etc. all via ProtOS
+
+5. **Information Flows, Understanding Accumulates**
+   - Each workflow builds on previous understanding
+   - Results become inputs to future analyses
+   - The whole is greater than the sum of parts

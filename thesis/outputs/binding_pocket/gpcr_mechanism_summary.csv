@@ -1,9 +1,9 @@
-pdb_id,receptor,ligand,ligand_type,state,H1_S543_dist,H2_W648_dist,H3_water,H3_water_dist
-3SN6,ADRB2,BI-167107,full_agonist,active,14.0,36.46,False,
-4LDO,ADRB2,Adrenaline,full_agonist,active,,,False,
-2Y02,ADRB1,Isoprenaline,full_agonist,active_like,14.2,27.46,False,
-2Y04,ADRB1,Salbutamol,partial_agonist,intermediate,14.12,27.03,False,
-2Y00,ADRB1,Dobutamine,partial_agonist,intermediate,14.15,27.71,False,
-2RH1,ADRB2,Carazolol,inverse_agonist,inactive,9.78,30.45,False,
-3NY9,ADRB2,"ICI 118,551",inverse_agonist,inactive,11.87,23.82,True,3.34
-2VT4,ADRB1,Cyanopindolol,antagonist,inactive,6.52,9.21,False,16.18
+pdb_id,receptor,ligand,ligand_type,state,grn_5.43_resid,grn_6.48_resid,grn_6.55_resid,H1_S543_dist,H2_W648_dist,H3_water,H3_water_dist
+3SN6,ADRB2,BI-167107,full_agonist,active,203,286,293,2.82,4.44,False,
+4LDO,ADRB2,Adrenaline,full_agonist,active,1203,1286,1293,3.25,4.56,True,2.91
+2Y02,ADRB1,Isoprenaline,full_agonist,active_like,211,303,310,3.08,4.02,True,3.36
+2Y04,ADRB1,Salbutamol,partial_agonist,intermediate,211,303,310,3.22,4.02,False,8.6
+2Y00,ADRB1,Dobutamine,partial_agonist,intermediate,211,303,310,3.17,5.26,False,8.64
+2RH1,ADRB2,Carazolol,inverse_agonist,inactive,203,286,293,3.32,3.42,False,9.1
+3NY9,ADRB2,"ICI 118,551",inverse_agonist,inactive,203,286,293,3.58,3.44,False,8.51
+2VT4,ADRB1,Cyanopindolol,antagonist,inactive,211,303,310,2.72,3.58,False,8.71

@@ -1,32 +1,33 @@
 #!/usr/bin/env python3
 """GPCR Binding Pocket Workflow: Comprehensive Mechanism Analysis.
 
-This workflow demonstrates:
-- Analyzing 8 adrenergic receptor structures (ADRB1 + ADRB2)
-- GRN-annotated ligand-protein interactions
-- Agonist vs antagonist vs inverse agonist binding patterns
+This workflow demonstrates ProtOS capabilities for GPCR structure analysis:
+- Loading and annotating structures with GRN (Generic Residue Numbers)
+- Ligand interaction analysis using ProtOS utilities
 - Hypothesis testing for activation mechanisms
+- PyMOL visualization generation
 
-Structures analyzed:
-  ADRB2:
-    - 3SN6: full_agonist (BI-167107 + Gs), active
-    - 4LDO: full_agonist (adrenaline + Nb6B9), active
-    - 2RH1: inverse_agonist (carazolol), inactive
-    - 3NY9: inverse_agonist (ICI 118,551), inactive
-
-  ADRB1:
-    - 2Y02: full_agonist (isoprenaline), active_like
-    - 2Y04: partial_agonist (salbutamol), intermediate
-    - 2Y00: partial_agonist (dobutamine), intermediate
-    - 2VT4: antagonist (cyanopindolol), inactive
+Structures analyzed (8 adrenergic receptors):
+  ADRB2 (full agonists, active):
+    - 3SN6: BI-167107 + Gs protein
+    - 4LDO: Adrenaline + Nb6B9 nanobody
+  ADRB1 (full agonist, active-like):
+    - 2Y02: Isoprenaline
+  ADRB1 (partial agonists, intermediate):
+    - 2Y04: Salbutamol
+    - 2Y00: Dobutamine
+  ADRB2 (inverse agonists, inactive):
+    - 2RH1: Carazolol
+    - 3NY9: ICI 118,551
+  ADRB1 (antagonist, inactive):
+    - 2VT4: Cyanopindolol
 
 Hypotheses tested:
-  H1: Agonists bind CLOSER to S5.43 (serine) than inverse agonists
+  H1: Agonists bind CLOSER to S5.43 than inverse agonists
   H2: Inverse agonists bind CLOSER to W6.48 (toggle switch) than agonists
   H3: Water at N6.55 is EXCLUSIVE to agonist-bound active structures
 
-Processors: Structure -> Sequence -> GRN -> Property
-Question: "How do ligand types differ in binding mechanisms?"
+Processors used: Structure -> GRN annotation -> Ligand Analysis -> Property
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Set, Tuple
+from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
 
 import pandas as pd
@@ -71,16 +72,12 @@ logger = logging.getLogger(__name__)
 
 import protos
 from protos.processing.structure import StructureProcessor
-from protos.processing.sequence import SequenceProcessor
+from protos.processing.structure.ligand_interactions import LigandInteractionAnalyzer
 from protos.io.ingest.structure_loader import StructureLoader
-from protos.analysis.structure_ligand_analysis import (
-    extract_all_ligands,
-    get_binding_site,
-)
 
 
 # =============================================================================
-# Structure Configuration: 8 Adrenergic Receptor Structures
+# Structure Configuration
 # =============================================================================
 STRUCTURES: Dict[str, Dict[str, Any]] = {
     # ADRB2 - Full Agonists (Active)
@@ -91,9 +88,7 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "full_agonist",
         "state": "active",
         "receptor": "ADRB2",
-        "doi": "10.1038/nature10361",
-        "notes": "BI-167107 + Gs protein, fully active (Rasmussen 2011)",
-        "color": "#2ca02c",  # Green
+        "color": "forest",
     },
     "4LDO": {
         "chain": "A",
@@ -102,9 +97,7 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "full_agonist",
         "state": "active",
         "receptor": "ADRB2",
-        "doi": "10.1038/nature12572",
-        "notes": "Adrenaline + Nb6B9 nanobody, active state (Ring 2013)",
-        "color": "#98df8a",  # Light green
+        "color": "lime",
     },
     # ADRB1 - Full Agonist (Active-like)
     "2Y02": {
@@ -114,9 +107,7 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "full_agonist",
         "state": "active_like",
         "receptor": "ADRB1",
-        "doi": "10.1038/nature09746",
-        "notes": "Isoprenaline-bound, agonist-induced changes (Warne 2011)",
-        "color": "#17becf",  # Cyan
+        "color": "cyan",
     },
     # ADRB1 - Partial Agonists (Intermediate)
     "2Y04": {
@@ -126,9 +117,7 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "partial_agonist",
         "state": "intermediate",
         "receptor": "ADRB1",
-        "doi": "10.1038/nature09746",
-        "notes": "Salbutamol-bound, intermediate state (Warne 2011)",
-        "color": "#ff7f0e",  # Orange
+        "color": "orange",
     },
     "2Y00": {
         "chain": "A",
@@ -137,9 +126,7 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "partial_agonist",
         "state": "intermediate",
         "receptor": "ADRB1",
-        "doi": "10.1038/nature09746",
-        "notes": "Dobutamine-bound, intermediate state (Warne 2011)",
-        "color": "#ffbb78",  # Light orange
+        "color": "tv_orange",
     },
     # ADRB2 - Inverse Agonists (Inactive)
     "2RH1": {
@@ -149,9 +136,7 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "inverse_agonist",
         "state": "inactive",
         "receptor": "ADRB2",
-        "doi": "10.1126/science.1150577",
-        "notes": "Carazolol-bound, first high-res GPCR (Cherezov 2007)",
-        "color": "#d62728",  # Red
+        "color": "firebrick",
     },
     "3NY9": {
         "chain": "A",
@@ -160,9 +145,7 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "inverse_agonist",
         "state": "inactive",
         "receptor": "ADRB2",
-        "doi": "10.1021/ja105108q",
-        "notes": "ICI 118,551-bound inverse agonist (Wacker 2010)",
-        "color": "#ff9896",  # Light red
+        "color": "salmon",
     },
     # ADRB1 - Antagonist (Inactive)
     "2VT4": {
@@ -172,27 +155,8 @@ STRUCTURES: Dict[str, Dict[str, Any]] = {
         "ligand_type": "antagonist",
         "state": "inactive",
         "receptor": "ADRB1",
-        "doi": "10.1038/nature07101",
-        "notes": "Cyanopindolol-bound, inactive (Warne 2008)",
-        "color": "#9467bd",  # Purple
+        "color": "slate",
     },
-}
-
-# Key GRN positions for binding and hypothesis testing
-KEY_GRN_POSITIONS = {
-    "3.28": "Asp - salt bridge with amine",
-    "3.32": "Asp - key anionic anchor",
-    "3.33": "Val",
-    "3.36": "Thr/Cys",
-    "5.42": "Ser - agonist interaction",
-    "5.43": "Ser - H1: agonist binding marker",
-    "5.46": "Ser - agonist interaction",
-    "6.48": "Trp - H2: toggle switch",
-    "6.51": "Phe",
-    "6.52": "Phe",
-    "6.55": "Asn - H3: water marker",
-    "7.35": "Tyr",
-    "7.39": "Asn",
 }
 
 # Hypothesis-specific GRN positions
@@ -200,27 +164,21 @@ H1_GRN = "5.43"  # Agonists bind closer to S5.43
 H2_GRN = "6.48"  # Inverse agonists bind closer to W6.48 (toggle switch)
 H3_GRN = "6.55"  # Water at N6.55 exclusive to active structures
 
-BINDING_CUTOFF = 5.0  # Angstroms
-WATER_CUTOFF = 3.5    # Angstroms for water contacts
-DATASET_NAME = "gpcr_mechanism_analysis"
-GRN_TABLE_NAME = "gpcr_mechanism_grn"
-REFERENCE_TABLE = "gpcrdb_ref"
-PROTEIN_FAMILY = "gpcr_a"
+BINDING_CUTOFF = 5.0
+WATER_CUTOFF = 3.5
 
 
 # =============================================================================
-# Part 1: Structure Loading and Basic Analysis
+# Step 1: Load Structures using ProtOS
 # =============================================================================
 
-def download_structures() -> Dict[str, pd.DataFrame]:
-    """Download all 8 adrenergic receptor structures from PDB."""
+def load_structures(struct_proc: StructureProcessor) -> Dict[str, pd.DataFrame]:
+    """Load all 8 GPCR structures using ProtOS StructureProcessor."""
     logger.info("=" * 60)
-    logger.info("Step 1: Downloading 8 GPCR structures")
+    logger.info("Step 1: Loading structures via ProtOS")
     logger.info("=" * 60)
 
-    struct_proc = StructureProcessor()
     loader = StructureLoader(processor=struct_proc)
-
     structures = {}
 
     for pdb_id, info in STRUCTURES.items():
@@ -234,7 +192,7 @@ def download_structures() -> Dict[str, pd.DataFrame]:
                 logger.info(f"    Loaded from cache: {len(cached)} atoms")
                 continue
 
-            # Download from PDB
+            # Download via ProtOS
             result = loader.download_and_register(
                 pdb_id,
                 name=pdb_id.lower(),
@@ -254,30 +212,84 @@ def download_structures() -> Dict[str, pd.DataFrame]:
     return structures
 
 
-def extract_ligands_and_binding_sites(
+# =============================================================================
+# Step 2: Annotate Structures with GRN using ProtOS
+# =============================================================================
+
+def annotate_structures_with_grn(
+    struct_proc: StructureProcessor,
     structures: Dict[str, pd.DataFrame],
-) -> Dict[str, Dict[str, Any]]:
-    """Extract ligands and their binding site residues for all structures."""
+) -> Dict[str, pd.DataFrame]:
+    """Annotate each structure with GRN using ProtOS annotate_with_grn."""
     logger.info("=" * 60)
-    logger.info("Step 2: Extracting ligands and binding sites")
+    logger.info("Step 2: GRN annotation via ProtOS")
     logger.info("=" * 60)
 
-    struct_proc = StructureProcessor()
-    binding_data = {}
+    annotated = {}
 
     for pdb_id, df in structures.items():
         info = STRUCTURES[pdb_id]
-        target_ligand = info["ligand"]
+        chain = info["chain"]
 
-        logger.info(f"  {pdb_id} - {info['ligand_name']} ({info['ligand_type']})...")
+        logger.info(f"  {pdb_id} chain {chain}...")
 
         try:
+            # Store in processor for annotation
             struct_proc.frames[pdb_id.lower()] = df
 
-            # Find the target ligand
-            ligands = extract_all_ligands(
-                struct_proc,
+            # Use ProtOS annotate_with_grn - handles sequence extraction,
+            # GRN alignment, and mapping back to structure residues
+            annotated_df = struct_proc.annotate_with_grn(
                 pdb_id.lower(),
+                reference_table="gpcrdb_ref",
+                protein_family="gpcr_a",
+                chains=[chain],
+                save=False,  # Don't overwrite original
+            )
+
+            annotated[pdb_id] = annotated_df
+
+            # Count GRN annotations
+            df_reset = annotated_df.reset_index() if hasattr(annotated_df.index, 'names') else annotated_df
+            grn_count = (df_reset['grn'] != '').sum() if 'grn' in df_reset.columns else 0
+            logger.info(f"    Annotated {grn_count} atoms with GRN")
+
+        except Exception as e:
+            logger.warning(f"    GRN annotation failed: {e}")
+            annotated[pdb_id] = df  # Keep unannotated
+
+    return annotated
+
+
+# =============================================================================
+# Step 3: Ligand Interaction Analysis using ProtOS
+# =============================================================================
+
+def analyze_ligand_interactions(
+    annotated_structures: Dict[str, pd.DataFrame],
+) -> Dict[str, Dict[str, Any]]:
+    """Analyze ligand-protein interactions using ProtOS LigandInteractionAnalyzer."""
+    logger.info("=" * 60)
+    logger.info("Step 3: Ligand interaction analysis via ProtOS")
+    logger.info("=" * 60)
+
+    results = {}
+
+    for pdb_id, df in annotated_structures.items():
+        info = STRUCTURES[pdb_id]
+        target_ligand = info["ligand"]
+        chain = info["chain"]
+
+        logger.info(f"  {pdb_id} - {info['ligand_name']}...")
+
+        try:
+            df_reset = df.reset_index() if hasattr(df.index, 'names') else df
+
+            # Use ProtOS LigandInteractionAnalyzer
+            analyzer = LigandInteractionAnalyzer(df_reset)
+
+            # Extract the target ligand
+            ligands = analyzer.extract_ligands(
                 exclude_common=True,
                 allowed_res_names={target_ligand},
             )
@@ -287,132 +299,96 @@ def extract_ligands_and_binding_sites(
                 continue
 
             ligand_info = ligands[0]
+            ligand_atoms = ligand_info["atoms"]
 
-            # Get binding site
-            binding_site = get_binding_site(
-                struct_proc,
-                pdb_id.lower(),
-                ligand_info["atoms"],
+            # Get binding site residues via ProtOS
+            binding_residues = analyzer.get_binding_site_residues(
+                ligand_atoms,
                 cutoff=BINDING_CUTOFF,
-                include_backbone=True,
             )
 
-            binding_residues = binding_site.get("residues", pd.DataFrame())
-            n_residues = len(binding_residues) if isinstance(binding_residues, pd.DataFrame) else 0
+            if binding_residues.empty:
+                logger.warning(f"    No binding residues found")
+                continue
 
-            logger.info(f"    Ligand: {ligand_info['num_atoms']} atoms, Binding site: {n_residues} residues")
+            # Map binding residues to GRN using the annotated structure
+            grn_mapping = {}
+            if 'grn' in df_reset.columns:
+                chain_atoms = df_reset[df_reset['auth_chain_id'] == chain]
+                for _, row in binding_residues.iterrows():
+                    res_id = row['res_id']
+                    res_atoms = chain_atoms[chain_atoms['auth_seq_id'] == res_id]
+                    if not res_atoms.empty:
+                        grn = res_atoms['grn'].iloc[0]
+                        if grn and grn != '':
+                            grn_mapping[res_id] = grn
 
-            binding_data[pdb_id] = {
+            binding_residues['grn'] = binding_residues['res_id'].map(grn_mapping)
+
+            logger.info(f"    Ligand: {ligand_info['num_atoms']} atoms")
+            logger.info(f"    Binding residues: {len(binding_residues)}")
+            logger.info(f"    GRN-annotated: {sum(binding_residues['grn'].notna())}")
+
+            results[pdb_id] = {
                 "ligand": ligand_info,
-                "binding_site": binding_site,
-                "structure_info": info,
-                "n_binding_residues": n_residues,
+                "binding_residues": binding_residues,
+                "grn_mapping": grn_mapping,
+                "annotated_structure": df_reset,
+                "chain": chain,
             }
 
         except Exception as e:
-            logger.warning(f"    Failed: {e}")
+            logger.warning(f"    Analysis failed: {e}")
+            import traceback
+            traceback.print_exc()
 
-    return binding_data
-
-
-def extract_and_annotate_sequences(
-    structures: Dict[str, pd.DataFrame],
-    binding_data: Dict[str, Dict[str, Any]],
-) -> Tuple[Dict[str, str], pd.DataFrame]:
-    """Extract sequences and annotate with GRN."""
-    logger.info("=" * 60)
-    logger.info("Step 3: Extracting sequences and GRN annotation")
-    logger.info("=" * 60)
-
-    struct_proc = StructureProcessor()
-    seq_proc = SequenceProcessor()
-
-    sequences = {}
-
-    for pdb_id, df in structures.items():
-        info = STRUCTURES[pdb_id]
-        chain_id = info["chain"]
-
-        try:
-            struct_proc.frames[pdb_id.lower()] = df
-            sequence = struct_proc.get_sequence(pdb_id.lower(), chain_id)
-
-            if sequence:
-                seq_id = f"{pdb_id}_{chain_id}"
-                sequences[seq_id] = sequence
-
-                seq_proc.save_entity(seq_id, sequence, metadata={
-                    "pdb_id": pdb_id,
-                    "chain": chain_id,
-                    "receptor": info["receptor"],
-                    "state": info["state"],
-                    "ligand_type": info["ligand_type"],
-                })
-
-        except Exception as e:
-            logger.warning(f"  {pdb_id}: Failed - {e}")
-
-    # Create dataset and annotate with GRN
-    if sequences:
-        seq_proc.save_sequences(
-            sequences,
-            output_file=DATASET_NAME,
-            dataset_name=DATASET_NAME,
-            metadata={"description": "GPCR mechanism analysis dataset"},
-            materialize_entities=True,
-        )
-
-        grn_table, summary = seq_proc.annotate_with_grn(
-            dataset_name=DATASET_NAME,
-            reference_table=REFERENCE_TABLE,
-            protein_family=PROTEIN_FAMILY,
-            output_table=GRN_TABLE_NAME,
-            return_summary=True,
-            allow_create=True,
-        )
-
-        logger.info(f"  Annotated {summary['global']['annotated']}/{len(sequences)} sequences with GRN")
-
-        # Map GRN to binding residues
-        for pdb_id, data in binding_data.items():
-            info = STRUCTURES[pdb_id]
-            seq_id = f"{pdb_id}_{info['chain']}"
-
-            if seq_id not in grn_table.index:
-                continue
-
-            grn_row = grn_table.loc[seq_id]
-
-            # Create residue number to GRN mapping
-            res_to_grn = {}
-            for grn_pos, residue_info in grn_row.items():
-                if residue_info and residue_info != "-" and isinstance(residue_info, str):
-                    try:
-                        res_num = int("".join(c for c in residue_info if c.isdigit()))
-                        res_to_grn[res_num] = grn_pos
-                    except ValueError:
-                        pass
-
-            data["res_to_grn"] = res_to_grn
-
-            # Annotate binding residues
-            binding_site = data.get("binding_site", {})
-            binding_residues = binding_site.get("residues", pd.DataFrame())
-
-            if isinstance(binding_residues, pd.DataFrame) and not binding_residues.empty:
-                binding_residues = binding_residues.copy()
-                res_col = "res_id" if "res_id" in binding_residues.columns else "auth_seq_id"
-                if res_col in binding_residues.columns:
-                    binding_residues["grn_position"] = binding_residues[res_col].map(res_to_grn)
-                data["binding_residues_grn"] = binding_residues
-
-        return sequences, grn_table
-
-    return sequences, pd.DataFrame()
+    return results
 
 
 # =============================================================================
-# Part 2: Hypothesis Testing
+# Step 4: Build GRN to auth_seq_id mapping for hypothesis testing
+# =============================================================================
+
+def build_grn_residue_mapping(
+    interaction_results: Dict[str, Dict[str, Any]],
+) -> Dict[str, Dict[str, int]]:
+    """Build mapping from GRN position to auth_seq_id for each structure."""
+    logger.info("=" * 60)
+    logger.info("Step 4: Building GRN -> residue mappings")
+    logger.info("=" * 60)
+
+    grn_mappings = {}
+
+    for pdb_id, data in interaction_results.items():
+        df = data["annotated_structure"]
+        chain = data["chain"]
+
+        chain_atoms = df[df['auth_chain_id'] == chain]
+        if 'grn' not in chain_atoms.columns:
+            logger.warning(f"  {pdb_id}: No GRN column")
+            continue
+
+        # Build GRN -> auth_seq_id mapping (take first occurrence per residue)
+        mapping = {}
+        for _, atom in chain_atoms.iterrows():
+            grn = atom.get('grn', '')
+            if grn and grn != '':
+                res_id = atom['auth_seq_id']
+                if grn not in mapping:
+                    mapping[grn] = int(res_id)
+
+        grn_mappings[pdb_id] = mapping
+
+        # Log key GRN positions
+        key_grns = ["5.43", "6.48", "6.55", "2.50", "3.32"]
+        found = [f"{g}={mapping.get(g, '?')}" for g in key_grns if g in mapping]
+        logger.info(f"  {pdb_id}: {len(mapping)} GRNs ({', '.join(found[:4])})")
+
+    return grn_mappings
+
+
+# =============================================================================
+# Step 5: Hypothesis Testing
 # =============================================================================
 
 def calculate_ligand_to_grn_distance(
@@ -420,29 +396,24 @@ def calculate_ligand_to_grn_distance(
     chain: str,
     ligand_code: str,
     grn_pos: str,
-    res_to_grn: Dict[int, str],
+    grn_to_resid: Dict[str, int],
 ) -> Tuple[Optional[float], Optional[str], Optional[str]]:
     """Calculate minimum distance from ligand to a GRN-annotated residue."""
     # Get ligand atoms (non-hydrogen)
-    ligand_atoms = df[(df["res_name3l"] == ligand_code) & (~df["element"].isin(["H"]))]
+    ligand_atoms = df[(df['res_name3l'] == ligand_code) & (~df['element'].isin(["H"]))]
     if ligand_atoms.empty:
         return None, None, None
 
-    # Find residue with target GRN
-    target_res_id = None
-    for res_id, grn in res_to_grn.items():
-        if grn == grn_pos:
-            target_res_id = res_id
-            break
-
+    # Get residue ID for target GRN
+    target_res_id = grn_to_resid.get(grn_pos)
     if target_res_id is None:
         return None, None, None
 
     # Get residue atoms
     res_atoms = df[
-        (df["auth_chain_id"] == chain) &
-        (df["auth_seq_id"] == target_res_id) &
-        (~df["element"].isin(["H"]))
+        (df['auth_chain_id'] == chain) &
+        (df['auth_seq_id'] == target_res_id) &
+        (~df['element'].isin(["H"]))
     ]
     if res_atoms.empty:
         return None, None, None
@@ -468,9 +439,9 @@ def calculate_ligand_to_grn_distance(
     return min_dist, closest_lig, closest_res
 
 
-def analyze_hypothesis_1(
-    structures: Dict[str, pd.DataFrame],
-    binding_data: Dict[str, Dict[str, Any]],
+def test_hypothesis_1(
+    interaction_results: Dict[str, Dict[str, Any]],
+    grn_mappings: Dict[str, Dict[str, int]],
 ) -> Dict[str, Dict[str, Any]]:
     """H1: Agonists bind CLOSER to S5.43 than inverse agonists."""
     logger.info("=" * 60)
@@ -479,16 +450,15 @@ def analyze_hypothesis_1(
 
     results = {}
 
-    for pdb_id, df in structures.items():
+    for pdb_id, data in interaction_results.items():
         info = STRUCTURES[pdb_id]
+        df = data["annotated_structure"]
         chain = info["chain"]
         ligand = info["ligand"]
-        res_to_grn = binding_data.get(pdb_id, {}).get("res_to_grn", {})
-
-        df_reset = df.reset_index() if df.index.name else df
+        grn_to_resid = grn_mappings.get(pdb_id, {})
 
         dist, lig_atom, res_atom = calculate_ligand_to_grn_distance(
-            df_reset, chain, ligand, H1_GRN, res_to_grn
+            df, chain, ligand, H1_GRN, grn_to_resid
         )
 
         if dist is not None:
@@ -499,15 +469,18 @@ def analyze_hypothesis_1(
                 "distance": dist,
                 "ligand_atom": lig_atom,
                 "residue_atom": res_atom,
+                "grn_resid": grn_to_resid.get(H1_GRN),
             }
-            logger.info(f"  {pdb_id} ({info['ligand_type']:15s}): {dist:.2f} A")
+            logger.info(f"  {pdb_id} ({info['ligand_type']:15s}): {dist:.2f} A (resi {grn_to_resid.get(H1_GRN)})")
+        else:
+            logger.warning(f"  {pdb_id}: Could not calculate distance")
 
     return results
 
 
-def analyze_hypothesis_2(
-    structures: Dict[str, pd.DataFrame],
-    binding_data: Dict[str, Dict[str, Any]],
+def test_hypothesis_2(
+    interaction_results: Dict[str, Dict[str, Any]],
+    grn_mappings: Dict[str, Dict[str, int]],
 ) -> Dict[str, Dict[str, Any]]:
     """H2: Inverse agonists bind CLOSER to W6.48 (toggle switch) than agonists."""
     logger.info("=" * 60)
@@ -516,16 +489,15 @@ def analyze_hypothesis_2(
 
     results = {}
 
-    for pdb_id, df in structures.items():
+    for pdb_id, data in interaction_results.items():
         info = STRUCTURES[pdb_id]
+        df = data["annotated_structure"]
         chain = info["chain"]
         ligand = info["ligand"]
-        res_to_grn = binding_data.get(pdb_id, {}).get("res_to_grn", {})
-
-        df_reset = df.reset_index() if df.index.name else df
+        grn_to_resid = grn_mappings.get(pdb_id, {})
 
         dist, lig_atom, res_atom = calculate_ligand_to_grn_distance(
-            df_reset, chain, ligand, H2_GRN, res_to_grn
+            df, chain, ligand, H2_GRN, grn_to_resid
         )
 
         if dist is not None:
@@ -536,15 +508,18 @@ def analyze_hypothesis_2(
                 "distance": dist,
                 "ligand_atom": lig_atom,
                 "residue_atom": res_atom,
+                "grn_resid": grn_to_resid.get(H2_GRN),
             }
-            logger.info(f"  {pdb_id} ({info['ligand_type']:15s}): {dist:.2f} A")
+            logger.info(f"  {pdb_id} ({info['ligand_type']:15s}): {dist:.2f} A (resi {grn_to_resid.get(H2_GRN)})")
+        else:
+            logger.warning(f"  {pdb_id}: Could not calculate distance")
 
     return results
 
 
-def analyze_hypothesis_3(
-    structures: Dict[str, pd.DataFrame],
-    binding_data: Dict[str, Dict[str, Any]],
+def test_hypothesis_3(
+    interaction_results: Dict[str, Dict[str, Any]],
+    grn_mappings: Dict[str, Dict[str, int]],
 ) -> Dict[str, Dict[str, Any]]:
     """H3: Water at N6.55 is EXCLUSIVE to agonist-bound active structures."""
     logger.info("=" * 60)
@@ -554,35 +529,31 @@ def analyze_hypothesis_3(
 
     results = {}
 
-    for pdb_id, df in structures.items():
+    for pdb_id, data in interaction_results.items():
         info = STRUCTURES[pdb_id]
+        df = data["annotated_structure"]
         chain = info["chain"]
-        res_to_grn = binding_data.get(pdb_id, {}).get("res_to_grn", {})
-
-        df_reset = df.reset_index() if df.index.name else df
+        grn_to_resid = grn_mappings.get(pdb_id, {})
 
         # Find residue with GRN 6.55
-        target_res_id = None
-        for res_id, grn in res_to_grn.items():
-            if grn == H3_GRN:
-                target_res_id = res_id
-                break
-
+        target_res_id = grn_to_resid.get(H3_GRN)
         if target_res_id is None:
+            logger.warning(f"  {pdb_id}: GRN {H3_GRN} not found")
             continue
 
         # Get N6.55 atoms
-        n655_atoms = df_reset[
-            (df_reset["auth_chain_id"] == chain) &
-            (df_reset["auth_seq_id"] == target_res_id) &
-            (~df_reset["element"].isin(["H"]))
+        n655_atoms = df[
+            (df['auth_chain_id'] == chain) &
+            (df['auth_seq_id'] == target_res_id) &
+            (~df['element'].isin(["H"]))
         ]
 
         if n655_atoms.empty:
+            logger.warning(f"  {pdb_id}: No atoms for residue {target_res_id}")
             continue
 
         # Get water oxygens
-        waters = df_reset[df_reset["res_name3l"] == "HOH"]
+        waters = df[df['res_name3l'] == "HOH"]
 
         if waters.empty:
             results[pdb_id] = {
@@ -624,36 +595,8 @@ def analyze_hypothesis_3(
 
 
 # =============================================================================
-# Part 3: Analysis and Visualization
+# Step 6: Visualization
 # =============================================================================
-
-def summarize_by_ligand_type(
-    results: Dict[str, Dict[str, Any]],
-    metric_key: str = "distance",
-) -> Dict[str, Dict[str, Any]]:
-    """Summarize results by ligand type."""
-    by_type = defaultdict(list)
-
-    for pdb_id, data in results.items():
-        lig_type = data["ligand_type"]
-        value = data.get(metric_key)
-        if value is not None:
-            by_type[lig_type].append((pdb_id, value))
-
-    summary = {}
-    for lig_type in ["full_agonist", "partial_agonist", "antagonist", "inverse_agonist"]:
-        if lig_type in by_type:
-            values = [v for _, v in by_type[lig_type]]
-            pdbs = [p for p, _ in by_type[lig_type]]
-            summary[lig_type] = {
-                "mean": np.mean(values),
-                "min": min(values),
-                "max": max(values),
-                "structures": pdbs,
-            }
-
-    return summary
-
 
 def create_hypothesis_visualization(
     h1_results: Dict[str, Dict[str, Any]],
@@ -663,17 +606,15 @@ def create_hypothesis_visualization(
 ) -> None:
     """Create visualization of hypothesis testing results."""
     logger.info("=" * 60)
-    logger.info("Creating hypothesis visualization")
+    logger.info("Step 6a: Creating hypothesis visualization")
     logger.info("=" * 60)
 
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
-    # Prepare data
     pdb_ids = list(STRUCTURES.keys())
     ligand_types = [STRUCTURES[p]["ligand_type"] for p in pdb_ids]
 
-    # Colors by ligand type
     type_colors = {
         "full_agonist": "#2ca02c",
         "partial_agonist": "#ff7f0e",
@@ -682,14 +623,13 @@ def create_hypothesis_visualization(
     }
     colors = [type_colors.get(t, "#888") for t in ligand_types]
 
-    # Create subplots
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
             "H1: Distance to S5.43 (lower = agonist-like)",
             "H2: Distance to W6.48 (lower = inverse agonist-like)",
             "H3: Water at N6.55 (active state marker)",
-            "Summary: Ligand Type Discrimination",
+            "Summary: Mean Distances by Ligand Type",
         ),
         specs=[
             [{"type": "bar"}, {"type": "bar"}],
@@ -708,7 +648,6 @@ def create_hypothesis_visualization(
             marker_color=colors,
             text=[f"{d:.1f}A" if d else "" for d in h1_distances],
             textposition="outside",
-            hovertemplate="%{x}<br>S5.43 dist: %{y:.2f}A<extra></extra>",
         ),
         row=1, col=1,
     )
@@ -722,7 +661,6 @@ def create_hypothesis_visualization(
             marker_color=colors,
             text=[f"{d:.1f}A" if d else "" for d in h2_distances],
             textposition="outside",
-            hovertemplate="%{x}<br>W6.48 dist: %{y:.2f}A<extra></extra>",
         ),
         row=1, col=2,
     )
@@ -746,24 +684,18 @@ def create_hypothesis_visualization(
             marker_color=colors,
             text=h3_labels,
             textposition="outside",
-            hovertemplate="%{x}<br>Water: %{text}<extra></extra>",
         ),
         row=2, col=1,
     )
 
     # Summary table
-    h1_summary = summarize_by_ligand_type(h1_results)
-    h2_summary = summarize_by_ligand_type(h2_results)
-
     summary_data = []
     for lt in ["full_agonist", "partial_agonist", "antagonist", "inverse_agonist"]:
-        h1_mean = h1_summary.get(lt, {}).get("mean", "-")
-        h2_mean = h2_summary.get(lt, {}).get("mean", "-")
-        summary_data.append([
-            lt.replace("_", " ").title(),
-            f"{h1_mean:.2f}A" if isinstance(h1_mean, float) else "-",
-            f"{h2_mean:.2f}A" if isinstance(h2_mean, float) else "-",
-        ])
+        h1_vals = [r["distance"] for p, r in h1_results.items() if r.get("ligand_type") == lt and r.get("distance")]
+        h2_vals = [r["distance"] for p, r in h2_results.items() if r.get("ligand_type") == lt and r.get("distance")]
+        h1_mean = f"{np.mean(h1_vals):.2f}A" if h1_vals else "-"
+        h2_mean = f"{np.mean(h2_vals):.2f}A" if h2_vals else "-"
+        summary_data.append([lt.replace("_", " ").title(), h1_mean, h2_mean])
 
     fig.add_trace(
         go.Table(
@@ -771,22 +703,17 @@ def create_hypothesis_visualization(
                 values=["Ligand Type", "S5.43 Mean", "W6.48 Mean"],
                 fill_color="#1f77b4",
                 font=dict(color="white", size=11),
-                align="center",
             ),
             cells=dict(
                 values=list(zip(*summary_data)) if summary_data else [[], [], []],
                 fill_color=[["#f0f0f0", "white"] * 2],
-                align="center",
             ),
         ),
         row=2, col=2,
     )
 
     fig.update_layout(
-        title=dict(
-            text="GPCR Activation Mechanism: Hypothesis Testing (H1-H3)",
-            font=dict(size=18),
-        ),
+        title="GPCR Activation Mechanism: Hypothesis Testing",
         height=800,
         width=1200,
         showlegend=False,
@@ -797,37 +724,30 @@ def create_hypothesis_visualization(
     fig.update_yaxes(title_text="Distance (A)", row=1, col=2)
     fig.update_yaxes(title_text="Water Present", tickvals=[0, 1], ticktext=["No", "Yes"], row=2, col=1)
 
-    # Save
     html_path = output_path / "hypothesis_analysis.html"
     fig.write_html(str(html_path))
     logger.info(f"  Saved: {html_path}")
 
-    # Also save as PNG
     try:
         png_path = output_path / "hypothesis_analysis.png"
         fig.write_image(str(png_path), scale=2)
         logger.info(f"  Saved: {png_path}")
     except Exception as e:
-        logger.warning(f"  Could not save PNG: {e}")
+        logger.warning(f"  PNG save failed: {e}")
 
 
 def generate_pymol_script(
-    binding_data: Dict[str, Dict[str, Any]],
-    h1_results: Dict[str, Dict[str, Any]],
-    h2_results: Dict[str, Dict[str, Any]],
-    h3_results: Dict[str, Dict[str, Any]],
+    grn_mappings: Dict[str, Dict[str, int]],
     output_path: Path,
 ) -> None:
-    """Generate PyMOL script for visualization."""
+    """Generate PyMOL visualization script using GRN mappings."""
     logger.info("=" * 60)
-    logger.info("Generating PyMOL visualization script")
+    logger.info("Step 6b: Generating PyMOL script")
     logger.info("=" * 60)
 
     lines = [
         "# GPCR Mechanism Analysis - PyMOL Visualization",
         "# Generated by ProtOS GPCR Binding Pocket Workflow",
-        "#",
-        "# Shows 8 adrenergic receptor structures with hypothesis markers",
         "",
         "# Fetch structures",
     ]
@@ -840,72 +760,84 @@ def generate_pymol_script(
         "# Basic setup",
         "bg_color white",
         "set ray_shadows, 0",
-        "set antialias, 2",
         "hide everything",
         "",
-        "# Show as cartoon",
+        "# Extract GPCR chains and show as cartoon",
     ])
 
     for pdb_id, info in STRUCTURES.items():
         chain = info["chain"]
         color = info["color"]
-        lines.append(f"show cartoon, {pdb_id.lower()} and chain {chain}")
-        lines.append(f"color {color}, {pdb_id.lower()}")
+        obj_name = f"{pdb_id}_gpcr"
+        lines.append(f"create {obj_name}, {pdb_id.lower()} and chain {chain}")
+        lines.append(f"show cartoon, {obj_name}")
+        lines.append(f"color {color}, {obj_name}")
+        lines.append(f"set cartoon_transparency, 0.7, {obj_name}")
 
-    lines.extend([
-        "",
-        "# Show ligands",
-    ])
+    lines.extend(["", "# Show ligands"])
 
     for pdb_id, info in STRUCTURES.items():
+        obj_name = f"{pdb_id}_gpcr"
         ligand = info["ligand"]
-        lines.append(f"show sticks, {pdb_id.lower()} and resn {ligand}")
-        lines.append(f"color yellow, {pdb_id.lower()} and resn {ligand}")
+        lines.append(f"show sticks, {obj_name} and resn {ligand}")
+        if info["ligand_type"] in ["full_agonist", "partial_agonist"]:
+            lines.append(f"color green, {obj_name} and resn {ligand}")
+        else:
+            lines.append(f"color red, {obj_name} and resn {ligand}")
 
     lines.extend([
         "",
-        "# Highlight key GRN positions",
-        "# H1: S5.43 (agonist binding marker)",
-        "# H2: W6.48 (toggle switch)",
-        "# H3: N6.55 (water marker)",
-        "",
+        "# Key GRN positions for hypothesis testing",
+        "# Residue numbers from ProtOS GRN annotation:",
     ])
 
-    # Add selections for key residues
-    for pdb_id, data in binding_data.items():
-        info = STRUCTURES[pdb_id]
-        chain = info["chain"]
-        res_to_grn = data.get("res_to_grn", {})
+    # Add GRN residue selections
+    for grn_pos in ["5.43", "6.48", "6.55"]:
+        grn_safe = grn_pos.replace(".", "_")
+        sel_parts = []
 
-        for grn, res_id in [(k, v) for v, k in res_to_grn.items()]:
-            if grn in ["5.43", "6.48", "6.55"]:
-                lines.append(f"# {pdb_id} {grn}")
-                lines.append(f"show sticks, {pdb_id.lower()} and chain {chain} and resi {res_id}")
+        for pdb_id, mapping in grn_mappings.items():
+            obj_name = f"{pdb_id}_gpcr"
+            chain = STRUCTURES[pdb_id]["chain"]
+            res_id = mapping.get(grn_pos)
+            if res_id:
+                sel_parts.append(f"({obj_name} and chain {chain} and resi {res_id})")
+                lines.append(f"# {pdb_id} {grn_pos} = residue {res_id}")
+
+        if sel_parts:
+            lines.append(f"select grn_{grn_safe}, {' or '.join(sel_parts)}")
+            lines.append(f"show sticks, grn_{grn_safe} and sidechain")
 
     lines.extend([
         "",
-        "# Create scenes for each hypothesis",
+        "# Align all to reference (2RH1)",
+        "super 3sn6_gpcr and name CA, 2rh1_gpcr and name CA",
+        "super 4ldo_gpcr and name CA, 2rh1_gpcr and name CA",
+        "super 2y02_gpcr and name CA, 2rh1_gpcr and name CA",
+        "super 2y04_gpcr and name CA, 2rh1_gpcr and name CA",
+        "super 2y00_gpcr and name CA, 2rh1_gpcr and name CA",
+        "super 3ny9_gpcr and name CA, 2rh1_gpcr and name CA",
+        "super 2vt4_gpcr and name CA, 2rh1_gpcr and name CA",
         "",
-        "# Scene 1: Overview",
+        "# Create scenes",
         "orient",
         "zoom all, 5",
         "scene overview, store",
         "",
-        "# Scene 2: H1 - S5.43 binding",
-        "# Focus on agonist binding site",
-        "scene H1_S543, store",
+        "# Color GRN positions",
+        "color magenta, grn_5_43 and sidechain",
+        "color cyan, grn_6_48 and sidechain",
+        "color yellow, grn_6_55 and sidechain",
         "",
-        "# Scene 3: H2 - W6.48 toggle switch",
-        "scene H2_W648, store",
-        "",
-        "# Scene 4: H3 - N6.55 water",
-        "scene H3_N655, store",
+        "# Create groups",
+        "group agonists, 3sn6_gpcr 4ldo_gpcr 2y02_gpcr",
+        "group partial_agonists, 2y04_gpcr 2y00_gpcr",
+        "group inverse_agonists, 2rh1_gpcr 3ny9_gpcr",
+        "group antagonists, 2vt4_gpcr",
         "",
         "# Usage:",
-        "# scene overview  - show all structures",
-        "# scene H1_S543   - focus on S5.43",
-        "# scene H2_W648   - focus on W6.48",
-        "# scene H3_N655   - focus on N6.55",
+        "# scene overview, recall",
+        "# enable agonists; disable inverse_agonists",
         "",
     ])
 
@@ -914,51 +846,48 @@ def generate_pymol_script(
         f.write("\n".join(lines))
 
     logger.info(f"  Saved: {pml_path}")
-    logger.info(f"  Run in PyMOL: pymol {pml_path}")
 
 
 def save_results(
-    binding_data: Dict[str, Dict[str, Any]],
     h1_results: Dict[str, Dict[str, Any]],
     h2_results: Dict[str, Dict[str, Any]],
     h3_results: Dict[str, Dict[str, Any]],
+    grn_mappings: Dict[str, Dict[str, int]],
     output_path: Path,
 ) -> None:
     """Save all analysis results."""
     logger.info("=" * 60)
-    logger.info("Saving results")
+    logger.info("Step 6c: Saving results")
     logger.info("=" * 60)
 
     # Hypothesis results as JSON
-    hypothesis_data = {
+    results_data = {
         "metadata": {
-            "structures": {k: {kk: vv for kk, vv in v.items() if kk != "color"} for k, v in STRUCTURES.items()},
+            "structures": {k: {kk: vv for kk, vv in v.items()} for k, v in STRUCTURES.items()},
             "hypotheses": {
                 "H1": "Agonists bind CLOSER to S5.43 than inverse agonists",
                 "H2": "Inverse agonists bind CLOSER to W6.48 than agonists",
                 "H3": "Water at N6.55 is EXCLUSIVE to agonist-bound active structures",
             },
         },
+        "grn_mappings": grn_mappings,
         "H1_S543_distance": h1_results,
         "H2_W648_distance": h2_results,
         "H3_N655_water": h3_results,
-        "summary": {
-            "H1": summarize_by_ligand_type(h1_results),
-            "H2": summarize_by_ligand_type(h2_results),
-        },
     }
 
     json_path = output_path / "gpcr_mechanism_results.json"
     with open(json_path, "w") as f:
-        json.dump(hypothesis_data, f, indent=2, default=str)
+        json.dump(results_data, f, indent=2, default=str)
     logger.info(f"  Saved: {json_path}")
 
-    # Summary table as CSV
+    # Summary CSV
     rows = []
     for pdb_id, info in STRUCTURES.items():
         h1 = h1_results.get(pdb_id, {})
         h2 = h2_results.get(pdb_id, {})
         h3 = h3_results.get(pdb_id, {})
+        grn = grn_mappings.get(pdb_id, {})
 
         rows.append({
             "pdb_id": pdb_id,
@@ -966,6 +895,9 @@ def save_results(
             "ligand": info["ligand_name"],
             "ligand_type": info["ligand_type"],
             "state": info["state"],
+            "grn_5.43_resid": grn.get("5.43"),
+            "grn_6.48_resid": grn.get("6.48"),
+            "grn_6.55_resid": grn.get("6.55"),
             "H1_S543_dist": round(h1.get("distance", 0), 2) if h1.get("distance") else None,
             "H2_W648_dist": round(h2.get("distance", 0), 2) if h2.get("distance") else None,
             "H3_water": h3.get("has_water", False),
@@ -977,11 +909,26 @@ def save_results(
     summary_df.to_csv(csv_path, index=False)
     logger.info(f"  Saved: {csv_path}")
 
+    # Print summary
+    logger.info("\n  Summary table:")
+    logger.info(f"  {'PDB':5s} {'Type':15s} {'S5.43':>8s} {'W6.48':>8s} {'Water':>6s}")
+    logger.info("  " + "-" * 45)
+    for row in rows:
+        h1_dist = f"{row['H1_S543_dist']:.2f}A" if row['H1_S543_dist'] else "N/A"
+        h2_dist = f"{row['H2_W648_dist']:.2f}A" if row['H2_W648_dist'] else "N/A"
+        water = "Yes" if row['H3_water'] else "No"
+        logger.info(f"  {row['pdb_id']:5s} {row['ligand_type']:15s} {h1_dist:>8s} {h2_dist:>8s} {water:>6s}")
+
+
+# =============================================================================
+# Main Workflow
+# =============================================================================
 
 def main() -> int:
-    """Run the comprehensive GPCR binding pocket workflow."""
+    """Run the GPCR binding pocket workflow using ProtOS utilities."""
     logger.info("=" * 70)
-    logger.info("GPCR BINDING POCKET WORKFLOW: COMPREHENSIVE MECHANISM ANALYSIS")
+    logger.info("GPCR BINDING POCKET WORKFLOW")
+    logger.info("Using ProtOS for structure loading, GRN annotation, and ligand analysis")
     logger.info("=" * 70)
 
     logger.info("\n8 Adrenergic Receptor Structures:")
@@ -995,70 +942,83 @@ def main() -> int:
     logger.info("  H1: Agonists bind CLOSER to S5.43 than inverse agonists")
     logger.info("  H2: Inverse agonists bind CLOSER to W6.48 (toggle switch)")
     logger.info("  H3: Water at N6.55 is EXCLUSIVE to active structures")
-    logger.info("")
 
-    # Initialize protos
+    # Initialize ProtOS
     data_root = REPO_ROOT / "data"
     data_root.mkdir(parents=True, exist_ok=True)
     protos.set_data_path(str(data_root))
 
-    # Part 1: Structure Loading and Basic Analysis
-    structures = download_structures()
+    # Initialize StructureProcessor
+    struct_proc = StructureProcessor()
+
+    # Step 1: Load structures
+    structures = load_structures(struct_proc)
     if len(structures) < 4:
-        logger.error("Not enough structures downloaded, exiting")
+        logger.error("Not enough structures loaded")
         return 1
 
-    binding_data = extract_ligands_and_binding_sites(structures)
-    if not binding_data:
-        logger.error("No binding data extracted, exiting")
+    # Step 2: Annotate with GRN
+    annotated = annotate_structures_with_grn(struct_proc, structures)
+
+    # Step 3: Ligand interaction analysis
+    interaction_results = analyze_ligand_interactions(annotated)
+    if not interaction_results:
+        logger.error("No interaction results")
         return 1
 
-    sequences, grn_table = extract_and_annotate_sequences(structures, binding_data)
+    # Step 4: Build GRN mappings
+    grn_mappings = build_grn_residue_mapping(interaction_results)
 
-    # Part 2: Hypothesis Testing
+    # Step 5: Hypothesis testing
     logger.info("\n" + "=" * 70)
     logger.info("HYPOTHESIS TESTING")
     logger.info("=" * 70)
 
-    h1_results = analyze_hypothesis_1(structures, binding_data)
-    h2_results = analyze_hypothesis_2(structures, binding_data)
-    h3_results = analyze_hypothesis_3(structures, binding_data)
+    h1_results = test_hypothesis_1(interaction_results, grn_mappings)
+    h2_results = test_hypothesis_2(interaction_results, grn_mappings)
+    h3_results = test_hypothesis_3(interaction_results, grn_mappings)
 
-    # Part 3: Visualization and Output
+    # Step 6: Visualization and output
     logger.info("\n" + "=" * 70)
     logger.info("GENERATING OUTPUTS")
     logger.info("=" * 70)
 
     create_hypothesis_visualization(h1_results, h2_results, h3_results, OUTPUT_DIR)
-    generate_pymol_script(binding_data, h1_results, h2_results, h3_results, FIGURES_DIR)
-    save_results(binding_data, h1_results, h2_results, h3_results, OUTPUT_DIR)
+    generate_pymol_script(grn_mappings, FIGURES_DIR)
+    save_results(h1_results, h2_results, h3_results, grn_mappings, OUTPUT_DIR)
 
-    # Summary
+    # Final summary
     logger.info("\n" + "=" * 70)
     logger.info("WORKFLOW COMPLETE")
     logger.info("=" * 70)
 
-    logger.info("\nKey Findings:")
+    # Calculate summary statistics
+    agonist_h1 = [r["distance"] for r in h1_results.values() if r.get("ligand_type") == "full_agonist" and r.get("distance")]
+    inverse_h1 = [r["distance"] for r in h1_results.values() if r.get("ligand_type") == "inverse_agonist" and r.get("distance")]
+    agonist_h2 = [r["distance"] for r in h2_results.values() if r.get("ligand_type") == "full_agonist" and r.get("distance")]
+    inverse_h2 = [r["distance"] for r in h2_results.values() if r.get("ligand_type") == "inverse_agonist" and r.get("distance")]
 
-    h1_summary = summarize_by_ligand_type(h1_results)
-    if "full_agonist" in h1_summary and "inverse_agonist" in h1_summary:
-        fa_dist = h1_summary["full_agonist"]["mean"]
-        ia_dist = h1_summary["inverse_agonist"]["mean"]
-        logger.info(f"  H1: Full agonists S5.43 mean={fa_dist:.2f}A vs inverse agonists {ia_dist:.2f}A")
+    if agonist_h1 and inverse_h1:
+        logger.info(f"\nH1 Summary: Full agonists S5.43 mean={np.mean(agonist_h1):.2f}A vs inverse agonists {np.mean(inverse_h1):.2f}A")
+        if np.mean(agonist_h1) < np.mean(inverse_h1):
+            logger.info("  -> SUPPORTS H1: Agonists bind closer to S5.43")
+        else:
+            logger.info("  -> DOES NOT support H1")
 
-    h2_summary = summarize_by_ligand_type(h2_results)
-    if "full_agonist" in h2_summary and "inverse_agonist" in h2_summary:
-        fa_dist = h2_summary["full_agonist"]["mean"]
-        ia_dist = h2_summary["inverse_agonist"]["mean"]
-        logger.info(f"  H2: Full agonists W6.48 mean={fa_dist:.2f}A vs inverse agonists {ia_dist:.2f}A")
+    if agonist_h2 and inverse_h2:
+        logger.info(f"H2 Summary: Full agonists W6.48 mean={np.mean(agonist_h2):.2f}A vs inverse agonists {np.mean(inverse_h2):.2f}A")
+        if np.mean(inverse_h2) < np.mean(agonist_h2):
+            logger.info("  -> SUPPORTS H2: Inverse agonists bind closer to W6.48")
+        else:
+            logger.info("  -> DOES NOT support H2")
 
     active_water = sum(1 for p, r in h3_results.items() if r.get("has_water") and STRUCTURES[p]["state"] in ["active", "active_like"])
     inactive_water = sum(1 for p, r in h3_results.items() if r.get("has_water") and STRUCTURES[p]["state"] in ["inactive", "intermediate"])
-    logger.info(f"  H3: Water at N6.55 - Active: {active_water}, Inactive: {inactive_water}")
+    logger.info(f"H3 Summary: Water at N6.55 - Active states: {active_water}, Inactive states: {inactive_water}")
 
-    logger.info(f"\nOutputs saved to: {OUTPUT_DIR}")
+    logger.info(f"\nOutputs: {OUTPUT_DIR}")
     logger.info(f"PyMOL script: {FIGURES_DIR / 'gpcr_mechanism_analysis.pml'}")
-    logger.info(f"Log saved to: {log_file}")
+    logger.info(f"Log: {log_file}")
 
     return 0
 
