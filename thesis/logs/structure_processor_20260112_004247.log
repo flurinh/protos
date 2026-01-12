@@ -1,0 +1,108 @@
+2026-01-12 00:42:48,275 | INFO     | ======================================================================
+2026-01-12 00:42:48,275 | INFO     | STRUCTURE PROCESSOR EXAMPLE: Opsin Retinal Alignment
+2026-01-12 00:42:48,275 | INFO     | ======================================================================
+2026-01-12 00:42:48,275 | INFO     | Structures: 4
+2026-01-12 00:42:48,275 | INFO     |   1C3W: Bacteriorhodopsin (microbial)
+2026-01-12 00:42:48,275 | INFO     |   3UG9: Channelrhodopsin-2 (C1C2) (microbial)
+2026-01-12 00:42:48,275 | INFO     |   1U19: Bovine Rhodopsin (animal)
+2026-01-12 00:42:48,275 | INFO     |   4ZWJ: Squid Rhodopsin (animal)
+2026-01-12 00:42:48,275 | INFO     | Reference: 1C3W
+2026-01-12 00:42:48,275 | INFO     | 
+2026-01-12 00:42:48,277 | INFO     | Initialized StructureProcessor 'structure_processor' at /data/fast/projects/protos/data/structure
+2026-01-12 00:42:48,277 | INFO     | ============================================================
+2026-01-12 00:42:48,277 | INFO     | Step 1: Downloading opsin structures from PDB
+2026-01-12 00:42:48,277 | INFO     | ============================================================
+2026-01-12 00:42:48,277 | INFO     | Initialized StructureProcessor 'structure_processor' at /data/fast/projects/protos/data/structure
+2026-01-12 00:42:48,277 | INFO     | Initialized StructureLoader 'structure_loader' for structure data
+2026-01-12 00:42:48,277 | INFO     |   Loading 1C3W: Bacteriorhodopsin (microbial)...
+2026-01-12 00:42:48,284 | INFO     |     Loaded: 2073 atoms, 260 residues
+2026-01-12 00:42:48,284 | INFO     |   Loading 3UG9: Channelrhodopsin-2 (C1C2) (microbial)...
+2026-01-12 00:42:48,290 | INFO     |     Loaded: 2315 atoms, 330 residues
+2026-01-12 00:42:48,290 | INFO     |   Loading 1U19: Bovine Rhodopsin (animal)...
+2026-01-12 00:42:48,299 | INFO     |     Loaded: 5948 atoms, 801 residues
+2026-01-12 00:42:48,299 | INFO     |   Loading 4ZWJ: Squid Rhodopsin (animal)...
+2026-01-12 00:42:48,330 | INFO     |     Loaded: 24665 atoms, 3128 residues
+2026-01-12 00:42:48,330 | INFO     | 
+Loaded 4 structures
+2026-01-12 00:42:48,330 | INFO     | ============================================================
+2026-01-12 00:42:48,330 | INFO     | Step 2: Analyzing retinal binding pockets
+2026-01-12 00:42:48,331 | INFO     | ============================================================
+2026-01-12 00:42:48,331 | INFO     | 
+  1C3W (Bacteriorhodopsin):
+2026-01-12 00:42:48,440 | INFO     |     Binding residues within 4.0A: 17
+2026-01-12 00:42:48,440 | INFO     |     Top contacts by distance:
+2026-01-12 00:42:48,440 | INFO     |       TRP86: 3.44A
+2026-01-12 00:42:48,440 | INFO     |       THR89: 3.80A
+2026-01-12 00:42:48,440 | INFO     |       THR90: 3.51A
+2026-01-12 00:42:48,440 | INFO     |       LEU93: 3.79A
+2026-01-12 00:42:48,440 | INFO     |       MET118: 3.61A
+2026-01-12 00:42:48,440 | INFO     | 
+  3UG9 (Channelrhodopsin-2 (C1C2)):
+2026-01-12 00:42:48,455 | INFO     |     Binding residues within 4.0A: 15
+2026-01-12 00:42:48,455 | INFO     |     Top contacts by distance:
+2026-01-12 00:42:48,455 | INFO     |       TRP163: 3.43A
+2026-01-12 00:42:48,455 | INFO     |       THR166: 3.76A
+2026-01-12 00:42:48,455 | INFO     |       CYS167: 3.23A
+2026-01-12 00:42:48,455 | INFO     |       THR198: 3.54A
+2026-01-12 00:42:48,455 | INFO     |       GLY202: 3.57A
+2026-01-12 00:42:48,455 | INFO     | 
+  1U19 (Bovine Rhodopsin):
+2026-01-12 00:42:48,478 | INFO     |     Binding residues within 4.0A: 18
+2026-01-12 00:42:48,479 | INFO     |     Top contacts by distance:
+2026-01-12 00:42:48,479 | INFO     |       GLU113: 3.84A
+2026-01-12 00:42:48,479 | INFO     |       ALA117: 3.53A
+2026-01-12 00:42:48,479 | INFO     |       THR118: 3.53A
+2026-01-12 00:42:48,479 | INFO     |       GLY121: 3.71A
+2026-01-12 00:42:48,479 | INFO     |       GLU122: 3.89A
+2026-01-12 00:42:48,479 | INFO     | 
+  4ZWJ (Squid Rhodopsin):
+2026-01-12 00:42:48,514 | INFO     |     Binding residues within 4.0A: 0
+2026-01-12 00:42:48,514 | INFO     | ============================================================
+2026-01-12 00:42:48,514 | INFO     | Step 3: Aligning structures on retinal (ref: 1C3W)
+2026-01-12 00:42:48,514 | INFO     | ============================================================
+2026-01-12 00:42:48,515 | INFO     |   Reference retinal center: [15.86, 43.30, 2.92]
+2026-01-12 00:42:48,515 | INFO     |   Reference CA atoms: 222
+2026-01-12 00:42:48,515 | INFO     | 
+  Aligning 3UG9 (Channelrhodopsin-2 (C1C2))...
+2026-01-12 00:42:48,516 | INFO     |     Using 222 CA atoms for alignment
+2026-01-12 00:42:48,516 | INFO     |     RMSD: 17.80A
+2026-01-12 00:42:48,517 | INFO     |     Aligned retinal center: [15.57, 43.74, 8.23]
+2026-01-12 00:42:48,517 | INFO     | 
+  Aligning 1U19 (Bovine Rhodopsin)...
+2026-01-12 00:42:48,517 | INFO     |     Using 222 CA atoms for alignment
+2026-01-12 00:42:48,518 | INFO     |     RMSD: 21.41A
+2026-01-12 00:42:48,519 | INFO     |     Aligned retinal center: [2.26, 32.95, 19.79]
+2026-01-12 00:42:48,519 | INFO     | 
+  Aligning 4ZWJ (Squid Rhodopsin)...
+2026-01-12 00:42:48,520 | INFO     |     Using 222 CA atoms for alignment
+2026-01-12 00:42:48,520 | INFO     |     RMSD: 23.20A
+2026-01-12 00:42:48,523 | INFO     | ============================================================
+2026-01-12 00:42:48,523 | INFO     | Step 4: Exporting aligned structures to CIF
+2026-01-12 00:42:48,523 | INFO     | ============================================================
+2026-01-12 00:42:48,523 | WARNING  |   Failed to export 1C3W: Missing required columns: ['atom_id']
+2026-01-12 00:42:48,523 | WARNING  |   Failed to export 3UG9: Missing required columns: ['atom_id']
+2026-01-12 00:42:48,524 | WARNING  |   Failed to export 1U19: Missing required columns: ['atom_id']
+2026-01-12 00:42:48,525 | WARNING  |   Failed to export 4ZWJ: Missing required columns: ['atom_id']
+2026-01-12 00:42:48,525 | INFO     | 
+Exported 0 CIF files to: /data/fast/projects/protos/thesis/outputs/structure/aligned_cif
+2026-01-12 00:42:48,525 | INFO     | ============================================================
+2026-01-12 00:42:48,525 | INFO     | Step 5: Creating alignment visualization
+2026-01-12 00:42:48,525 | INFO     | ============================================================
+2026-01-12 00:42:48,594 | INFO     |   Saved visualization: /data/fast/projects/protos/thesis/outputs/structure/opsin_alignment.html
+2026-01-12 00:42:48,594 | INFO     | ============================================================
+2026-01-12 00:42:48,594 | INFO     | Step 6: Creating comparison summary
+2026-01-12 00:42:48,594 | INFO     | ============================================================
+2026-01-12 00:42:48,595 | INFO     |   Saved comparison: /data/fast/projects/protos/thesis/outputs/structure/opsin_comparison.csv
+2026-01-12 00:42:48,595 | INFO     | 
+  Comparison Summary:
+2026-01-12 00:42:48,596 | INFO     | PDB ID                      Name      Type                  Organism         Function Chain  Binding Residues  RMSD (A)
+  1C3W         Bacteriorhodopsin microbial   Halobacterium salinarum      proton pump     A                17  0.000000
+  3UG9 Channelrhodopsin-2 (C1C2) microbial Chlamydomonas reinhardtii   cation channel     A                15 17.804439
+  1U19          Bovine Rhodopsin    animal                Bos taurus dim light vision     A                18 21.405418
+  4ZWJ           Squid Rhodopsin    animal       Todarodes pacificus           vision     A                 0 23.196302
+2026-01-12 00:42:48,596 | INFO     | 
+2026-01-12 00:42:48,597 | INFO     | ======================================================================
+2026-01-12 00:42:48,597 | INFO     | STRUCTURE PROCESSOR EXAMPLE COMPLETE
+2026-01-12 00:42:48,597 | INFO     | ======================================================================
+2026-01-12 00:42:48,597 | INFO     | Outputs saved to: /data/fast/projects/protos/thesis/outputs/structure
+2026-01-12 00:42:48,597 | INFO     | Log saved to: /data/fast/projects/protos/thesis/logs/structure_processor_20260112_004247.log

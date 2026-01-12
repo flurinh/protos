@@ -1,0 +1,44 @@
+{
+  "enzyme": {
+    "key": "papain",
+    "id": "PAP",
+    "pdb": "9PAP",
+    "description": "Papain (cysteine protease)",
+    "triad": {
+      "nucleophile": "CYS25",
+      "base": "HIS159",
+      "electrostatic": "ASN175"
+    },
+    "substrate": {
+      "name": "phenylalanine",
+      "smiles": "NC(Cc1ccccc1)C(=O)O"
+    }
+  },
+  "target_geometry": {
+    "d_r1_r2": 6.627258030286728,
+    "d_r2_r3": 9.484701998481556,
+    "d_r1_r3": 8.397237224230356
+  },
+  "num_designs": 1,
+  "best_design": {
+    "id": "Rhodozyme-PAP_01",
+    "mutations": [
+      "V139C",
+      "E135H",
+      "F230N"
+    ],
+    "distance_rmsd": 1.5525098664781896,
+    "cb_direction_rmsd": 28.133770677806606
+  },
+  "all_designs": [
+    {
+      "id": "Rhodozyme-PAP_01",
+      "mutations": [
+        "V139C",
+        "E135H",
+        "F230N"
+      ],
+      "score": 4.36588693425885
+    }
+  ]
+}

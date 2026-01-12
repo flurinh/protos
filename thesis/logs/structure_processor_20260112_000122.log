@@ -1,0 +1,124 @@
+2026-01-12 00:01:23,226 | INFO     | ======================================================================
+2026-01-12 00:01:23,226 | INFO     | STRUCTURE PROCESSOR EXAMPLE: Opsin Retinal Alignment
+2026-01-12 00:01:23,226 | INFO     | ======================================================================
+2026-01-12 00:01:23,226 | INFO     | Structures: 4
+2026-01-12 00:01:23,226 | INFO     |   1C3W: Bacteriorhodopsin (microbial)
+2026-01-12 00:01:23,226 | INFO     |   3UG9: Channelrhodopsin-2 (C1C2) (microbial)
+2026-01-12 00:01:23,226 | INFO     |   1U19: Bovine Rhodopsin (animal)
+2026-01-12 00:01:23,226 | INFO     |   4ZWJ: Squid Rhodopsin (animal)
+2026-01-12 00:01:23,226 | INFO     | Reference: 1C3W
+2026-01-12 00:01:23,226 | INFO     | 
+2026-01-12 00:01:23,228 | INFO     | Initialized StructureProcessor 'structure_processor' at /data/fast/projects/protos/data/structure
+2026-01-12 00:01:23,228 | INFO     | ============================================================
+2026-01-12 00:01:23,228 | INFO     | Step 1: Downloading opsin structures from PDB
+2026-01-12 00:01:23,228 | INFO     | ============================================================
+2026-01-12 00:01:23,228 | INFO     | Initialized StructureProcessor 'structure_processor' at /data/fast/projects/protos/data/structure
+2026-01-12 00:01:23,228 | INFO     | Initialized StructureLoader 'structure_loader' for structure data
+2026-01-12 00:01:23,228 | INFO     |   Loading 1C3W: Bacteriorhodopsin (microbial)...
+2026-01-12 00:01:23,228 | INFO     | Structure already exists: /data/fast/projects/protos/data/structure/mmcif/1c3w.cif
+2026-01-12 00:01:23,236 | INFO     | Successfully registered entity '1C3W' from 1C3W
+2026-01-12 00:01:23,373 | INFO     | Created dataset 'opsin_retinal_structures' with 1 entities
+2026-01-12 00:01:23,373 | INFO     | Successfully downloaded all 1 entities
+2026-01-12 00:01:23,373 | INFO     |     Loaded: 2073 atoms, 260 residues
+2026-01-12 00:01:23,374 | INFO     |   Loading 3UG9: Channelrhodopsin-2 (C1C2) (microbial)...
+2026-01-12 00:01:24,223 | INFO     | Downloaded structure 3ug9 to /data/fast/projects/protos/data/structure/mmcif/3ug9.cif
+2026-01-12 00:01:24,232 | INFO     | Successfully registered entity '3UG9' from 3UG9
+2026-01-12 00:01:24,278 | INFO     | Created dataset 'opsin_retinal_structures' with 1 entities
+2026-01-12 00:01:24,278 | INFO     | Successfully downloaded all 1 entities
+2026-01-12 00:01:24,278 | INFO     |     Loaded: 2315 atoms, 330 residues
+2026-01-12 00:01:24,278 | INFO     |   Loading 1U19: Bovine Rhodopsin (animal)...
+2026-01-12 00:01:24,279 | INFO     | Structure already exists: /data/fast/projects/protos/data/structure/mmcif/1u19.cif
+2026-01-12 00:01:24,286 | INFO     | Successfully registered entity '1U19' from 1U19
+2026-01-12 00:01:24,382 | INFO     | Created dataset 'opsin_retinal_structures' with 1 entities
+2026-01-12 00:01:24,382 | INFO     | Successfully downloaded all 1 entities
+2026-01-12 00:01:24,383 | INFO     |     Loaded: 5948 atoms, 801 residues
+2026-01-12 00:01:24,383 | INFO     |   Loading 4ZWJ: Squid Rhodopsin (animal)...
+2026-01-12 00:01:25,735 | INFO     | Downloaded structure 4zwj to /data/fast/projects/protos/data/structure/mmcif/4zwj.cif
+2026-01-12 00:01:25,743 | INFO     | Successfully registered entity '4ZWJ' from 4ZWJ
+2026-01-12 00:01:26,145 | INFO     | Created dataset 'opsin_retinal_structures' with 1 entities
+2026-01-12 00:01:26,146 | INFO     | Successfully downloaded all 1 entities
+2026-01-12 00:01:26,147 | INFO     |     Loaded: 24665 atoms, 3128 residues
+2026-01-12 00:01:26,147 | INFO     | 
+Loaded 4 structures
+2026-01-12 00:01:26,147 | INFO     | ============================================================
+2026-01-12 00:01:26,147 | INFO     | Step 2: Analyzing retinal binding pockets
+2026-01-12 00:01:26,147 | INFO     | ============================================================
+2026-01-12 00:01:26,147 | INFO     | 
+  1C3W (Bacteriorhodopsin):
+2026-01-12 00:01:26,164 | INFO     |     Binding residues within 4.0A: 17
+2026-01-12 00:01:26,164 | INFO     |     Top contacts by distance:
+2026-01-12 00:01:26,164 | INFO     |       TRP86: 3.44A
+2026-01-12 00:01:26,164 | INFO     |       THR89: 3.80A
+2026-01-12 00:01:26,164 | INFO     |       THR90: 3.51A
+2026-01-12 00:01:26,164 | INFO     |       LEU93: 3.79A
+2026-01-12 00:01:26,164 | INFO     |       MET118: 3.61A
+2026-01-12 00:01:26,164 | INFO     | 
+  3UG9 (Channelrhodopsin-2 (C1C2)):
+2026-01-12 00:01:26,179 | INFO     |     Binding residues within 4.0A: 15
+2026-01-12 00:01:26,179 | INFO     |     Top contacts by distance:
+2026-01-12 00:01:26,179 | INFO     |       TRP163: 3.43A
+2026-01-12 00:01:26,179 | INFO     |       THR166: 3.76A
+2026-01-12 00:01:26,179 | INFO     |       CYS167: 3.23A
+2026-01-12 00:01:26,179 | INFO     |       THR198: 3.54A
+2026-01-12 00:01:26,179 | INFO     |       GLY202: 3.57A
+2026-01-12 00:01:26,179 | INFO     | 
+  1U19 (Bovine Rhodopsin):
+2026-01-12 00:01:26,203 | INFO     |     Binding residues within 4.0A: 18
+2026-01-12 00:01:26,203 | INFO     |     Top contacts by distance:
+2026-01-12 00:01:26,204 | INFO     |       GLU113: 3.84A
+2026-01-12 00:01:26,204 | INFO     |       ALA117: 3.53A
+2026-01-12 00:01:26,204 | INFO     |       THR118: 3.53A
+2026-01-12 00:01:26,204 | INFO     |       GLY121: 3.71A
+2026-01-12 00:01:26,204 | INFO     |       GLU122: 3.89A
+2026-01-12 00:01:26,204 | INFO     | 
+  4ZWJ (Squid Rhodopsin):
+2026-01-12 00:01:26,249 | INFO     |     Binding residues within 4.0A: 0
+2026-01-12 00:01:26,249 | INFO     | ============================================================
+2026-01-12 00:01:26,249 | INFO     | Step 3: Aligning structures on retinal (ref: 1C3W)
+2026-01-12 00:01:26,249 | INFO     | ============================================================
+2026-01-12 00:01:26,250 | INFO     |   Reference retinal center: [15.86, 43.30, 2.92]
+2026-01-12 00:01:26,251 | INFO     |   Reference CA atoms: 222
+2026-01-12 00:01:26,251 | INFO     | 
+  Aligning 3UG9 (Channelrhodopsin-2 (C1C2))...
+2026-01-12 00:01:26,252 | INFO     |     Using 222 CA atoms for alignment
+2026-01-12 00:01:26,252 | INFO     |     RMSD: 17.80A
+2026-01-12 00:01:26,253 | INFO     |     Aligned retinal center: [15.57, 43.74, 8.23]
+2026-01-12 00:01:26,253 | INFO     | 
+  Aligning 1U19 (Bovine Rhodopsin)...
+2026-01-12 00:01:26,254 | INFO     |     Using 222 CA atoms for alignment
+2026-01-12 00:01:26,254 | INFO     |     RMSD: 21.41A
+2026-01-12 00:01:26,255 | INFO     |     Aligned retinal center: [2.26, 32.95, 19.79]
+2026-01-12 00:01:26,255 | INFO     | 
+  Aligning 4ZWJ (Squid Rhodopsin)...
+2026-01-12 00:01:26,257 | INFO     |     Using 222 CA atoms for alignment
+2026-01-12 00:01:26,257 | INFO     |     RMSD: 23.20A
+2026-01-12 00:01:26,261 | INFO     | ============================================================
+2026-01-12 00:01:26,261 | INFO     | Step 4: Exporting aligned structures to CIF
+2026-01-12 00:01:26,261 | INFO     | ============================================================
+2026-01-12 00:01:26,262 | WARNING  |   Failed to export 1C3W: Missing required columns: ['atom_id']
+2026-01-12 00:01:26,262 | WARNING  |   Failed to export 3UG9: Missing required columns: ['atom_id']
+2026-01-12 00:01:26,263 | WARNING  |   Failed to export 1U19: Missing required columns: ['atom_id']
+2026-01-12 00:01:26,264 | WARNING  |   Failed to export 4ZWJ: Missing required columns: ['atom_id']
+2026-01-12 00:01:26,264 | INFO     | 
+Exported 0 CIF files to: /data/fast/projects/protos/thesis/outputs/structure/aligned_cif
+2026-01-12 00:01:26,265 | INFO     | ============================================================
+2026-01-12 00:01:26,265 | INFO     | Step 5: Creating alignment visualization
+2026-01-12 00:01:26,265 | INFO     | ============================================================
+2026-01-12 00:01:26,337 | INFO     |   Saved visualization: /data/fast/projects/protos/thesis/outputs/structure/opsin_alignment.html
+2026-01-12 00:01:26,337 | INFO     | ============================================================
+2026-01-12 00:01:26,337 | INFO     | Step 6: Creating comparison summary
+2026-01-12 00:01:26,337 | INFO     | ============================================================
+2026-01-12 00:01:26,338 | INFO     |   Saved comparison: /data/fast/projects/protos/thesis/outputs/structure/opsin_comparison.csv
+2026-01-12 00:01:26,338 | INFO     | 
+  Comparison Summary:
+2026-01-12 00:01:26,339 | INFO     | PDB ID                      Name      Type                  Organism         Function Chain  Binding Residues  RMSD (A)
+  1C3W         Bacteriorhodopsin microbial   Halobacterium salinarum      proton pump     A                17  0.000000
+  3UG9 Channelrhodopsin-2 (C1C2) microbial Chlamydomonas reinhardtii   cation channel     A                15 17.804439
+  1U19          Bovine Rhodopsin    animal                Bos taurus dim light vision     A                18 21.405418
+  4ZWJ           Squid Rhodopsin    animal       Todarodes pacificus           vision     A                 0 23.196302
+2026-01-12 00:01:26,339 | INFO     | 
+2026-01-12 00:01:26,339 | INFO     | ======================================================================
+2026-01-12 00:01:26,339 | INFO     | STRUCTURE PROCESSOR EXAMPLE COMPLETE
+2026-01-12 00:01:26,339 | INFO     | ======================================================================
+2026-01-12 00:01:26,339 | INFO     | Outputs saved to: /data/fast/projects/protos/thesis/outputs/structure
+2026-01-12 00:01:26,339 | INFO     | Log saved to: /data/fast/projects/protos/thesis/logs/structure_processor_20260112_000122.log

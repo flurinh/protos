@@ -1,0 +1,125 @@
+{
+  "enzyme": {
+    "key": "subtilisin",
+    "id": "SUB",
+    "pdb": "1SBC",
+    "description": "Subtilisin Carlsberg (serine protease, different fold)",
+    "triad": {
+      "nucleophile": "SER221",
+      "base": "HIS64",
+      "electrostatic": "ASP32"
+    },
+    "substrate": {
+      "name": "leucine",
+      "smiles": "CC(C)CC(N)C(=O)O"
+    }
+  },
+  "target_geometry": {
+    "d_r1_r2": 8.499538222750692,
+    "d_r2_r3": 7.185800720866108,
+    "d_r1_r3": 9.878613364232857
+  },
+  "num_designs": 10,
+  "best_design": {
+    "id": "Rhodozyme-SUB_01",
+    "mutations": [
+      "V139S",
+      "F230H",
+      "A243D"
+    ],
+    "distance_rmsd": 2.409212695636339,
+    "cb_direction_rmsd": 24.27936124946219
+  },
+  "all_designs": [
+    {
+      "id": "Rhodozyme-SUB_01",
+      "mutations": [
+        "V139S",
+        "F230H",
+        "A243D"
+      ],
+      "score": 4.837148820582558
+    },
+    {
+      "id": "Rhodozyme-SUB_02",
+      "mutations": [
+        "A237S",
+        "K233H",
+        "K247D"
+      ],
+      "score": 4.938949320441288
+    },
+    {
+      "id": "Rhodozyme-SUB_03",
+      "mutations": [
+        "V139S",
+        "F230H",
+        "Q246D"
+      ],
+      "score": 5.506783824084115
+    },
+    {
+      "id": "Rhodozyme-SUB_04",
+      "mutations": [
+        "Q246S",
+        "F230H",
+        "E251D"
+      ],
+      "score": 5.896638325317161
+    },
+    {
+      "id": "Rhodozyme-SUB_05",
+      "mutations": [
+        "A237S",
+        "F230H",
+        "K247D"
+      ],
+      "score": 6.127024668542604
+    },
+    {
+      "id": "Rhodozyme-SUB_06",
+      "mutations": [
+        "Q246S",
+        "S242H",
+        "E234D"
+      ],
+      "score": 6.209368563308846
+    },
+    {
+      "id": "Rhodozyme-SUB_07",
+      "mutations": [
+        "S242S",
+        "K233H",
+        "K247D"
+      ],
+      "score": 6.258306357520883
+    },
+    {
+      "id": "Rhodozyme-SUB_08",
+      "mutations": [
+        "K250S",
+        "Q246H",
+        "E234D"
+      ],
+      "score": 6.3087860988557125
+    },
+    {
+      "id": "Rhodozyme-SUB_09",
+      "mutations": [
+        "A243S",
+        "K233H",
+        "K247D"
+      ],
+      "score": 6.389109756281212
+    },
+    {
+      "id": "Rhodozyme-SUB_10",
+      "mutations": [
+        "K247S",
+        "E234H",
+        "A237D"
+      ],
+      "score": 6.400889199557398
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+PDB ID,Name,Type,Organism,Function,Chain,Binding Residues,RMSD (A)
+1C3W,Bacteriorhodopsin,microbial,Halobacterium salinarum,proton pump,A,17,0.0
+3UG9,Channelrhodopsin-2 (C1C2),microbial,Chlamydomonas reinhardtii,cation channel,A,15,17.804439135241683
+1U19,Bovine Rhodopsin,animal,Bos taurus,dim light vision,A,18,21.405418153186975
+4ZWJ,Squid Rhodopsin,animal,Todarodes pacificus,vision,A,0,23.196302169776136

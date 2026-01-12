@@ -535,16 +535,6 @@ protos clear --force            # Clear without confirmation
 
 ---
 
-## Examples
-
-See `examples/` for complete workflows:
-- `examples/workflow_tests/gpcr_ligand_mechanism.py` - GPCR binding analysis
-- `examples/workflow_tests/structure/test_structure_grn_annotation.py` - GRN annotation
-- `examples/workflow_tests/sequence/test_sequence_workflow.py` - Sequence operations
-- `examples/workflow_tests/embedding/test_embedding_workflow.py` - ML embeddings
-
----
-
 ## License
 
 MIT License - see LICENSE file for details.

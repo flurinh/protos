@@ -1,0 +1,53 @@
+{
+  "query": {
+    "name": "carazolol",
+    "smiles": "CC(C)NCC(O)COc1cccc2[nH]c3ccccc3c12",
+    "source": "2RH1 crystallographic ligand",
+    "target": "ADRB2",
+    "type": "inverse_agonist",
+    "pdb_ligand_id": "CAU"
+  },
+  "database_size": 59,
+  "high_similarity_count": 0,
+  "moderate_similarity_count": 5,
+  "top_hit": {
+    "name": "propranolol",
+    "similarity": 0.6521739130434783,
+    "class": "nonselective_beta_blocker"
+  },
+  "class_summary": {
+    "mean_sim": {
+      "indole_beta_blocker": 0.504,
+      "nonselective_beta_blocker": 0.384,
+      "beta1_selective": 0.34,
+      "carbazole": 0.284,
+      "beta_agonist": 0.275,
+      "beta2_agonist": 0.163,
+      "catecholamine": 0.135,
+      "alpha2_agonist": 0.117,
+      "alpha1_blocker": 0.092
+    },
+    "max_sim": {
+      "indole_beta_blocker": 0.633,
+      "nonselective_beta_blocker": 0.652,
+      "beta1_selective": 0.4,
+      "carbazole": 0.516,
+      "beta_agonist": 0.278,
+      "beta2_agonist": 0.339,
+      "catecholamine": 0.175,
+      "alpha2_agonist": 0.169,
+      "alpha1_blocker": 0.12
+    },
+    "count": {
+      "indole_beta_blocker": 3,
+      "nonselective_beta_blocker": 11,
+      "beta1_selective": 10,
+      "carbazole": 3,
+      "beta_agonist": 3,
+      "beta2_agonist": 14,
+      "catecholamine": 4,
+      "alpha2_agonist": 5,
+      "alpha1_blocker": 6
+    }
+  }
+}

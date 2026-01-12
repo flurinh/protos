@@ -539,8 +539,35 @@ class BoltzAdapter(ExternalJobAdapter):
         with open(metadata_path, "w", encoding="utf-8") as fh:
             json.dump(metadata_content, fh, indent=2)
 
+        # Build command with appropriate flags
+        output_dir = input_dir / "predictions"
+        command = ["boltz", "predict", str(yaml_path), "--out_dir", str(output_dir)]
+
+        # Add --use_msa_server unless MSA paths are provided
+        has_msa = self._config_has_msa(request.config)
+        if not has_msa and request.config.get("use_msa_server", True):
+            command.append("--use_msa_server")
+
+        # Optional: use potentials for better physical quality
+        if request.config.get("use_potentials", False):
+            command.append("--use_potentials")
+
+        # Optional: recycling and sampling steps
+        if "recycling_steps" in request.config:
+            command.extend(["--recycling_steps", str(request.config["recycling_steps"])])
+        if "sampling_steps" in request.config:
+            command.extend(["--sampling_steps", str(request.config["sampling_steps"])])
+        if "diffusion_samples" in request.config:
+            command.extend(["--diffusion_samples", str(request.config["diffusion_samples"])])
+
+        # Optional: device configuration
+        if "devices" in request.config:
+            command.extend(["--devices", str(request.config["devices"])])
+        if "accelerator" in request.config:
+            command.extend(["--accelerator", request.config["accelerator"]])
+
         job = PreparedJob(
-            command=["boltz", "predict", str(yaml_path)],
+            command=command,
             working_dir=input_dir,
             artifacts=[
                 sequence_bundle,
@@ -569,9 +596,24 @@ class BoltzAdapter(ExternalJobAdapter):
                 "entity": entity_name,
                 "config_id": config_id,
                 "mutations": mutations,
+                "output_dir": str(output_dir),
             },
         )
         return job
+
+    def _config_has_msa(self, config: MutableMapping[str, Any]) -> bool:
+        """Check if config provides MSA paths."""
+        # Check if any sequence override has msa field
+        for override in config.get("sequence_overrides", {}).values():
+            if "fields" in override and "msa" in override["fields"]:
+                return True
+        # Check if sequences section directly includes msa
+        for seq in config.get("sequences", []):
+            if isinstance(seq, dict):
+                for seq_type, seq_data in seq.items():
+                    if isinstance(seq_data, dict) and "msa" in seq_data:
+                        return True
+        return False
 
     def _config_identifier(self, mutations: Iterable[Dict[str, Any]]) -> str:
         labels = [
@@ -622,25 +664,43 @@ class BoltzAdapter(ExternalJobAdapter):
         yaml_sections["version"] = 1
         seq_entries = self._prepare_sequences_section(sequences, config)
 
-        # Optional ligand handling
-        ligand_cfg = config.get("ligand")
-        ligand_id = None
-        if isinstance(ligand_cfg, dict):
-            ligand_id = ligand_cfg.get("id") or ligand_cfg.get("name") or "LIG"
-            ligand_smiles = ligand_cfg.get("smiles")
-        else:
-            ligand_id = config.get("ligand_id")
-            ligand_smiles = config.get("ligand_smiles")
+        # Ligand handling - supports multiple ligands via 'ligands' list
+        # or single ligand via 'ligand'/'ligand_smiles' for backwards compatibility
+        ligands_config = config.get("ligands", [])
+        affinity_binder = None
 
-        if ligand_smiles:
-            seq_entries.append(
-                {
-                    "ligand": {
-                        "id": ligand_id or "LIG",
-                        "smiles": ligand_smiles,
+        # Backwards compatibility: single ligand config
+        if not ligands_config:
+            ligand_cfg = config.get("ligand")
+            if isinstance(ligand_cfg, dict):
+                ligand_id = ligand_cfg.get("id") or ligand_cfg.get("name") or "LIG"
+                ligand_smiles = ligand_cfg.get("smiles")
+                if ligand_smiles:
+                    ligands_config.append({"id": ligand_id, "smiles": ligand_smiles})
+                    affinity_binder = ligand_id
+            else:
+                ligand_id = config.get("ligand_id")
+                ligand_smiles = config.get("ligand_smiles")
+                if ligand_smiles:
+                    ligands_config.append({"id": ligand_id or "LIG", "smiles": ligand_smiles})
+                    affinity_binder = ligand_id or "LIG"
+
+        # Add all ligands to sequences
+        for lig in ligands_config:
+            lig_id = lig.get("id") or lig.get("name") or "LIG"
+            lig_smiles = lig.get("smiles")
+            if lig_smiles:
+                seq_entries.append(
+                    {
+                        "ligand": {
+                            "id": lig_id,
+                            "smiles": lig_smiles,
+                        }
                     }
-                }
-            )
+                )
+                # First non-cofactor ligand becomes affinity binder
+                if affinity_binder is None and not lig.get("is_cofactor", False):
+                    affinity_binder = lig_id
 
         yaml_sections["sequences"] = seq_entries
 
@@ -653,9 +713,9 @@ class BoltzAdapter(ExternalJobAdapter):
             yaml_sections[key] = deepcopy(value)
 
         # Default properties: affinity when ligand present and no explicit properties provided
-        if ligand_smiles and "properties" not in yaml_sections:
+        if affinity_binder and "properties" not in yaml_sections:
             yaml_sections["properties"] = [
-                {"affinity": {"binder": (ligand_id or "LIG")}}
+                {"affinity": {"binder": affinity_binder}}
             ]
 
         return yaml_sections
@@ -756,8 +816,26 @@ class BoltzGenAdapter(ExternalJobAdapter):
         with open(metadata_path, "w", encoding="utf-8") as fh:
             json.dump(metadata_content, fh, indent=2)
 
+        # Build command with appropriate flags
+        output_dir = input_dir / "predictions"
+        command = ["boltz", "design", str(yaml_path), "--out_dir", str(output_dir)]
+
+        # Optional: recycling and sampling steps
+        if "recycling_steps" in config:
+            command.extend(["--recycling_steps", str(config["recycling_steps"])])
+        if "sampling_steps" in config:
+            command.extend(["--sampling_steps", str(config["sampling_steps"])])
+        if "diffusion_samples" in config:
+            command.extend(["--diffusion_samples", str(config["diffusion_samples"])])
+
+        # Optional: device configuration
+        if "devices" in config:
+            command.extend(["--devices", str(config["devices"])])
+        if "accelerator" in config:
+            command.extend(["--accelerator", config["accelerator"]])
+
         job = PreparedJob(
-            command=["boltz", "design", str(yaml_path)],
+            command=command,
             working_dir=input_dir,
             artifacts=[
                 ArtifactBundle(
@@ -771,7 +849,10 @@ class BoltzGenAdapter(ExternalJobAdapter):
                     metadata={"job_name": job_name},
                 ),
             ],
-            metadata={"job_name": job_name},
+            metadata={
+                "job_name": job_name,
+                "output_dir": str(output_dir),
+            },
         )
         return job
 

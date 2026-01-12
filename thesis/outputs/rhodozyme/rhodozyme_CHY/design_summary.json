@@ -1,0 +1,125 @@
+{
+  "enzyme": {
+    "key": "chymotrypsin",
+    "id": "CHY",
+    "pdb": "4CHA",
+    "description": "Bovine chymotrypsin (serine protease)",
+    "triad": {
+      "nucleophile": "SER195",
+      "base": "HIS57",
+      "electrostatic": "ASP102"
+    },
+    "substrate": {
+      "name": "NAPABA",
+      "smiles": "CC(=O)Nc1ccc(cc1)C(=O)O"
+    }
+  },
+  "target_geometry": {
+    "d_r1_r2": 8.330321122261735,
+    "d_r2_r3": 6.406728572368269,
+    "d_r1_r3": 10.35884264770925
+  },
+  "num_designs": 10,
+  "best_design": {
+    "id": "Rhodozyme-CHY_01",
+    "mutations": [
+      "F230S",
+      "Q246H",
+      "S242D"
+    ],
+    "distance_rmsd": 1.0111359697853437,
+    "cb_direction_rmsd": 36.741578307120804
+  },
+  "all_designs": [
+    {
+      "id": "Rhodozyme-CHY_01",
+      "mutations": [
+        "F230S",
+        "Q246H",
+        "S242D"
+      ],
+      "score": 4.6852938004974245
+    },
+    {
+      "id": "Rhodozyme-CHY_02",
+      "mutations": [
+        "V139S",
+        "F230H",
+        "K233D"
+      ],
+      "score": 4.772027910017478
+    },
+    {
+      "id": "Rhodozyme-CHY_03",
+      "mutations": [
+        "F230S",
+        "K250H",
+        "Q246D"
+      ],
+      "score": 5.102757767411358
+    },
+    {
+      "id": "Rhodozyme-CHY_04",
+      "mutations": [
+        "A243S",
+        "A237H",
+        "K233D"
+      ],
+      "score": 5.204094939491757
+    },
+    {
+      "id": "Rhodozyme-CHY_05",
+      "mutations": [
+        "F230S",
+        "A243H",
+        "A237D"
+      ],
+      "score": 5.2537194904284625
+    },
+    {
+      "id": "Rhodozyme-CHY_06",
+      "mutations": [
+        "K233S",
+        "Q246H",
+        "S242D"
+      ],
+      "score": 5.301436228843715
+    },
+    {
+      "id": "Rhodozyme-CHY_07",
+      "mutations": [
+        "F230S",
+        "V140H",
+        "K142D"
+      ],
+      "score": 5.6979640630475235
+    },
+    {
+      "id": "Rhodozyme-CHY_08",
+      "mutations": [
+        "E234S",
+        "K247H",
+        "E251D"
+      ],
+      "score": 5.743502275479165
+    },
+    {
+      "id": "Rhodozyme-CHY_09",
+      "mutations": [
+        "T244S",
+        "A237H",
+        "K233D"
+      ],
+      "score": 5.821890654546966
+    },
+    {
+      "id": "Rhodozyme-CHY_10",
+      "mutations": [
+        "F230S",
+        "Q246H",
+        "A243D"
+      ],
+      "score": 5.830472647527552
+    }
+  ]
+}

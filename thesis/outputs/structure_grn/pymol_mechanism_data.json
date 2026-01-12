@@ -1,0 +1,154 @@
+{
+  "structures": {
+    "2RH1": {
+      "chain": "A",
+      "ligand": "CAU",
+      "ligand_name": "Carazolol",
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2"
+    },
+    "3NY9": {
+      "chain": "A",
+      "ligand": "JSZ",
+      "ligand_name": "ICI-118551",
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2"
+    },
+    "3SN6": {
+      "chain": "R",
+      "ligand": "P0G",
+      "ligand_name": "BI-167107",
+      "ligand_type": "full_agonist",
+      "state": "active",
+      "receptor": "ADRB2"
+    },
+    "4LDO": {
+      "chain": "A",
+      "ligand": "ALE",
+      "ligand_name": "Adrenaline",
+      "ligand_type": "full_agonist",
+      "state": "active",
+      "receptor": "ADRB2"
+    },
+    "2VT4": {
+      "chain": "A",
+      "ligand": "P32",
+      "ligand_name": "Cyanopindolol",
+      "ligand_type": "antagonist",
+      "state": "inactive",
+      "receptor": "ADRB1"
+    },
+    "2Y02": {
+      "chain": "A",
+      "ligand": "WHJ",
+      "ligand_name": "Isoprenaline",
+      "ligand_type": "full_agonist",
+      "state": "active_like",
+      "receptor": "ADRB1"
+    },
+    "2Y04": {
+      "chain": "A",
+      "ligand": "68H",
+      "ligand_name": "Salbutamol",
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1"
+    },
+    "2Y00": {
+      "chain": "A",
+      "ligand": "Y00",
+      "ligand_name": "Dobutamine",
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1"
+    }
+  },
+  "key_grn_positions": {
+    "3.32": "Orthosteric D - conserved",
+    "5.43": "Binding pocket S - agonist contact",
+    "6.48": "Toggle switch W - inverse agonist contact",
+    "6.55": "Binding pocket N - water marker",
+    "2.50": "Na+ allosteric site D"
+  },
+  "distance_results": [
+    {
+      "pdb_id": "2RH1",
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2",
+      "S5.43_dist": 3.316707101931071,
+      "W6.48_dist": 3.423593141715294,
+      "D2.50_W6.48_dist": 6.638552101173869
+    },
+    {
+      "pdb_id": "3NY9",
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2",
+      "S5.43_dist": 3.579246149680125,
+      "W6.48_dist": 3.435926367080643,
+      "D2.50_W6.48_dist": 6.505641244335567
+    },
+    {
+      "pdb_id": "3SN6",
+      "ligand_type": "full_agonist",
+      "state": "active",
+      "receptor": "ADRB2",
+      "S5.43_dist": 2.8163479898620487,
+      "W6.48_dist": 4.4393653825744055,
+      "D2.50_W6.48_dist": 6.818933274347242
+    },
+    {
+      "pdb_id": "4LDO",
+      "ligand_type": "full_agonist",
+      "state": "active",
+      "receptor": "ADRB2",
+      "S5.43_dist": 3.2513484894732523,
+      "W6.48_dist": 4.559622901074168,
+      "D2.50_W6.48_dist": 6.985594892348111
+    },
+    {
+      "pdb_id": "2VT4",
+      "ligand_type": "antagonist",
+      "state": "inactive",
+      "receptor": "ADRB1",
+      "S5.43_dist": 2.7179628400697484,
+      "W6.48_dist": 3.5845810075934974,
+      "D2.50_W6.48_dist": 7.220500605913692
+    },
+    {
+      "pdb_id": "2Y02",
+      "ligand_type": "full_agonist",
+      "state": "active_like",
+      "receptor": "ADRB1",
+      "S5.43_dist": 3.0817120241839615,
+      "W6.48_dist": 4.023527432490052,
+      "D2.50_W6.48_dist": 6.945572474605677
+    },
+    {
+      "pdb_id": "2Y04",
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1",
+      "S5.43_dist": 3.22031737566346,
+      "W6.48_dist": 4.023196366075113,
+      "D2.50_W6.48_dist": 6.996702509039526
+    },
+    {
+      "pdb_id": "2Y00",
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1",
+      "S5.43_dist": 3.1695535963286705,
+      "W6.48_dist": 5.2599081741034235,
+      "D2.50_W6.48_dist": 6.868104614811863
+    }
+  ],
+  "hypotheses": {
+    "H1_S543_agonist_closer": "SUPPORTED",
+    "H2_W648_inverse_closer": "SUPPORTED",
+    "H3_D250_W648_inverse_shortest": "SUPPORTED"
+  }
+}

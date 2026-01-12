@@ -1,0 +1,84 @@
+property_entry_id,entity_name,scope,opsin_type,species,lambda_max,lambda_max_source,chromophore,uniprot_id,accession,source
+,RHO_BOVIN,"[{'format': 'sequence', 'name': 'RHO_BOVIN'}]",rod,Bovine,500.0,Wald & Brown 1953,11-cis-retinal,P02699,,
+,RHO_HUMAN,"[{'format': 'sequence', 'name': 'RHO_HUMAN'}]",rod,Human,498.0,Bowmaker & Dartnall 1980,11-cis-retinal,P08100,,
+,RHO_MOUSE,"[{'format': 'sequence', 'name': 'RHO_MOUSE'}]",rod,Mouse,498.0,Yokoyama 2000,11-cis-retinal,P15409,,
+,RHO_CHICK,"[{'format': 'sequence', 'name': 'RHO_CHICK'}]",rod,Chicken,503.0,Yokoyama 2000,11-cis-retinal,P22328,,
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",cone_L,Human,560.0,Merbs & Nathans 1992,11-cis-retinal,P04000,,
+,OPSG_HUMAN,"[{'format': 'sequence', 'name': 'OPSG_HUMAN'}]",cone_M,Human,530.0,Merbs & Nathans 1992,11-cis-retinal,P04001,,
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",cone_S,Human,420.0,Merbs & Nathans 1992,11-cis-retinal,P03999,,
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",cone_S,Mouse,360.0,Yokoyama 2000,11-cis-retinal,P51491,,
+,OPN4_HUMAN,"[{'format': 'sequence', 'name': 'OPN4_HUMAN'}]",melanopsin,Human,480.0,Berson 2007,11-cis-retinal,Q9UHM6,,
+,OPN5_HUMAN,"[{'format': 'sequence', 'name': 'OPN5_HUMAN'}]",neuropsin,Human,380.0,Kojima 2011,11-cis-retinal,Q6U736,,
+,BRHOD_HALSA,"[{'format': 'sequence', 'name': 'BRHOD_HALSA'}]",microbial,H. salinarum,568.0,Oesterhelt 1998,all-trans-retinal,P02945,,
+,CHOP2_CHLRE,"[{'format': 'sequence', 'name': 'CHOP2_CHLRE'}]",microbial,C. reinhardtii,470.0,Nagel 2003,all-trans-retinal,Q8RUT8,,
+,RHO_BOVIN,"[{'format': 'sequence', 'name': 'RHO_BOVIN'}]",rod,,500.0,,,P02699,,
+,RHO_HUMAN,"[{'format': 'sequence', 'name': 'RHO_HUMAN'}]",rod,,498.0,,,P08100,,
+,RHO_MOUSE,"[{'format': 'sequence', 'name': 'RHO_MOUSE'}]",rod,,498.0,,,P15409,,
+,RHO_CHICK,"[{'format': 'sequence', 'name': 'RHO_CHICK'}]",rod,,503.0,,,P22328,,
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",cone_L,,560.0,,,P04000,,
+,OPSG_HUMAN,"[{'format': 'sequence', 'name': 'OPSG_HUMAN'}]",cone_M,,530.0,,,P04001,,
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",cone_S,,420.0,,,P03999,,
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",cone_S,,360.0,,,P51491,,
+,OPN4_HUMAN,"[{'format': 'sequence', 'name': 'OPN4_HUMAN'}]",melanopsin,,480.0,,,Q9UHM6,,
+,OPN5_HUMAN,"[{'format': 'sequence', 'name': 'OPN5_HUMAN'}]",neuropsin,,380.0,,,Q6U736,,
+,BRHOD_HALSA,"[{'format': 'sequence', 'name': 'BRHOD_HALSA'}]",microbial,,568.0,,,P02945,,
+,CHOP2_CHLRE,"[{'format': 'sequence', 'name': 'CHOP2_CHLRE'}]",microbial,,470.0,,,Q8RUT8,,
+,RHO_BOVIN,"[{'format': 'sequence', 'name': 'RHO_BOVIN'}]",rod,,500.0,,,P02699,,
+,RHO_HUMAN,"[{'format': 'sequence', 'name': 'RHO_HUMAN'}]",rod,,498.0,,,P08100,,
+,RHO_MOUSE,"[{'format': 'sequence', 'name': 'RHO_MOUSE'}]",rod,,498.0,,,P15409,,
+,RHO_CHICK,"[{'format': 'sequence', 'name': 'RHO_CHICK'}]",rod,,503.0,,,P22328,,
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",cone_L,,560.0,,,P04000,,
+,OPSG_HUMAN,"[{'format': 'sequence', 'name': 'OPSG_HUMAN'}]",cone_M,,530.0,,,P04001,,
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",cone_S,,420.0,,,P03999,,
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",cone_S,,360.0,,,P51491,,
+,OPN4_HUMAN,"[{'format': 'sequence', 'name': 'OPN4_HUMAN'}]",melanopsin,,480.0,,,Q9UHM6,,
+,OPN5_HUMAN,"[{'format': 'sequence', 'name': 'OPN5_HUMAN'}]",neuropsin,,380.0,,,Q6U736,,
+,BRHOD_HALSA,"[{'format': 'sequence', 'name': 'BRHOD_HALSA'}]",microbial,,568.0,,,P02945,,
+,CHOP2_CHLRE,"[{'format': 'sequence', 'name': 'CHOP2_CHLRE'}]",microbial,,470.0,,,Q8RUT8,,
+,RHO_BOVIN,"[{'format': 'sequence', 'name': 'RHO_BOVIN'}]",rod,,500.0,,,P02699,,
+,RHO_HUMAN,"[{'format': 'sequence', 'name': 'RHO_HUMAN'}]",rod,,498.0,,,P08100,,
+,RHO_MOUSE,"[{'format': 'sequence', 'name': 'RHO_MOUSE'}]",rod,,498.0,,,P15409,,
+,RHO_CHICK,"[{'format': 'sequence', 'name': 'RHO_CHICK'}]",rod,,503.0,,,P22328,,
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",cone_L,,560.0,,,P04000,,
+,OPSG_HUMAN,"[{'format': 'sequence', 'name': 'OPSG_HUMAN'}]",cone_M,,530.0,,,P04001,,
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",cone_S,,420.0,,,P03999,,
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",cone_S,,360.0,,,P51491,,
+,OPN4_HUMAN,"[{'format': 'sequence', 'name': 'OPN4_HUMAN'}]",melanopsin,,480.0,,,Q9UHM6,,
+,OPN5_HUMAN,"[{'format': 'sequence', 'name': 'OPN5_HUMAN'}]",neuropsin,,380.0,,,Q6U736,,
+,BRHOD_HALSA,"[{'format': 'sequence', 'name': 'BRHOD_HALSA'}]",microbial,,568.0,,,P02945,,
+,CHOP2_CHLRE,"[{'format': 'sequence', 'name': 'CHOP2_CHLRE'}]",microbial,,470.0,,,Q8RUT8,,
+,RHO_BOVIN,"[{'format': 'sequence', 'name': 'RHO_BOVIN'}]",rod,,500.0,,,P02699,,
+,RHO_HUMAN,"[{'format': 'sequence', 'name': 'RHO_HUMAN'}]",rod,,498.0,,,P08100,,
+,RHO_MOUSE,"[{'format': 'sequence', 'name': 'RHO_MOUSE'}]",rod,,498.0,,,P15409,,
+,RHO_CHICK,"[{'format': 'sequence', 'name': 'RHO_CHICK'}]",rod,,503.0,,,P22328,,
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",cone_L,,560.0,,,P04000,,
+,OPSG_HUMAN,"[{'format': 'sequence', 'name': 'OPSG_HUMAN'}]",cone_M,,530.0,,,P04001,,
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",cone_S,,420.0,,,P03999,,
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",cone_S,,360.0,,,P51491,,
+,OPN4_HUMAN,"[{'format': 'sequence', 'name': 'OPN4_HUMAN'}]",melanopsin,,480.0,,,Q9UHM6,,
+,OPN5_HUMAN,"[{'format': 'sequence', 'name': 'OPN5_HUMAN'}]",neuropsin,,380.0,,,Q6U736,,
+,BRHOD_HALSA,"[{'format': 'sequence', 'name': 'BRHOD_HALSA'}]",microbial,,568.0,,,P02945,,
+,CHOP2_CHLRE,"[{'format': 'sequence', 'name': 'CHOP2_CHLRE'}]",microbial,,470.0,,,Q8RUT8,,
+,OPSG_HUMAN,"[{'format': 'sequence', 'name': 'OPSG_HUMAN'}]",medium_wave,Human,530.0,,,,P04001,literature
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",long_wave,Human,560.0,,,,P04000,literature
+,OPSB_SAIBB,"[{'format': 'sequence', 'name': 'OPSB_SAIBB'}]",short_wave,Marmoset,423.0,,,,O13092,literature
+,OPSB_BOVIN,"[{'format': 'sequence', 'name': 'OPSB_BOVIN'}]",short_wave,Bovine,438.0,,,,P51490,literature
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",short_wave,Human,420.0,,,,P03999,literature
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",short_wave,Mouse,360.0,,,,P51491,literature
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",short_wave,Human,420.0,,,,P03999,literature
+,OPSB_SAIBB,"[{'format': 'sequence', 'name': 'OPSB_SAIBB'}]",short_wave,Marmoset,423.0,,,,O13092,literature
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",short_wave,Mouse,360.0,,,,P51491,literature
+,OPSB_BOVIN,"[{'format': 'sequence', 'name': 'OPSB_BOVIN'}]",short_wave,Bovine,438.0,,,,P51490,literature
+,OPSG_CEBAP,"[{'format': 'sequence', 'name': 'OPSG_CEBAP'}]",medium_wave,Capuchin,535.0,,,,P28682,literature
+,OPSR_CEBAP,"[{'format': 'sequence', 'name': 'OPSR_CEBAP'}]",long_wave,Capuchin,561.0,,,,P28683,literature
+,OPSG_HUMAN,"[{'format': 'sequence', 'name': 'OPSG_HUMAN'}]",medium_wave,Human,530.0,,,,P04001,literature
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",long_wave,Human,560.0,,,,P04000,literature
+,OPSB_PANTR,"[{'format': 'sequence', 'name': 'OPSB_PANTR'}]",short_wave,Chimpanzee,430.0,,,,P60015,literature
+,OPSB_HUMAN,"[{'format': 'sequence', 'name': 'OPSB_HUMAN'}]",short_wave,Human,420.0,,,,P03999,literature
+,OPSB_SAIBB,"[{'format': 'sequence', 'name': 'OPSB_SAIBB'}]",short_wave,Marmoset,423.0,,,,O13092,literature
+,OPSB_MOUSE,"[{'format': 'sequence', 'name': 'OPSB_MOUSE'}]",short_wave,Mouse,360.0,,,,P51491,literature
+,OPSB_BOVIN,"[{'format': 'sequence', 'name': 'OPSB_BOVIN'}]",short_wave,Bovine,438.0,,,,P51490,literature
+,OPSB_MACFA,"[{'format': 'sequence', 'name': 'OPSB_MACFA'}]",short_wave,Macaque,430.0,,,,Q8HY69,literature
+,OPSR_CEBAP,"[{'format': 'sequence', 'name': 'OPSR_CEBAP'}]",long_wave,Capuchin,561.0,,,,P28683,literature
+,OPN1LW_PONPY,"[{'format': 'sequence', 'name': 'OPN1LW_PONPY'}]",long_wave,Orangutan,563.0,,,,P34989,literature
+,OPSR_HUMAN,"[{'format': 'sequence', 'name': 'OPSR_HUMAN'}]",long_wave,Human,560.0,,,,P04000,literature

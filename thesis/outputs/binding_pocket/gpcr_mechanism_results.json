@@ -1,0 +1,307 @@
+{
+  "metadata": {
+    "structures": {
+      "3SN6": {
+        "chain": "R",
+        "ligand": "P0G",
+        "ligand_name": "BI-167107",
+        "ligand_type": "full_agonist",
+        "state": "active",
+        "receptor": "ADRB2",
+        "doi": "10.1038/nature10361",
+        "notes": "BI-167107 + Gs protein, fully active (Rasmussen 2011)"
+      },
+      "4LDO": {
+        "chain": "A",
+        "ligand": "ALE",
+        "ligand_name": "Adrenaline",
+        "ligand_type": "full_agonist",
+        "state": "active",
+        "receptor": "ADRB2",
+        "doi": "10.1038/nature12572",
+        "notes": "Adrenaline + Nb6B9 nanobody, active state (Ring 2013)"
+      },
+      "2Y02": {
+        "chain": "A",
+        "ligand": "WHJ",
+        "ligand_name": "Isoprenaline",
+        "ligand_type": "full_agonist",
+        "state": "active_like",
+        "receptor": "ADRB1",
+        "doi": "10.1038/nature09746",
+        "notes": "Isoprenaline-bound, agonist-induced changes (Warne 2011)"
+      },
+      "2Y04": {
+        "chain": "A",
+        "ligand": "68H",
+        "ligand_name": "Salbutamol",
+        "ligand_type": "partial_agonist",
+        "state": "intermediate",
+        "receptor": "ADRB1",
+        "doi": "10.1038/nature09746",
+        "notes": "Salbutamol-bound, intermediate state (Warne 2011)"
+      },
+      "2Y00": {
+        "chain": "A",
+        "ligand": "Y00",
+        "ligand_name": "Dobutamine",
+        "ligand_type": "partial_agonist",
+        "state": "intermediate",
+        "receptor": "ADRB1",
+        "doi": "10.1038/nature09746",
+        "notes": "Dobutamine-bound, intermediate state (Warne 2011)"
+      },
+      "2RH1": {
+        "chain": "A",
+        "ligand": "CAU",
+        "ligand_name": "Carazolol",
+        "ligand_type": "inverse_agonist",
+        "state": "inactive",
+        "receptor": "ADRB2",
+        "doi": "10.1126/science.1150577",
+        "notes": "Carazolol-bound, first high-res GPCR (Cherezov 2007)"
+      },
+      "3NY9": {
+        "chain": "A",
+        "ligand": "JSZ",
+        "ligand_name": "ICI 118,551",
+        "ligand_type": "inverse_agonist",
+        "state": "inactive",
+        "receptor": "ADRB2",
+        "doi": "10.1021/ja105108q",
+        "notes": "ICI 118,551-bound inverse agonist (Wacker 2010)"
+      },
+      "2VT4": {
+        "chain": "A",
+        "ligand": "P32",
+        "ligand_name": "Cyanopindolol",
+        "ligand_type": "antagonist",
+        "state": "inactive",
+        "receptor": "ADRB1",
+        "doi": "10.1038/nature07101",
+        "notes": "Cyanopindolol-bound, inactive (Warne 2008)"
+      }
+    },
+    "hypotheses": {
+      "H1": "Agonists bind CLOSER to S5.43 than inverse agonists",
+      "H2": "Inverse agonists bind CLOSER to W6.48 than agonists",
+      "H3": "Water at N6.55 is EXCLUSIVE to agonist-bound active structures"
+    }
+  },
+  "H1_S543_distance": {
+    "3SN6": {
+      "ligand_type": "full_agonist",
+      "state": "active",
+      "receptor": "ADRB2",
+      "distance": 14.000254640541364,
+      "ligand_atom": "CAB",
+      "residue_atom": "N"
+    },
+    "2Y02": {
+      "ligand_type": "full_agonist",
+      "state": "active_like",
+      "receptor": "ADRB1",
+      "distance": 14.195378156287347,
+      "ligand_atom": "C13",
+      "residue_atom": "N"
+    },
+    "2Y04": {
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1",
+      "distance": 14.11725118427805,
+      "ligand_atom": "C2",
+      "residue_atom": "N"
+    },
+    "2Y00": {
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1",
+      "distance": 14.152243426397103,
+      "ligand_atom": "O1",
+      "residue_atom": "N"
+    },
+    "2RH1": {
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2",
+      "distance": 9.778520542495169,
+      "ligand_atom": "C1",
+      "residue_atom": "N"
+    },
+    "3NY9": {
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2",
+      "distance": 11.868915830858352,
+      "ligand_atom": "O1",
+      "residue_atom": "O"
+    },
+    "2VT4": {
+      "ligand_type": "antagonist",
+      "state": "inactive",
+      "receptor": "ADRB1",
+      "distance": 6.524157340224101,
+      "ligand_atom": "C7",
+      "residue_atom": "O"
+    }
+  },
+  "H2_W648_distance": {
+    "3SN6": {
+      "ligand_type": "full_agonist",
+      "state": "active",
+      "receptor": "ADRB2",
+      "distance": 36.46430102168421,
+      "ligand_atom": "OAE",
+      "residue_atom": "CG"
+    },
+    "2Y02": {
+      "ligand_type": "full_agonist",
+      "state": "active_like",
+      "receptor": "ADRB1",
+      "distance": 27.456145268409404,
+      "ligand_atom": "O2",
+      "residue_atom": "N"
+    },
+    "2Y04": {
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1",
+      "distance": 27.025764096506133,
+      "ligand_atom": "O1",
+      "residue_atom": "N"
+    },
+    "2Y00": {
+      "ligand_type": "partial_agonist",
+      "state": "intermediate",
+      "receptor": "ADRB1",
+      "distance": 27.70545449906931,
+      "ligand_atom": "O2",
+      "residue_atom": "N"
+    },
+    "2RH1": {
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2",
+      "distance": 30.450920429438582,
+      "ligand_atom": "C11",
+      "residue_atom": "CB"
+    },
+    "3NY9": {
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2",
+      "distance": 23.82363297232393,
+      "ligand_atom": "C10",
+      "residue_atom": "CE2"
+    },
+    "2VT4": {
+      "ligand_type": "antagonist",
+      "state": "inactive",
+      "receptor": "ADRB1",
+      "distance": 9.210661376904483,
+      "ligand_atom": "C6",
+      "residue_atom": "CG"
+    }
+  },
+  "H3_N655_water": {
+    "3SN6": {
+      "ligand_type": "full_agonist",
+      "state": "active",
+      "receptor": "ADRB2",
+      "has_water": false,
+      "min_distance": null,
+      "note": "No crystallographic waters"
+    },
+    "3NY9": {
+      "ligand_type": "inverse_agonist",
+      "state": "inactive",
+      "receptor": "ADRB2",
+      "has_water": "True",
+      "min_distance": 3.344903735535598
+    },
+    "2VT4": {
+      "ligand_type": "antagonist",
+      "state": "inactive",
+      "receptor": "ADRB1",
+      "has_water": "False",
+      "min_distance": 16.175149643820916
+    }
+  },
+  "summary": {
+    "H1": {
+      "full_agonist": {
+        "mean": 14.097816398414356,
+        "min": 14.000254640541364,
+        "max": 14.195378156287347,
+        "structures": [
+          "3SN6",
+          "2Y02"
+        ]
+      },
+      "partial_agonist": {
+        "mean": 14.134747305337577,
+        "min": 14.11725118427805,
+        "max": 14.152243426397103,
+        "structures": [
+          "2Y04",
+          "2Y00"
+        ]
+      },
+      "antagonist": {
+        "mean": 6.524157340224101,
+        "min": 6.524157340224101,
+        "max": 6.524157340224101,
+        "structures": [
+          "2VT4"
+        ]
+      },
+      "inverse_agonist": {
+        "mean": 10.82371818667676,
+        "min": 9.778520542495169,
+        "max": 11.868915830858352,
+        "structures": [
+          "2RH1",
+          "3NY9"
+        ]
+      }
+    },
+    "H2": {
+      "full_agonist": {
+        "mean": 31.960223145046804,
+        "min": 27.456145268409404,
+        "max": 36.46430102168421,
+        "structures": [
+          "3SN6",
+          "2Y02"
+        ]
+      },
+      "partial_agonist": {
+        "mean": 27.36560929778772,
+        "min": 27.025764096506133,
+        "max": 27.70545449906931,
+        "structures": [
+          "2Y04",
+          "2Y00"
+        ]
+      },
+      "antagonist": {
+        "mean": 9.210661376904483,
+        "min": 9.210661376904483,
+        "max": 9.210661376904483,
+        "structures": [
+          "2VT4"
+        ]
+      },
+      "inverse_agonist": {
+        "mean": 27.13727670088126,
+        "min": 23.82363297232393,
+        "max": 30.450920429438582,
+        "structures": [
+          "2RH1",
+          "3NY9"
+        ]
+      }
+    }
+  }
+}

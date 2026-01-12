@@ -1,0 +1,65 @@
+{
+  "batch_name": "rhodopsin_structure_predictions",
+  "model": "boltz2",
+  "total_jobs": 5,
+  "dataset": "rhodopsin_prediction_targets",
+  "jobs": [
+    {
+      "entity": "RHO_BOVIN",
+      "working_dir": "/data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_wild_type",
+      "command": "boltz predict /data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_wild_type/config.yaml --out_dir /data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_wild_type/predictions --use_msa_server --recycling_steps 3 --sampling_steps 200",
+      "artifacts": [
+        "sequence_dataset",
+        "boltz_config",
+        "boltz_sequences"
+      ]
+    },
+    {
+      "entity": "RHO_HUMAN",
+      "working_dir": "/data/fast/projects/protos/data/models/boltz2/RHO_HUMAN_wild_type",
+      "command": "boltz predict /data/fast/projects/protos/data/models/boltz2/RHO_HUMAN_wild_type/config.yaml --out_dir /data/fast/projects/protos/data/models/boltz2/RHO_HUMAN_wild_type/predictions --use_msa_server --recycling_steps 3 --sampling_steps 200",
+      "artifacts": [
+        "sequence_dataset",
+        "boltz_config",
+        "boltz_sequences"
+      ]
+    },
+    {
+      "entity": "OPN4_HUMAN",
+      "working_dir": "/data/fast/projects/protos/data/models/boltz2/OPN4_HUMAN_wild_type",
+      "command": "boltz predict /data/fast/projects/protos/data/models/boltz2/OPN4_HUMAN_wild_type/config.yaml --out_dir /data/fast/projects/protos/data/models/boltz2/OPN4_HUMAN_wild_type/predictions --use_msa_server --recycling_steps 3 --sampling_steps 200",
+      "artifacts": [
+        "sequence_dataset",
+        "boltz_config",
+        "boltz_sequences"
+      ]
+    },
+    {
+      "entity": "RHO_BOVIN",
+      "mutation": "K296A",
+      "working_dir": "/data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_K296A",
+      "command": "boltz predict /data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_K296A/config.yaml --out_dir /data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_K296A/predictions --use_msa_server --recycling_steps 3"
+    },
+    {
+      "entity": "RHO_BOVIN",
+      "mutation": "E113Q",
+      "working_dir": "/data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_E113Q",
+      "command": "boltz predict /data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_E113Q/config.yaml --out_dir /data/fast/projects/protos/data/models/boltz2/RHO_BOVIN_E113Q/predictions --use_msa_server --recycling_steps 3"
+    }
+  ],
+  "execution": {
+    "container": "ghcr.io/jwohlwend/boltz:0.4.0",
+    "gpu_required": true,
+    "estimated_time_per_job": "30-60 min",
+    "recommended_resources": {
+      "gpu": "A100 or V100",
+      "memory": "32GB",
+      "storage": "50GB per job"
+    }
+  },
+  "submission_examples": {
+    "local": "boltz predict config.yaml --out_dir predictions",
+    "slurm": "sbatch --gres=gpu:1 --mem=32G run_boltz.sh",
+    "docker": "docker run --gpus all -v $PWD:/data boltz predict /data/config.yaml"
+  }
+}
