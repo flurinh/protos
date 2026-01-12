@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""StructureProcessor Example: Microbial opsin vs rhodopsin alignment on retinal.
+"""StructureProcessor Example: Type I vs Type II opsin alignment on retinal.
 
 This example demonstrates:
-- Loading structures from PDB (microbial opsin and animal rhodopsin)
+- Loading structures from PDB (Type I microbial and Type II animal opsins)
 - Extracting retinal ligand contacts
 - Aligning structures based on retinal position
 - Exporting aligned structures to CIF format
 - Visualizing the alignment
 
-Question: "How do microbial and animal opsins compare structurally around retinal?"
+KEY INSIGHT: Type I (microbial) and Type II (animal) opsins both bind retinal
+but have DIFFERENT 7TM topologies. This example shows how they compare
+structurally around the retinal binding site.
+
+Question: "How do Type I and Type II opsins compare structurally around retinal?"
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import yaml
 
 # Setup paths
 THESIS_DIR = Path(__file__).resolve().parent.parent
@@ -53,43 +58,58 @@ from protos.io.ingest.structure_loader import StructureLoader
 from protos.io.formats.cif_utils import write_cif_file
 
 # =============================================================================
+# Load Color Scheme
+# =============================================================================
+with open(THESIS_DIR / "colorscales.yaml") as f:
+    COLORS = yaml.safe_load(f)
+
+# =============================================================================
 # Structure Dataset
 # =============================================================================
-# Microbial opsins and animal rhodopsins with retinal
+# Type I (Microbial) and Type II (Animal) opsins with retinal
+# KEY: These have DIFFERENT 7TM topologies but both bind retinal
 STRUCTURE_DATASET = {
-    # Microbial opsins (Type I)
+    # Type I: Microbial opsins (non-GPCR 7TM)
     "1C3W": {
         "name": "Bacteriorhodopsin",
-        "type": "microbial",
+        "type": "Type I",
+        "type_full": "Type I (Microbial)",
         "chain": "A",
         "ligand": "RET",
         "organism": "Halobacterium salinarum",
         "function": "proton pump",
+        "color_hex": COLORS["structures"]["1C3W"]["hex"],
     },
     "3UG9": {
         "name": "Channelrhodopsin-2 (C1C2)",
-        "type": "microbial",
+        "type": "Type I",
+        "type_full": "Type I (Microbial)",
         "chain": "A",
         "ligand": "RET",
         "organism": "Chlamydomonas reinhardtii",
         "function": "cation channel",
+        "color_hex": COLORS["structures"]["3UG9"]["hex"],
     },
-    # Animal rhodopsins (Type II / GPCRs)
+    # Type II: Animal opsins (GPCR family)
     "1U19": {
         "name": "Bovine Rhodopsin",
-        "type": "animal",
+        "type": "Type II",
+        "type_full": "Type II (Animal/GPCR)",
         "chain": "A",
         "ligand": "RET",
         "organism": "Bos taurus",
         "function": "dim light vision",
+        "color_hex": COLORS["structures"]["1U19"]["hex"],
     },
-    "4ZWJ": {
+    "2Z73": {
         "name": "Squid Rhodopsin",
-        "type": "animal",
+        "type": "Type II",
+        "type_full": "Type II (Animal/GPCR)",
         "chain": "A",
         "ligand": "RET",
         "organism": "Todarodes pacificus",
         "function": "vision",
+        "color_hex": COLORS["structures"]["2Z73"]["hex"],
     },
 }
 
@@ -218,10 +238,10 @@ def align_on_retinal(
     ref_chain = ref_info["chain"]
     ref_ligand = ref_info["ligand"]
 
-    # Get reference retinal coordinates
+    # Get reference retinal coordinates (only from specified chain)
     ref_ret = ref_df[
-        (ref_df["res_name3l"] == ref_ligand) |
-        (ref_df["res_name"] == ref_ligand)
+        ((ref_df["res_name3l"] == ref_ligand) | (ref_df["res_name"] == ref_ligand)) &
+        (ref_df["auth_chain_id"] == ref_chain)
     ][["x", "y", "z"]].values
 
     if len(ref_ret) == 0:
@@ -290,10 +310,10 @@ def align_on_retinal(
             aligned_structures[pdb_id] = aligned_df
             rmsd_values[pdb_id] = rmsd
 
-            # Show aligned retinal center
+            # Show aligned retinal center (only from specified chain)
             aligned_ret = aligned_df[
-                (aligned_df["res_name3l"] == ligand) |
-                (aligned_df["res_name"] == ligand)
+                ((aligned_df["res_name3l"] == ligand) | (aligned_df["res_name"] == ligand)) &
+                (aligned_df["auth_chain_id"] == chain)
             ][["x", "y", "z"]].values
 
             if len(aligned_ret) > 0:
@@ -363,17 +383,19 @@ def visualize_alignment(
 
     fig = go.Figure()
 
-    # Color scheme
-    colors = {
-        "microbial": "#1f77b4",  # blue
-        "animal": "#d62728",     # red
+    # Color scheme from colorscales.yaml
+    type_colors = {
+        "Type I": COLORS["types"]["type_i"]["hex"],
+        "Type II": COLORS["types"]["type_ii"]["hex"],
     }
+    retinal_color = COLORS["ligands"]["retinal"]["hex"]
 
     # Add each structure
     for pdb_id, df in aligned_structures.items():
         info = STRUCTURE_DATASET[pdb_id]
         chain = info["chain"]
-        color = colors[info["type"]]
+        # Use structure-specific color from colorscales
+        color = info.get("color_hex", type_colors.get(info["type"], "#888888"))
 
         # Get CA atoms for backbone trace
         ca_df = df[
@@ -385,7 +407,8 @@ def visualize_alignment(
             continue
 
         rmsd = rmsd_values.get(pdb_id, 0)
-        name_label = f"{pdb_id}: {info['name']} (RMSD: {rmsd:.2f}A)"
+        type_label = info.get("type_full", info["type"])
+        name_label = f"{pdb_id}: {info['name']} ({type_label}, RMSD: {rmsd:.2f}Å)"
 
         # Add backbone trace
         fig.add_trace(go.Scatter3d(
@@ -406,11 +429,11 @@ def visualize_alignment(
             text=ca_df["res_name3l"].astype(str) + ca_df["auth_seq_id"].astype(str),
         ))
 
-        # Add retinal as larger markers
+        # Add retinal as larger markers (only from specified chain)
         ligand = info["ligand"]
         ret_df = df[
-            (df["res_name3l"] == ligand) |
-            (df["res_name"] == ligand)
+            ((df["res_name3l"] == ligand) | (df["res_name"] == ligand)) &
+            (df["auth_chain_id"] == chain)
         ]
 
         if not ret_df.empty:
@@ -422,7 +445,7 @@ def visualize_alignment(
                 name=f"{pdb_id}: Retinal",
                 marker=dict(
                     size=5,
-                    color=color,
+                    color=retinal_color,
                     symbol="diamond",
                     opacity=0.8,
                 ),
@@ -438,7 +461,8 @@ def visualize_alignment(
 
     fig.update_layout(
         title=dict(
-            text="Microbial Opsin vs Animal Rhodopsin: Retinal-Based Alignment",
+            text="Type I vs Type II Opsins: Different Folds, Same Ligand<br>"
+                 "<sup>Retinal-based structural alignment reveals distinct 7TM topologies</sup>",
             font=dict(size=18),
         ),
         scene=dict(
@@ -482,12 +506,12 @@ def create_comparison_table(
         records.append({
             "PDB ID": pdb_id,
             "Name": info["name"],
-            "Type": info["type"],
+            "Type": info.get("type_full", info["type"]),
             "Organism": info["organism"],
             "Function": info["function"],
             "Chain": info["chain"],
             "Binding Residues": n_contacts,
-            "RMSD (A)": rmsd_values.get(pdb_id, float("nan")),
+            "RMSD (Å)": rmsd_values.get(pdb_id, float("nan")),
         })
 
     summary_df = pd.DataFrame(records)
@@ -507,11 +531,15 @@ def create_comparison_table(
 def main() -> int:
     """Run the StructureProcessor example."""
     logger.info("=" * 70)
-    logger.info("STRUCTURE PROCESSOR EXAMPLE: Opsin Retinal Alignment")
+    logger.info("STRUCTURE PROCESSOR EXAMPLE: Type I vs Type II Opsin Alignment")
     logger.info("=" * 70)
-    logger.info(f"Structures: {len(STRUCTURE_DATASET)}")
+    logger.info("")
+    logger.info("KEY QUESTION: How do Type I and Type II opsins compare around retinal?")
+    logger.info("")
+    logger.info(f"Structures ({len(STRUCTURE_DATASET)} total):")
     for pdb_id, info in STRUCTURE_DATASET.items():
-        logger.info(f"  {pdb_id}: {info['name']} ({info['type']})")
+        type_label = info.get("type_full", info["type"])
+        logger.info(f"  {pdb_id}: {info['name']} - {type_label}")
     logger.info(f"Reference: {REFERENCE_STRUCTURE}")
     logger.info("")
 

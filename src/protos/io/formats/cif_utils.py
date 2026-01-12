@@ -307,9 +307,22 @@ def df_to_cif(df: pd.DataFrame, structure_id: Optional[str] = None) -> str:
         String with CIF format content
 
     Raises:
-        ValueError: If required columns are missing
+        ValueError: If required columns are missing and cannot be generated
     """
-    # Validate required columns
+    # Auto-fix missing columns that can be generated
+    df = df.copy()  # Work on a copy to avoid modifying the original
+
+    # Generate atom_id if missing (sequential numbering)
+    if 'atom_id' not in df.columns or df['atom_id'].isna().all():
+        df['atom_id'] = range(1, len(df) + 1)
+        logger.debug("Generated sequential atom_id column")
+
+    # Generate group if missing (default to ATOM)
+    if 'group' not in df.columns:
+        df['group'] = 'ATOM'
+        logger.debug("Generated default group column")
+
+    # Validate remaining required columns
     missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")

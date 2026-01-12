@@ -204,48 +204,50 @@ def main() -> int:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
-    # Type colors matching spectral sensitivity
+    # Sequence colors from colorscales.yaml (teal/gold - distinct from structure blue/red)
     type_colors = {
-        "short_wave": "#4169E1",   # Blue
-        "long_wave": "#DC143C",    # Red
+        "short_wave": "#006d77",   # Teal
+        "long_wave": "#e9c46a",    # Gold
     }
 
     fig = make_subplots(
         rows=1, cols=2,
-        subplot_titles=("Sequences by Opsin Type", "Identity Distribution by Type"),
         specs=[[{"type": "pie"}, {"type": "box"}]],
+        horizontal_spacing=0.15,
     )
 
     # Pie chart of opsin types
     type_counts = combined_df["opsin_type"].value_counts()
     fig.add_trace(go.Pie(
-        labels=[t.replace("_", " ").title() for t in type_counts.index],
+        labels=["SW", "LW"],
         values=type_counts.values,
         marker_colors=[type_colors.get(t, "#888") for t in type_counts.index],
         hole=0.4,
         textinfo="label+value",
+        textfont_size=11,
     ), row=1, col=1)
 
     # Box plot of identity by type
     for opsin_type in ["short_wave", "long_wave"]:
         type_df = combined_df[combined_df["opsin_type"] == opsin_type]
         if not type_df.empty:
+            label = "SW" if opsin_type == "short_wave" else "LW"
             fig.add_trace(go.Box(
                 y=type_df["identity_percent"],
-                name=opsin_type.replace("_", " ").title(),
+                name=label,
                 marker_color=type_colors.get(opsin_type, "#888"),
                 boxpoints="outliers",
             ), row=1, col=2)
 
     fig.update_layout(
-        title="Cone Opsin Diversity Dataset",
-        height=450,
-        width=950,
+        height=400,
+        width=800,
         showlegend=False,
         paper_bgcolor="white",
         plot_bgcolor="white",
+        margin=dict(t=30, b=40),
     )
-    fig.update_yaxes(title_text="Identity to Query (%)", row=1, col=2)
+    fig.update_yaxes(title_text="Identity (%)", row=1, col=2, title_font_size=11)
     fig.update_yaxes(showgrid=False)
     fig.write_image(str(FIGURES_DIR / "sequence_opsin_diversity.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'sequence_opsin_diversity.png'}")
@@ -256,11 +258,12 @@ def main() -> int:
     for opsin_type in ["short_wave", "long_wave"]:
         type_df = combined_df[combined_df["opsin_type"] == opsin_type]
         if not type_df.empty:
+            label = "SW" if opsin_type == "short_wave" else "LW"
             fig.add_trace(go.Scatter(
                 x=type_df["identity_percent"],
                 y=type_df["evalue"],
                 mode="markers",
-                name=opsin_type.replace("_", " ").title(),
+                name=label,
                 marker=dict(
                     size=8,
                     color=type_colors.get(opsin_type, "#888"),
@@ -271,17 +274,17 @@ def main() -> int:
             ))
 
     fig.update_layout(
-        title="BLAST Hits: Identity vs E-value by Opsin Type",
-        xaxis_title="Sequence Identity (%)",
+        xaxis_title="Identity (%)",
         yaxis_title="E-value",
-        height=500,
-        width=800,
+        height=450,
+        width=650,
         paper_bgcolor="white",
         plot_bgcolor="white",
-        legend=dict(x=0.02, y=0.98),
+        legend=dict(x=0.02, y=0.98, font_size=10),
+        margin=dict(t=30, b=50, l=60, r=30),
     )
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(type="log", showgrid=False)
+    fig.update_xaxes(showgrid=False, title_font_size=11)
+    fig.update_yaxes(type="log", showgrid=False, title_font_size=11)
     fig.write_image(str(FIGURES_DIR / "sequence_blast_scatter.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'sequence_blast_scatter.png'}")
 
@@ -309,10 +312,22 @@ def main() -> int:
             print(f"  Computed {len(alignment_df)} pairwise alignments")
 
             # Build distance matrix from sequence identities
-            # Distance = 1 - identity (identity is 0-1)
+            # Distance = 1 - identity (identity is already 0-1 from MMseqs2)
             seq_names = list(downloaded_seqs.keys())
             n_seqs = len(seq_names)
             name_to_idx = {name: i for i, name in enumerate(seq_names)}
+
+            # Create mapping from accession to full sequence name
+            # MMseqs2 returns accessions like "P60015.1" but our dict has "sp|P60015.1|OPSB_PANTR"
+            def extract_accession(full_name: str) -> str:
+                """Extract accession from UniProt header."""
+                if "|" in full_name:
+                    parts = full_name.split("|")
+                    if len(parts) >= 2:
+                        return parts[1]
+                return full_name
+
+            acc_to_name = {extract_accession(name): name for name in seq_names}
 
             # Initialize with max distance (for missing pairs)
             dist_matrix = np.ones((n_seqs, n_seqs))
@@ -320,12 +335,16 @@ def main() -> int:
 
             # Fill in distances from alignment results
             for _, row in alignment_df.iterrows():
-                q_id = row["query_id"]
-                t_id = row["target_id"]
-                identity = row["sequence_identity"] / 100.0  # Convert to 0-1
+                q_acc = row["query_id"]
+                t_acc = row["target_id"]
+                identity = row["sequence_identity"]  # Already 0-1 from MMseqs2
 
-                if q_id in name_to_idx and t_id in name_to_idx:
-                    i, j = name_to_idx[q_id], name_to_idx[t_id]
+                # Map accession to full sequence name
+                q_name = acc_to_name.get(q_acc)
+                t_name = acc_to_name.get(t_acc)
+
+                if q_name and t_name:
+                    i, j = name_to_idx[q_name], name_to_idx[t_name]
                     dist = 1.0 - identity
                     dist_matrix[i, j] = min(dist_matrix[i, j], dist)
                     dist_matrix[j, i] = min(dist_matrix[j, i], dist)
@@ -337,7 +356,7 @@ def main() -> int:
 
             # Hierarchical clustering for phylogenetic tree
             print("\n  Building phylogenetic tree...")
-            from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+            from scipy.cluster.hierarchy import linkage, dendrogram
             from scipy.spatial.distance import squareform
 
             # Convert to condensed distance matrix
@@ -346,85 +365,85 @@ def main() -> int:
             # Hierarchical clustering (UPGMA-like)
             linkage_matrix = linkage(condensed_dist, method="average")
 
-            # Helper to extract accession from sequence name
-            def get_accession(name: str) -> str:
-                if "|" in name:
-                    parts = name.split("|")
-                    if len(parts) >= 2:
-                        return parts[1].split(".")[0]
-                return name
-
             # Get opsin types for coloring (using accession lookup)
             def get_opsin_type(name):
-                acc = get_accession(name)
+                """Get opsin type from sequence name via annotation lookup."""
+                acc = extract_accession(name).split(".")[0]  # Remove version for annotation lookup
                 return seq_annotations.get(acc, {}).get("opsin_type", "unknown")
 
-            # Create circular dendrogram using plotly
-            # First, create a polar/radial tree visualization
-            fig_tree = go.Figure()
+            # Create proper dendrogram using matplotlib
+            import matplotlib.pyplot as plt
+            from matplotlib.patches import Patch
 
-            # Get leaf order from dendrogram (for coloring)
-            from scipy.cluster.hierarchy import leaves_list
-            leaf_order = leaves_list(linkage_matrix)
+            # Get leaf colors based on opsin type
+            def get_leaf_color(name):
+                opsin_type = get_opsin_type(name)
+                return type_colors.get(opsin_type, "#888888")
 
-            # Count sequences by type
-            type_counts_tree = {"short_wave": 0, "long_wave": 0}
+            # Build the dendrogram with custom leaf coloring
+            fig_tree, ax = plt.subplots(figsize=(14, 8))
+
+            # Create dendrogram - don't show labels (too many)
+            dendro = dendrogram(
+                linkage_matrix,
+                labels=seq_names,
+                no_labels=True,
+                ax=ax,
+                above_threshold_color="#888888",
+                color_threshold=0,  # Color all links gray
+            )
+
+            # Color the x-axis based on opsin type
+            # Get the order of leaves from dendrogram
+            leaf_order = dendro["leaves"]
+
+            # Count by type for legend
+            type_counts_tree = {"short_wave": 0, "long_wave": 0, "unknown": 0}
             for idx in leaf_order:
                 t = get_opsin_type(seq_names[idx])
                 if t in type_counts_tree:
                     type_counts_tree[t] += 1
 
-            # Create a radial layout for the tree
-            n_leaves = len(leaf_order)
-            angles = np.linspace(0, 2 * np.pi, n_leaves, endpoint=False)
+            # Add colored bar at bottom showing opsin types
+            ax2 = ax.twiny()
+            ax2.set_xlim(ax.get_xlim())
+            ax2.set_xticks([])
 
-            # Plot leaves as colored points in a circle
-            for opsin_type, color in type_colors.items():
-                indices = [i for i, idx in enumerate(leaf_order) if get_opsin_type(seq_names[idx]) == opsin_type]
-                if indices:
-                    theta = angles[indices]
-                    r = np.ones(len(indices))
-                    x = r * np.cos(theta)
-                    y = r * np.sin(theta)
-                    fig_tree.add_trace(go.Scatter(
-                        x=x, y=y,
-                        mode="markers",
-                        name=f"{opsin_type.replace('_', ' ').title()} (n={type_counts_tree.get(opsin_type, 0)})",
-                        marker=dict(size=8, color=color, opacity=0.8),
-                        hoverinfo="skip",
-                    ))
+            # Draw colored rectangles at the bottom for each leaf
+            bar_height = ax.get_ylim()[1] * 0.03
+            for i, idx in enumerate(leaf_order):
+                color = get_leaf_color(seq_names[idx])
+                x_pos = 10 * i + 5  # Dendrogram uses spacing of 10
+                rect = plt.Rectangle(
+                    (x_pos - 4, -bar_height * 1.5),
+                    8, bar_height,
+                    color=color,
+                    clip_on=False
+                )
+                ax.add_patch(rect)
 
-            # Draw arcs connecting clusters at different levels
-            # Sample a few key linkage levels to show structure
-            max_dist = linkage_matrix[:, 2].max()
-            for level_frac in [0.3, 0.5, 0.7, 0.9]:
-                level_dist = max_dist * level_frac
-                clusters = fcluster(linkage_matrix, t=level_dist, criterion="distance")
+            # Extend y-axis to show the color bar
+            ylim = ax.get_ylim()
+            ax.set_ylim(-bar_height * 2, ylim[1])
 
-                # Draw circle at this distance level
-                circle_r = 1 - level_frac * 0.6
-                theta_circle = np.linspace(0, 2 * np.pi, 100)
-                fig_tree.add_trace(go.Scatter(
-                    x=circle_r * np.cos(theta_circle),
-                    y=circle_r * np.sin(theta_circle),
-                    mode="lines",
-                    line=dict(color="rgba(150,150,150,0.3)", width=1),
-                    showlegend=False,
-                    hoverinfo="skip",
-                ))
+            # Style the plot - no title, concise labels
+            ax.set_xlabel("")
+            ax.set_ylabel("Distance", fontsize=10)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+            ax.tick_params(axis='y', labelsize=9)
 
-            fig_tree.update_layout(
-                title=f"Cone Opsin Clustering (n={n_seqs})",
-                width=700,
-                height=700,
-                showlegend=True,
-                legend=dict(x=0.02, y=0.98),
-                xaxis=dict(showgrid=False, showticklabels=False, zeroline=False, scaleanchor="y"),
-                yaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
-                plot_bgcolor="white",
-                paper_bgcolor="white",
-            )
-            fig_tree.write_image(str(FIGURES_DIR / "sequence_phylogenetic_tree.png"), scale=2)
+            # Add legend with concise labels
+            legend_elements = [
+                Patch(facecolor=type_colors["short_wave"], label=f"SW (n={type_counts_tree['short_wave']})"),
+                Patch(facecolor=type_colors["long_wave"], label=f"LW (n={type_counts_tree['long_wave']})"),
+            ]
+            ax.legend(handles=legend_elements, loc="upper right", frameon=True, fontsize=9)
+
+            plt.tight_layout()
+            fig_tree.savefig(str(FIGURES_DIR / "sequence_phylogenetic_tree.png"), dpi=150, facecolor="white")
+            plt.close(fig_tree)
             print(f"  Saved: {FIGURES_DIR / 'sequence_phylogenetic_tree.png'}")
 
         else:

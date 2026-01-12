@@ -330,106 +330,103 @@ def main() -> int:
     fig.add_trace(go.Histogram(
         x=results_df["similarity"],
         nbinsx=30,
-        marker_color="#3498db",
+        marker_color="#9467bd",  # Purple (molecule color)
         opacity=0.8,
     ))
 
     # Mark similarity thresholds
-    fig.add_vline(x=0.7, line_dash="dash", line_color="red",
-                  annotation_text="High (>0.7)", annotation_position="top")
-    fig.add_vline(x=0.5, line_dash="dash", line_color="orange",
-                  annotation_text="Moderate (>0.5)", annotation_position="top")
+    fig.add_vline(x=0.7, line_dash="dash", line_color="#c5b0d5",
+                  annotation_text=">0.7", annotation_position="top", annotation_font_size=9)
+    fig.add_vline(x=0.5, line_dash="dash", line_color="#7f7f7f",
+                  annotation_text=">0.5", annotation_position="top", annotation_font_size=9)
 
     fig.update_layout(
-        title=f"Similarity Distribution: {len(results_df)} compounds vs {QUERY_COMPOUND['name']}",
         xaxis_title="Tanimoto Similarity",
         yaxis_title="Count",
-        height=400,
-        width=700,
+        height=380,
+        width=600,
         paper_bgcolor="white",
         plot_bgcolor="white",
+        margin=dict(t=40, b=50),
     )
-    fig.update_xaxes(showgrid=False, range=[0, 1])
-    fig.update_yaxes(showgrid=False)
+    fig.update_xaxes(showgrid=False, range=[0, 1], title_font_size=10)
+    fig.update_yaxes(showgrid=False, title_font_size=10)
     fig.write_image(str(FIGURES_DIR / "molecule_similarity_distribution.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'molecule_similarity_distribution.png'}")
 
-    # Figure 2: Top hits by class (bar chart)
-    class_colors = {
-        "nonselective_beta_blocker": "#e74c3c",  # Red - same class as query
-        "beta1_selective": "#3498db",             # Blue - cardioselective
-        "beta2_agonist": "#2ecc71",               # Green - agonists
-        "beta_agonist": "#27ae60",                # Darker green
-        "catecholamine": "#9b59b6",               # Purple - endogenous
-        "alpha1_blocker": "#f39c12",              # Orange
-        "alpha2_agonist": "#1abc9c",              # Teal
-        "carbazole": "#c0392b",                   # Dark red - same scaffold
-        "indole_beta_blocker": "#e67e22",         # Burnt orange
-    }
-
+    # Figure 2: Top hits bar chart - purple gradient by similarity
     top_30 = results_df.head(30)
-    colors = [class_colors.get(c, "#7f8c8d") for c in top_30["class"]]
+
+    # Purple gradient: high similarity = dark purple, low = light
+    def sim_to_purple(sim):
+        # Map 0-1 to light purple (#c5b0d5) to dark purple (#9467bd)
+        if sim >= 0.5:
+            return "#9467bd"  # High similarity - dark purple
+        elif sim >= 0.3:
+            return "#c5b0d5"  # Moderate - light purple
+        else:
+            return "#7f7f7f"  # Low - gray
+
+    colors = [sim_to_purple(s) for s in top_30["similarity"]]
 
     fig = go.Figure(go.Bar(
         y=top_30["name"][::-1],
         x=top_30["similarity"][::-1],
         orientation="h",
         marker_color=colors[::-1],
-        text=[f"{s:.3f}" for s in top_30["similarity"][::-1]],
+        text=[f"{s:.2f}" for s in top_30["similarity"][::-1]],
         textposition="outside",
+        textfont_size=9,
     ))
 
     fig.update_layout(
-        title=f"Top 30 Similar Compounds to {QUERY_COMPOUND['name']}",
         xaxis_title="Tanimoto Similarity",
-        height=800,
-        width=700,
+        height=700,
+        width=600,
         paper_bgcolor="white",
         plot_bgcolor="white",
-        margin=dict(l=180),
+        margin=dict(l=120, t=30, b=50),
     )
-    fig.update_xaxes(showgrid=False, range=[0, 1.1])
-    fig.update_yaxes(showgrid=False)
+    fig.update_xaxes(showgrid=False, range=[0, 1.0], title_font_size=10)
+    fig.update_yaxes(showgrid=False, tickfont_size=8)
     fig.write_image(str(FIGURES_DIR / "molecule_top_hits.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'molecule_top_hits.png'}")
 
-    # Figure 3: Similarity vs MW scatter by class
+    # Figure 3: Similarity vs MW scatter - single color with query marked
     fig = go.Figure()
 
-    for drug_class in results_df["class"].unique():
-        subset = results_df[results_df["class"] == drug_class]
-        color = class_colors.get(drug_class, "#7f8c8d")
-        fig.add_trace(go.Scatter(
-            x=subset["similarity"],
-            y=subset["mw"],
-            mode="markers",
-            name=drug_class.replace("_", " "),
-            marker=dict(size=8, color=color, opacity=0.7),
-            text=subset["name"],
-            hovertemplate="%{text}<br>Sim: %{x:.3f}<br>MW: %{y:.1f}<extra></extra>",
-        ))
+    # All hits in purple
+    fig.add_trace(go.Scatter(
+        x=results_df["similarity"],
+        y=results_df["mw"],
+        mode="markers",
+        name="Hits",
+        marker=dict(size=7, color="#9467bd", opacity=0.6),
+        text=results_df["name"],
+        hovertemplate="%{text}<br>Sim: %{x:.3f}<br>MW: %{y:.1f}<extra></extra>",
+    ))
 
     # Mark query compound
     fig.add_trace(go.Scatter(
         x=[1.0],
         y=[query_props["mw"]],
         mode="markers",
-        name="Query (carazolol)",
-        marker=dict(size=15, color="black", symbol="star"),
+        name="Query",
+        marker=dict(size=12, color="black", symbol="star"),
     ))
 
     fig.update_layout(
-        title="Similarity vs Molecular Weight by Drug Class",
-        xaxis_title="Tanimoto Similarity to Carazolol",
-        yaxis_title="Molecular Weight (Da)",
-        height=600,
-        width=900,
+        xaxis_title="Tanimoto Similarity",
+        yaxis_title="MW (Da)",
+        height=450,
+        width=550,
         paper_bgcolor="white",
         plot_bgcolor="white",
-        legend=dict(x=1.02, y=0.99),
+        legend=dict(x=0.02, y=0.98, font_size=9),
+        margin=dict(t=30, b=50),
     )
-    fig.update_xaxes(showgrid=False, range=[0, 1.05])
-    fig.update_yaxes(showgrid=False)
+    fig.update_xaxes(showgrid=False, range=[0, 1.05], title_font_size=10)
+    fig.update_yaxes(showgrid=False, title_font_size=10)
     fig.write_image(str(FIGURES_DIR / "molecule_similarity_mw.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'molecule_similarity_mw.png'}")
 

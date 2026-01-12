@@ -252,39 +252,40 @@ def main() -> int:
 
     fig = make_subplots(
         rows=1, cols=2,
-        subplot_titles=("Jobs by Type", "Job Workflow"),
         specs=[[{"type": "pie"}, {"type": "sankey"}]],
+        horizontal_spacing=0.15,
     )
 
-    # Pie chart of job types
+    # Pie chart of job types - neutral colors
     fig.add_trace(go.Pie(
-        labels=["Wild-type", "Mutants"],
+        labels=["WT", "Mut"],
         values=[len(wild_type_jobs), len(mutant_jobs)],
-        marker_colors=["#1f77b4", "#d62728"],
+        marker_colors=["#7f7f7f", "#c7c7c7"],  # Neutral grays
         hole=0.4,
+        textfont_size=10,
     ), row=1, col=1)
 
-    # Sankey diagram of workflow
+    # Sankey diagram of workflow - gray scale
     fig.add_trace(go.Sankey(
         node=dict(
             pad=15,
             thickness=20,
-            label=["Sequences", "ModelManager", "Boltz2 Jobs", "Cluster/Cloud"],
-            color=["#2ecc71", "#3498db", "#9b59b6", "#e74c3c"],
+            label=["Sequences", "Manager", "Jobs", "Cluster"],
+            color=["#7f7f7f", "#9f9f9f", "#bfbfbf", "#dfdfdf"],
         ),
         link=dict(
             source=[0, 1, 2],
             target=[1, 2, 3],
             value=[len(sequences), len(all_jobs), len(all_jobs)],
-            color=["rgba(46,204,113,0.4)", "rgba(52,152,219,0.4)", "rgba(155,89,182,0.4)"],
+            color=["rgba(127,127,127,0.4)", "rgba(159,159,159,0.4)", "rgba(191,191,191,0.4)"],
         ),
     ), row=1, col=2)
 
     fig.update_layout(
-        title="Boltz2 Job Preparation Summary",
-        height=400,
-        width=900,
+        height=350,
+        width=750,
         paper_bgcolor="white",
+        margin=dict(t=30, b=30),
     )
     fig.write_image(str(FIGURES_DIR / "model_manager_jobs.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'model_manager_jobs.png'}")

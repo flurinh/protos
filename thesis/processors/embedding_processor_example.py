@@ -48,10 +48,10 @@ FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 SOURCE_DATASET = "cone_opsin_diversity"
 EMBEDDING_DATASET = f"{SOURCE_DATASET}__esm2_t12_35m__mean"
 
-# Opsin type colors (matching spectral sensitivity)
+# Opsin type colors (teal/gold - matching sequence colors from colorscales.yaml)
 TYPE_COLORS = {
-    "short_wave": "#4169E1",   # Blue
-    "long_wave": "#DC143C",    # Red
+    "short_wave": "#006d77",   # Teal
+    "long_wave": "#e9c46a",    # Gold
 }
 
 
@@ -225,51 +225,46 @@ def main() -> int:
         if not any(mask):
             continue
         idx = [i for i, m in enumerate(mask) if m]
+        label = "SW" if opsin_type == "short_wave" else "LW"
 
         fig.add_trace(go.Scatter(
             x=coords[idx, 0],
             y=coords[idx, 1],
             mode="markers",
-            name=opsin_type.replace("_", " ").title(),
+            name=label,
             marker=dict(size=8, color=color, opacity=0.7),
             text=[names[i] for i in idx],
             hovertemplate="%{text}<extra></extra>",
         ))
 
     fig.update_layout(
-        title=f"Cone Opsin Embeddings (t-SNE, n={len(names)})",
         xaxis=dict(showgrid=False, showticklabels=False, zeroline=False, title=""),
         yaxis=dict(showgrid=False, showticklabels=False, zeroline=False, title=""),
-        width=800,
-        height=600,
+        width=700,
+        height=550,
         plot_bgcolor="white",
         paper_bgcolor="white",
-        legend=dict(x=0.02, y=0.98),
+        legend=dict(x=0.02, y=0.98, font_size=10),
+        margin=dict(t=30, b=30),
     )
     fig.write_image(str(FIGURES_DIR / "embedding_tsne.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'embedding_tsne.png'}")
 
-    # Embedding similarity vs sequence identity scatter
-    fig = make_subplots(
-        rows=1, cols=2,
-        subplot_titles=(
-            "Embedding Similarity by Opsin Type",
-            "Embedding Similarity Distribution"
-        ),
-    )
+    # Embedding similarity analysis - no titles
+    fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.15)
 
-    # Box plot: same vs different type
+    # Box plot: same vs different type (use teal/gold)
     fig.add_trace(go.Box(
         y=same_type["embedding_similarity"],
-        name="Same Type",
-        marker_color="#2ecc71",
+        name="Same",
+        marker_color="#006d77",  # Teal
         boxpoints="outliers",
     ), row=1, col=1)
 
     fig.add_trace(go.Box(
         y=diff_type["embedding_similarity"],
-        name="Different Type",
-        marker_color="#e74c3c",
+        name="Diff",
+        marker_color="#e9c46a",  # Gold
         boxpoints="outliers",
     ), row=1, col=1)
 
@@ -277,22 +272,22 @@ def main() -> int:
     fig.add_trace(go.Histogram(
         x=comparison_df["embedding_similarity"],
         nbinsx=30,
-        marker_color="#3498db",
+        marker_color="#7f7f7f",  # Neutral gray
         opacity=0.8,
         showlegend=False,
     ), row=1, col=2)
 
     fig.update_layout(
-        title="Embedding Similarity Analysis",
-        height=450,
-        width=950,
+        height=400,
+        width=850,
         showlegend=False,
         paper_bgcolor="white",
         plot_bgcolor="white",
+        margin=dict(t=30, b=50),
     )
-    fig.update_yaxes(title_text="Cosine Similarity", row=1, col=1)
-    fig.update_xaxes(title_text="Cosine Similarity", row=1, col=2)
-    fig.update_yaxes(title_text="Count", row=1, col=2)
+    fig.update_yaxes(title_text="Similarity", row=1, col=1, title_font_size=10)
+    fig.update_xaxes(title_text="Similarity", row=1, col=2, title_font_size=10)
+    fig.update_yaxes(title_text="Count", row=1, col=2, title_font_size=10)
     fig.update_yaxes(showgrid=False)
     fig.update_xaxes(showgrid=False)
     fig.write_image(str(FIGURES_DIR / "embedding_similarity_analysis.png"), scale=2)
@@ -320,7 +315,7 @@ def main() -> int:
         zmid=0.85,
         zmin=0.6,
         zmax=1.0,
-        colorbar=dict(title="Cosine<br>Similarity", x=1.02),
+        colorbar=dict(title="Similarity", x=1.02, title_font_size=10),
         showscale=True,
     ))
 
@@ -345,7 +340,6 @@ def main() -> int:
         )
 
     fig.update_layout(
-        title=f"Opsin Embedding Similarity (n={len(sorted_names)}: {n_sw} SW + {n_lw} LW)",
         xaxis=dict(
             showticklabels=False, showgrid=False, zeroline=False,
             range=[-0.02 * len(sorted_names), len(sorted_names) - 0.5],
@@ -355,10 +349,11 @@ def main() -> int:
             range=[-0.02 * len(sorted_names), len(sorted_names) - 0.5],
             scaleanchor="x", scaleratio=1,
         ),
-        width=750,
-        height=700,
+        width=650,
+        height=600,
         plot_bgcolor="white",
         paper_bgcolor="white",
+        margin=dict(t=30, b=30),
     )
     fig.write_image(str(FIGURES_DIR / "embedding_heatmap.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'embedding_heatmap.png'}")

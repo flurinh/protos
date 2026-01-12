@@ -70,8 +70,8 @@ KNOWN_SPECTRAL_DATA = {
 }
 
 TYPE_COLORS = {
-    "short_wave": "#4169E1",   # Blue
-    "long_wave": "#DC143C",    # Red
+    "short_wave": "#006d77",   # Teal (matching sequence colors)
+    "long_wave": "#e9c46a",    # Gold
 }
 
 
@@ -251,27 +251,29 @@ def main() -> int:
         bandwidth = 25 if peak < 400 else 35
         sensitivity = np.exp(-0.5 * ((wavelengths - peak) / bandwidth) ** 2)
 
+        # Shortened name for legend
+        short_name = row['entity_name'].split('_')[0] if '_' in row['entity_name'] else row['entity_name']
         fig.add_trace(go.Scatter(
             x=wavelengths,
             y=sensitivity,
             mode="lines",
-            name=f"{row['entity_name']} ({int(peak)} nm)",
+            name=f"{short_name} ({int(peak)})",
             line=dict(color=TYPE_COLORS.get(row["opsin_type"], "#888888"), width=2.5),
             hovertemplate=f"{row['entity_name']}<br>λmax: {peak} nm<br>Type: {row['opsin_type']}<extra></extra>",
         ))
 
     fig.update_layout(
-        title=f"Cone Opsin Spectral Sensitivity (n={len(properties_df)})",
         xaxis_title="Wavelength (nm)",
-        yaxis_title="Relative Sensitivity",
-        height=500,
-        width=900,
+        yaxis_title="Sensitivity",
+        height=450,
+        width=800,
         plot_bgcolor="white",
         paper_bgcolor="white",
-        legend=dict(x=1.02, y=0.99, font=dict(size=10)),
+        legend=dict(x=1.02, y=0.99, font=dict(size=8)),
+        margin=dict(t=30, b=50, r=150),
     )
-    fig.update_xaxes(showgrid=False, range=[320, 680])
-    fig.update_yaxes(showgrid=False, range=[0, 1.1])
+    fig.update_xaxes(showgrid=False, range=[320, 680], title_font_size=10)
+    fig.update_yaxes(showgrid=False, range=[0, 1.1], title_font_size=10)
     fig.write_image(str(FIGURES_DIR / "property_sensitivity.png"), scale=2)
     print(f"  Saved: {FIGURES_DIR / 'property_sensitivity.png'}")
 
