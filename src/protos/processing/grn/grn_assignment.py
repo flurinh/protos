@@ -44,7 +44,6 @@ def calculate_missing_ctail_grns(aligned_grns, missing_gene_numbers, query_gene_
     missing_grns_last_section_ = int(100 * (ending_tmx_float - last_grn_float))
     missing_grns_last_section = min(query_gene_len - last_gene_number_int, missing_grns_last_section_)
     missing_last_section = max(0, query_gene_len - last_gene_number_int - missing_grns_last_section)
-    print("missing last section", missing_last_section)
     c_tail_float = grns_float[grns_float.index(last_grn_float) + 1:]
     c_tail_float += [100 + i + 1 for i in range(missing_last_section)]
     c_tail_float = sorted(c_tail_float)

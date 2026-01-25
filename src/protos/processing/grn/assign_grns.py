@@ -274,7 +274,17 @@ def assign_grns_to_sequences(
             logger.warning("No GRNs could be assigned for %s", seq_id)
             continue
 
-        annotation_row = pd.Series(rn_list, index=grn_list, dtype=object)
+        # Remove duplicate GRNs (keep first occurrence)
+        seen_grns = set()
+        unique_grn_list = []
+        unique_rn_list = []
+        for grn, rn in zip(grn_list, rn_list):
+            if grn not in seen_grns:
+                seen_grns.add(grn)
+                unique_grn_list.append(grn)
+                unique_rn_list.append(rn)
+
+        annotation_row = pd.Series(unique_rn_list, index=unique_grn_list, dtype=object)
         rows[seq_id] = annotation_row
 
         assigned_valid = [
@@ -310,15 +320,28 @@ def assign_grns_to_sequences(
     annotation_table.index.name = "entity_name"
     annotation_table = annotation_table.fillna('-')
 
-    reference_columns = [str(col) for col in reference_table.columns]
-    ordered_columns = list(reference_columns)
+    # Remove duplicate columns (keep first occurrence)
+    annotation_table = annotation_table.loc[:, ~annotation_table.columns.duplicated()]
 
-    additional_columns = [
-        col for col in annotation_table.columns if col not in ordered_columns
-    ]
-    ordered_columns.extend(additional_columns)
+    # Collect all columns (from reference and annotation table)
+    all_columns = set(str(col) for col in reference_table.columns)
+    all_columns.update(str(col) for col in annotation_table.columns)
 
-    annotation_table = annotation_table.reindex(columns=ordered_columns, fill_value='-')
+    # Filter to valid GRN columns and sort them
+    valid_grn_columns = [col for col in all_columns if validate_grn_string(col)[0]]
+    sorted_columns = sort_grns_str(valid_grn_columns)
+
+    # Add any non-GRN columns at the end (shouldn't happen normally)
+    non_grn_columns = [col for col in all_columns if not validate_grn_string(col)[0]]
+    ordered_columns = sorted_columns + sorted(non_grn_columns)
+
+    # Add missing columns with '-' fill value
+    for col in ordered_columns:
+        if col not in annotation_table.columns:
+            annotation_table[col] = '-'
+
+    # Reorder columns in sorted GRN order
+    annotation_table = annotation_table[ordered_columns]
     annotation_table = annotation_table.astype(str)
 
     return annotation_table, metadata

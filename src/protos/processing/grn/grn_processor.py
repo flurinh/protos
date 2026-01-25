@@ -24,6 +24,10 @@ class GRNProcessor(BaseProcessor):
     def __init__(self, name: str = "grn_processor") -> None:
         super().__init__(name=name)
         self._table_cache: Dict[str, pd.DataFrame] = {}
+        self._grn_dict_cache: Optional[Dict[str, List[str]]] = None
+        self._seq_dict_cache: Optional[Dict[str, List[int]]] = None
+        self.data: Optional[pd.DataFrame] = None
+        self.ids: Optional[List[str]] = None
 
     # ------------------------------------------------------------------
     # Path helpers
@@ -83,6 +87,59 @@ class GRNProcessor(BaseProcessor):
             _, seq_idx = parsed
             mapping[str(label)] = int(seq_idx)
         return mapping
+
+    def get_grn_dict(self) -> Dict[str, List[str]]:
+        """Return dict mapping protein_id to list of GRN labels with valid values.
+
+        Uses self.data as the source DataFrame. Results are cached for performance.
+        """
+        if self._grn_dict_cache is not None:
+            return self._grn_dict_cache
+
+        if self.data is None or self.data.empty:
+            return {}
+
+        result: Dict[str, List[str]] = {}
+        columns = list(self.data.columns)
+        for protein_id in self.data.index:
+            row = self.data.loc[protein_id]
+            grns = [col for col in columns if row[col] != '-' and pd.notna(row[col])]
+            result[protein_id] = grns
+
+        self._grn_dict_cache = result
+        return result
+
+    def get_seq_dict(self) -> Dict[str, List[int]]:
+        """Return dict mapping protein_id to list of sequence positions (1-indexed).
+
+        Uses self.data as the source DataFrame. Results are cached for performance.
+        """
+        if self._seq_dict_cache is not None:
+            return self._seq_dict_cache
+
+        if self.data is None or self.data.empty:
+            return {}
+
+        result: Dict[str, List[int]] = {}
+        columns = list(self.data.columns)
+        for protein_id in self.data.index:
+            row = self.data.loc[protein_id]
+            seq_positions: List[int] = []
+            for col in columns:
+                val = row[col]
+                if val != '-' and pd.notna(val):
+                    parsed = self.parse_grn_value(val)
+                    if parsed:
+                        seq_positions.append(parsed[1])
+            result[protein_id] = seq_positions
+
+        self._seq_dict_cache = result
+        return result
+
+    def clear_cache(self) -> None:
+        """Clear the GRN and sequence dict caches."""
+        self._grn_dict_cache = None
+        self._seq_dict_cache = None
 
     # ------------------------------------------------------------------
     # Public API: recording / loading tables
