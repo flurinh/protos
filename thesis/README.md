@@ -11,7 +11,8 @@ thesis/
 │   └── thesis_pymol_settings.pml    # PyMOL settings
 │
 ├── ch1_introduction/                # Chapter 1: Introduction
-│   └── fig_1.1_type_comparison/     # Figure 1.1: Type I/II structural comparison
+│   ├── fig_1.1_type_comparison/     # Figure 1.1: Type I/II structural comparison
+│   └── fig_1.2_spectral_tuning/     # Figure 1.2: Spectral tuning problem
 │
 ├── ch2_protos/                      # Chapter 2: ProtOS
 │   ├── fig_2.2_opsin_diversity/     # Figure 2.2: Cone opsin diversity
@@ -48,6 +49,7 @@ thesis/
 | Figure | Description | Status | Folder |
 |--------|-------------|--------|--------|
 | 1.1 | Type I/II structural comparison | ☐ not done | `ch1_introduction/fig_1.1_type_comparison/` |
+| 1.2 | Spectral tuning: (A) Type I/II reps, (B) Retinal + key determinants | ☐ not done | `ch1_introduction/fig_1.2_spectral_tuning/` |
 | 2.2 | Cone opsin diversity | ☑ done | `ch2_protos/fig_2.2_opsin_diversity/` |
 | 2.3 | BR binding pocket | ☑ done | `ch2_protos/fig_2.3_br_binding_pocket/` |
 | 2.4 | Binding pocket graphs | ☑ done | `ch2_protos/fig_2.4_pocket_graphs/` |
@@ -87,7 +89,7 @@ png figure.png, dpi=300
 
 ## Related Projects
 
-- **lambda**: Figures 1.2, 2.7, 4.1-4.12 (spectral data, scatter plots)
+- **lambda**: Figures 4.1-4.12 (spectral data, scatter plots)
 - **MOGRN**: Figure 3.1 (MO numbering)
 - **Protos_MCP**: Figures 6.1, 6.3 (vision examples)
 - **Ghostwriter**: Diagrams 2.1, 4.2, 5.1, 6.2 (PowerPoint)
