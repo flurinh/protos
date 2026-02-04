@@ -123,6 +123,7 @@ class BindingDomainConfig:
         self,
         grns: List[str],
         protein_family: str,
+        bidirectional: bool = True,
     ) -> Tuple[List[int], List[int]]:
         """
         Build edge index arrays from GRN list and binding domain configuration.
@@ -133,6 +134,7 @@ class BindingDomainConfig:
         Args:
             grns: Ordered list of GRN strings (defines node indices)
             protein_family: Name of the protein family
+            bidirectional: If True, add edges in both directions (default: True)
 
         Returns:
             Tuple of (source_nodes, destination_nodes) lists
@@ -151,8 +153,15 @@ class BindingDomainConfig:
             dst_grn = edge[1]
 
             if src_grn in grn_to_idx and dst_grn in grn_to_idx:
-                src_nodes.append(grn_to_idx[src_grn])
-                dst_nodes.append(grn_to_idx[dst_grn])
+                src_idx = grn_to_idx[src_grn]
+                dst_idx = grn_to_idx[dst_grn]
+                # Add edge in forward direction
+                src_nodes.append(src_idx)
+                dst_nodes.append(dst_idx)
+                # Add edge in reverse direction for bidirectional graphs
+                if bidirectional:
+                    src_nodes.append(dst_idx)
+                    dst_nodes.append(src_idx)
 
         return src_nodes, dst_nodes
 

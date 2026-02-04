@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -145,6 +147,128 @@ def _expand_row(
     return grn_list, rn_list
 
 
+def _process_single_sequence(
+    seq_id: str,
+    sequence: str,
+    reference_sequences: Dict[str, str],
+    reference_table: pd.DataFrame,
+    mmseqs_summary: Dict[str, Dict[str, float]],
+    strict_positions: Optional[List[str]],
+    protein_family: Optional[str],
+    total_reference_positions: int,
+    verbose: int,
+) -> Optional[Tuple[str, pd.Series, Dict[str, object]]]:
+    """Process a single sequence for GRN assignment.
+
+    Returns (seq_id, annotation_row, meta_entry) or None if failed.
+    """
+    aligner = init_biopython_aligner()
+
+    preferred_ref_id: Optional[str] = None
+    mmseqs_meta = mmseqs_summary.get(seq_id)
+    if mmseqs_meta:
+        preferred_ref_id = mmseqs_meta.get("target_id")
+
+    best_result = None
+    best_ref_id = None
+
+    if preferred_ref_id and preferred_ref_id in reference_sequences:
+        best_result = perform_pairwise_alignment(
+            sequence,
+            reference_sequences[preferred_ref_id],
+            aligner,
+            seq_id,
+            preferred_ref_id,
+        )
+        best_ref_id = preferred_ref_id
+
+    if best_result is None:
+        best_score = float("-inf")
+        for ref_id, ref_sequence in reference_sequences.items():
+            result = perform_pairwise_alignment(sequence, ref_sequence, aligner, seq_id, ref_id)
+            if result.score > best_score:
+                best_score = result.score
+                best_result = result
+                best_ref_id = ref_id
+
+    if best_result is None or best_ref_id is None:
+        return None
+
+    if best_ref_id not in reference_table.index:
+        return None
+
+    alignment_lines = list(best_result.alignment_lines)
+    seed_row = _construct_seed_row(reference_table.loc[best_ref_id], alignment_lines)
+
+    if seed_row.empty:
+        return None
+
+    if strict_positions:
+        available = [grn for grn in strict_positions if grn in seed_row.index]
+        filtered_seed = seed_row.loc[available] if available else seed_row
+    else:
+        filtered_seed = seed_row
+
+    family = protein_family or 'gpcr_a'
+    try:
+        grn_list, rn_list = _expand_row(
+            filtered_seed,
+            sequence,
+            alignment_lines,
+            protein_family=family,
+            verbose=verbose,
+        )
+    except Exception:
+        grn_list = [grn for grn, value in filtered_seed.items() if value not in _GAP_TOKENS]
+        rn_list = [filtered_seed[grn] for grn in grn_list]
+
+    if not grn_list:
+        return None
+
+    # Remove duplicate GRNs (keep first occurrence)
+    seen_grns = set()
+    unique_grn_list = []
+    unique_rn_list = []
+    for grn, rn in zip(grn_list, rn_list):
+        if grn not in seen_grns:
+            seen_grns.add(grn)
+            unique_grn_list.append(grn)
+            unique_rn_list.append(rn)
+
+    annotation_row = pd.Series(unique_rn_list, index=unique_grn_list, dtype=object)
+
+    assigned_valid = [
+        grn
+        for grn in annotation_row.index
+        if validate_grn_string(str(grn))[0]
+        and annotation_row[grn] not in _GAP_TOKENS
+    ]
+    meta_entry: Dict[str, object] = {
+        "reference_id": best_ref_id,
+        "alignment_score": float(best_result.score),
+        "assigned_positions": int(len(assigned_valid)),
+        "reference_positions": total_reference_positions,
+        "coverage_fraction": (
+            float(len(assigned_valid)) / total_reference_positions
+            if total_reference_positions > 0
+            else 0.0
+        ),
+    }
+
+    if mmseqs_meta:
+        meta_entry.update(mmseqs_meta)
+        meta_entry.setdefault("method", "mmseqs+biopython")
+    else:
+        meta_entry["method"] = "biopython"
+
+    return seq_id, annotation_row, meta_entry
+
+
+def _process_sequence_wrapper(args):
+    """Wrapper for multiprocessing - unpacks args tuple."""
+    return _process_single_sequence(*args)
+
+
 def assign_grns_to_sequences(
     query_sequences: Dict[str, str],
     reference_table: pd.DataFrame,
@@ -155,6 +279,7 @@ def assign_grns_to_sequences(
     aligner=None,
     temp_folder: Optional[str] = None,
     verbose: int = 0,
+    num_workers: int = 8,
 ) -> Tuple[pd.DataFrame, Dict[str, Dict[str, object]]]:
     """Assign GRNs to a set of query sequences using a reference table.
 
@@ -180,7 +305,7 @@ def assign_grns_to_sequences(
     if not reference_sequences:
         raise ValueError("Reference table does not contain usable sequences")
 
-    aligner = aligner or init_biopython_aligner()
+    # Note: aligner param is kept for API compatibility but each worker creates its own
     strict_positions = _determine_strict_grns(
         strict_grns=strict_grns,
         protein_family=protein_family,
@@ -203,115 +328,40 @@ def assign_grns_to_sequences(
     metadata: Dict[str, Dict[str, object]] = {}
     rows: Dict[str, pd.Series] = {}
 
-    for seq_id, sequence in sanitized_queries.items():
-        preferred_ref_id: Optional[str] = None
-        mmseqs_meta = mmseqs_summary.get(seq_id)
-        if mmseqs_meta:
-            preferred_ref_id = mmseqs_meta.get("target_id")
+    # Prepare args for parallel processing
+    task_args = [
+        (
+            seq_id,
+            sequence,
+            reference_sequences,
+            reference_table,
+            mmseqs_summary,
+            strict_positions,
+            protein_family,
+            total_reference_positions,
+            verbose,
+        )
+        for seq_id, sequence in sanitized_queries.items()
+    ]
 
-        best_result = None
-        best_ref_id = None
-
-        if preferred_ref_id and preferred_ref_id in reference_sequences:
-            best_result = perform_pairwise_alignment(
-                sequence,
-                reference_sequences[preferred_ref_id],
-                aligner,
-                seq_id,
-                preferred_ref_id,
-            )
-            best_ref_id = preferred_ref_id
-
-        if best_result is None:
-            best_score = float("-inf")
-            for ref_id, ref_sequence in reference_sequences.items():
-                result = perform_pairwise_alignment(sequence, ref_sequence, aligner, seq_id, ref_id)
-                if result.score > best_score:
-                    best_score = result.score
-                    best_result = result
-                    best_ref_id = ref_id
-
-        if best_result is None or best_ref_id is None:
-            logger.warning("No alignment produced for %s; skipping", seq_id)
-            continue
-
-        if best_ref_id not in reference_table.index:
-            logger.warning(
-                "Reference '%s' selected for %s is not present in table; skipping",
-                best_ref_id,
-                seq_id,
-            )
-            continue
-
-        alignment_lines = list(best_result.alignment_lines)
-        seed_row = _construct_seed_row(reference_table.loc[best_ref_id], alignment_lines)
-
-        if seed_row.empty:
-            logger.warning("Seed row for %s is empty; skipping", seq_id)
-            continue
-
-        if strict_positions:
-            available = [grn for grn in strict_positions if grn in seed_row.index]
-            filtered_seed = seed_row.loc[available] if available else seed_row
-        else:
-            filtered_seed = seed_row
-
-        family = protein_family or 'gpcr_a'
-        try:
-            grn_list, rn_list = _expand_row(
-                filtered_seed,
-                sequence,
-                alignment_lines,
-                protein_family=family,
-                verbose=verbose,
-            )
-        except Exception as exc:  # pragma: no cover - defensive fallback
-            logger.warning("GRN expansion failed for %s (%s); using seed mapping", seq_id, exc)
-            grn_list = [grn for grn, value in filtered_seed.items() if value not in _GAP_TOKENS]
-            rn_list = [filtered_seed[grn] for grn in grn_list]
-
-        if not grn_list:
-            logger.warning("No GRNs could be assigned for %s", seq_id)
-            continue
-
-        # Remove duplicate GRNs (keep first occurrence)
-        seen_grns = set()
-        unique_grn_list = []
-        unique_rn_list = []
-        for grn, rn in zip(grn_list, rn_list):
-            if grn not in seen_grns:
-                seen_grns.add(grn)
-                unique_grn_list.append(grn)
-                unique_rn_list.append(rn)
-
-        annotation_row = pd.Series(unique_rn_list, index=unique_grn_list, dtype=object)
-        rows[seq_id] = annotation_row
-
-        assigned_valid = [
-            grn
-            for grn in annotation_row.index
-            if validate_grn_string(str(grn))[0]
-            and annotation_row[grn] not in _GAP_TOKENS
-        ]
-        meta_entry: Dict[str, object] = {
-            "reference_id": best_ref_id,
-            "alignment_score": float(best_result.score),
-            "assigned_positions": int(len(assigned_valid)),
-            "reference_positions": total_reference_positions,
-            "coverage_fraction": (
-                float(len(assigned_valid)) / total_reference_positions
-                if total_reference_positions > 0
-                else 0.0
-            ),
-        }
-
-        if mmseqs_meta:
-            meta_entry.update(mmseqs_meta)
-            meta_entry.setdefault("method", "mmseqs+biopython")
-        else:
-            meta_entry["method"] = "biopython"
-
-        metadata[seq_id] = meta_entry
+    # Process in parallel if num_workers > 1, otherwise sequential
+    if num_workers > 1 and len(task_args) > 1:
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(_process_sequence_wrapper, args): args[0] for args in task_args}
+            for future in as_completed(futures):
+                result = future.result()
+                if result is not None:
+                    seq_id, annotation_row, meta_entry = result
+                    rows[seq_id] = annotation_row
+                    metadata[seq_id] = meta_entry
+    else:
+        # Sequential processing (single worker or single sequence)
+        for args in task_args:
+            result = _process_sequence_wrapper(args)
+            if result is not None:
+                seq_id, annotation_row, meta_entry = result
+                rows[seq_id] = annotation_row
+                metadata[seq_id] = meta_entry
 
     if not rows:
         return pd.DataFrame(columns=reference_table.columns), metadata
