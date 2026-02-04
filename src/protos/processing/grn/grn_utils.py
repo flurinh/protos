@@ -198,19 +198,20 @@ def parse_grn_float2str(grn_float: float, notation_type: str = 'dot') -> str:
 def normalize_grn_format(grn: str) -> str:
     """
     Normalize a GRN string to the standardized format.
-    
+
     Converts legacy formats to the new standard:
     - '12x05' -> '12.050' (loop with x notation)
     - '12.5' -> '12.500' (loop without zero padding)
+    - '1x50' -> '1.50' (standard GRN with x notation)
     - '1.2' -> '1.20' (standard GRN with dot)
     - '1.511' -> '1.511' (insertion with additional zero padding)
-    
+
     Args:
         grn: GRN string to normalize
-        
+
     Returns:
         Normalized GRN string
-    
+
     Examples:
         >>> normalize_grn_format('12.5')
         '12.500'
@@ -229,35 +230,42 @@ def normalize_grn_format(grn: str) -> str:
         >>> normalize_grn_format('1.521') # insertion notation
         '1.521'
     """
+    # First, replace 'x' with '.' to standardize notation
+    grn = str(grn).replace('x', '.')
+
     # N-terminal (no normalization needed)
     if grn.startswith('n.'):
         return grn
-    
+
     # C-terminal (no normalization needed)
     elif grn.startswith('c.'):
         return grn
-    
+
+    # Loop helix identifiers (inter-helix loops)
+    loop_helices = {'12', '23', '34', '45', '54', '56', '67', '76', '78'}
+
     # Loop format with dot notation (e.g., '12.5' -> '12.500', '12.05' -> '12.050')
     loop_dot_pattern = re.compile(r'^([1-8])([1-8])\.(\d+)$')
     match = loop_dot_pattern.match(grn)
     if match:
         helix_pair = match.group(1) + match.group(2)
         distance_str = match.group(3)
-        
-        # If already 3 digits, keep as is
+
+        # Loop positions MUST have exactly 3 digits
         if len(distance_str) == 3:
             return grn
-        # Otherwise normalize
+        elif len(distance_str) == 1:
+            # Single digit: multiply by 100 (e.g., '5' -> '500')
+            distance = int(distance_str) * 100
+        elif len(distance_str) == 2:
+            # Two digits: multiply by 10 (e.g., '01' -> '010', '10' -> '100')
+            distance = int(distance_str) * 10
         else:
-            distance = int(distance_str)
-            # Same logic as above for normalizing distance
-            if len(distance_str) == 1:
-                distance = distance * 100
-            elif len(distance_str) == 2:
-                distance = distance * 10
-                
-            return f"{helix_pair}.{distance:03d}"
-    
+            # More than 3 digits - keep as-is (unusual case)
+            return grn
+
+        return f"{helix_pair}.{distance:03d}"
+
     # Standard GRN with dot notation - normalize to 2-digit format (e.g., '1.5' -> '1.50')
     std_dot_pattern = re.compile(r'^([0-9])\.(\d+)$')
     match = std_dot_pattern.match(grn)
@@ -265,14 +273,14 @@ def normalize_grn_format(grn: str) -> str:
         helix = match.group(1)
         position_str = match.group(2)
         position = int(position_str)
-        
+
         # Handle single digit positions that should be x0 (e.g., '5' -> '50')
         if len(position_str) == 1:
             position = position * 10
-            
+
         # Normalize to 2-digit format (1.5 -> 1.50, 1.50 -> 1.50)
         return f"{helix}.{position:02d}"
-    
+
     # Return as is if can't normalize
     return grn
 

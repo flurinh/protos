@@ -91,25 +91,10 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
     if verbose >= 2:
         print(f"\n   Combined N-tail + aligned + C-tail: {len(expanded_grn_list)} total positions")
 
-    # DEBUG: Check for duplicates after initial combination
-    print(f"\nDEBUG: After initial combination (N-tail + aligned + C-tail):")
-    print(f"  N-tail: {len(n_tail_list)} items")
-    print(f"  Aligned: {len(list(aligned_grns.items()))} items")
-    print(f"  C-tail: {len(c_tail_list)} items")
-    print(f"  Total: {len(expanded_grn_list)} items")
-    seen_combo = set()
-    dup_combo = []
-    for rn, grn in expanded_grn_list:
-        if rn in seen_combo:
-            dup_combo.append(rn)
-        else:
-            seen_combo.add(rn)
-    if dup_combo:
-        print(f"  WARNING: {len(dup_combo)} duplicates found after initial combination!")
-        print(f"  Duplicate residues: {dup_combo[:10]}...")
+    if verbose >= 2:
+        print(f"\n  N-tail: {len(n_tail_list)} items, Aligned: {len(list(aligned_grns.items()))} items, C-tail: {len(c_tail_list)} items, Total: {len(expanded_grn_list)} items")
 
     missing_gene_numbers = calculate_missing_gene_numbers(all_query_gene_numbers, expanded_grn_list)
-    print("missing gene numbers", missing_gene_numbers)
 
     if verbose >= 2:
         print(f"   Still missing: {len(missing_gene_numbers)} positions")
@@ -122,7 +107,6 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
     present_seq_nr_grn_list = expanded_grn_list
     present_grns = [g[1] for g in present_seq_nr_grn_list]
     missing_std_grns = [grn for grn in grns_str_std if grn not in present_grns]
-    print("missing standard grns", missing_std_grns)
 
     if verbose >= 2:
         print(f"   Standard GRNs not yet assigned: {len(missing_std_grns)}")
@@ -140,31 +124,10 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
 
     grns, missing = assign_missing_std_grns(missing_std_grns, present_seq_nr_grn_list, query_seq, missing, grns_str_std)
 
-    print("assinged missing grns:", grns)
-    print("still missing:", missing)
-
     if verbose >= 1 and grns:
         print(f"   Assigned {len(grns)} standard GRNs")
 
-    # DEBUG: Check before and after adding missing standard GRNs
-    print(f"\nDEBUG: Before adding missing standard GRNs:")
-    print(f"  expanded_grn_list: {len(expanded_grn_list)} items")
-    print(f"  grns to add: {len(grns)} items")
-
     expanded_grn_list += grns
-
-    print(f"\nDEBUG: After adding missing standard GRNs:")
-    print(f"  Total: {len(expanded_grn_list)} items")
-    seen_std = set()
-    dup_std = []
-    for rn, grn in expanded_grn_list:
-        if rn in seen_std:
-            dup_std.append(rn)
-        else:
-            seen_std.add(rn)
-    if dup_std:
-        print(f"  WARNING: {len(dup_std)} duplicates found after adding standard GRNs!")
-        print(f"  Duplicate residues: {dup_std[:10]}...")
 
     # Annotate loops and gaps between transmembrane helices
     if verbose >= 1:
@@ -197,28 +160,7 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
             if cloop:
                 print(f"   cloop details: {cloop[:3]}..." if len(cloop) > 3 else f"   cloop details: {cloop}")
 
-        # DEBUG: Check list size before adding loops/gaps
-        print(f"\nDEBUG: Before adding loops/gaps:")
-        print(f"  expanded_grn_list: {len(expanded_grn_list)} items")
-        print(f"  nloop: {len(nloop)} items")
-        print(f"  gaps: {len(gaps)} items")
-        print(f"  cloop: {len(cloop)} items")
-
         expanded_grn_list = expanded_grn_list + nloop + gaps + cloop
-
-        # DEBUG: Check for duplicates after adding loops/gaps
-        print(f"\nDEBUG: After adding loops/gaps:")
-        print(f"  Total: {len(expanded_grn_list)} items")
-        seen_loops = set()
-        dup_loops = []
-        for rn, grn in expanded_grn_list:
-            if rn in seen_loops:
-                dup_loops.append(rn)
-            else:
-                seen_loops.add(rn)
-        if dup_loops:
-            print(f"  WARNING: {len(dup_loops)} duplicates found after adding loops/gaps!")
-            print(f"  Duplicate residues: {dup_loops[:10]}...")
 
         if verbose >= 1:
             print(f"\n5. Finalizing annotation...")
@@ -227,30 +169,15 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
         grn_list = [x[1] for x in expanded_grn_list]
         rn_list = [x[0] for x in expanded_grn_list]
 
-        # Sort and complete the GRN/RN pairs
-        print(f"\nDEBUG: Before sorting:")
-        print(f"  grn_list length: {len(grn_list)}")
-        print(f"  rn_list length: {len(rn_list)}")
-        print(f"  Unique residues: {len(set(rn_list))}")
-
+        # Sort GRN/RN pairs
         grn_rn_pairs = list(zip(grn_list, rn_list))
-        print(f"  grn_rn_pairs length: {len(grn_rn_pairs)}")
-
         sorted_grn_f_list = sort_grns([parse_grn_str2float(x) for x in grn_list])
         sorted_grn_list = [parse_grn_float2str(x) for x in sorted_grn_f_list]
-        print(f"  sorted_grn_list length: {len(sorted_grn_list)}")
-
         grn_rn_pairs = sort_grn_rn_pairs(sorted_grn_list, grn_rn_pairs)
-        print(f"  grn_rn_pairs after sort_grn_rn_pairs: {len(grn_rn_pairs)}")
 
         grn_list, rn_list = zip(*grn_rn_pairs)
         grn_list = list(grn_list)
         rn_list = list(rn_list)
-
-        print(f"\nDEBUG: After sorting:")
-        print(f"  grn_list length: {len(grn_list)}")
-        print(f"  rn_list length: {len(rn_list)}")
-        print(f"  Unique residues: {len(set(rn_list))}")
 
         seq_ids = [int(x[1:]) for x in rn_list]
         missing = [x + 1 for x in range(len(query_seq)) if (x + 1) not in seq_ids]
@@ -260,50 +187,6 @@ def expand_annotation(new_row, query_seq, alignment, max_alignment_gap=1, protei
                 print(f"   WARNING: {len(missing)} positions could not be annotated")
             else:
                 print(f"   SUCCESS: All {len(query_seq)} positions annotated")
-
-        # DEBUG: Check for duplicate residues
-        print("\n=== DEBUG: Checking for duplicate residues ===")
-        print(f"Total positions in result: {len(rn_list)}")
-        print(f"Unique residue numbers: {len(set(rn_list))}")
-
-        # Find duplicates
-        seen_rns = {}
-        duplicates = []
-        for i, rn in enumerate(rn_list):
-            if rn in seen_rns:
-                duplicates.append((i, rn, grn_list[i], seen_rns[rn]))
-            else:
-                seen_rns[rn] = (i, grn_list[i])
-
-        if duplicates:
-            print(f"\nWARNING: Found {len(duplicates)} duplicate residues!")
-            print("First 10 duplicates:")
-            for idx, (i, rn, grn, (prev_i, prev_grn)) in enumerate(duplicates[:10]):
-                print(f"  {idx+1}. Position {i}: {rn}->{grn} (previously at position {prev_i}: {rn}->{prev_grn})")
-
-            # Check if duplicates are from the start appearing at the end
-            dup_positions = [int(rn[1:]) for _, rn, _, _ in duplicates]
-            dup_indices = [i for i, _, _, _ in duplicates]
-
-            print(f"\nDuplicate residue positions: {sorted(dup_positions)[:20]}...")
-            print(f"Duplicate indices in list: {dup_indices[:20]}...")
-
-            # Check if they're clustered at the end
-            if all(i >= len(rn_list) - len(duplicates) - 10 for i in dup_indices):
-                print("\nDuplicates are clustered at the END of the list!")
-                print("This suggests residues from the start are being appended again.")
-
-            # Show the tail of the list
-            print(f"\nLast 20 positions in the list:")
-            for i in range(max(0, len(rn_list)-20), len(rn_list)):
-                marker = " <-- DUPLICATE" if any(d[0] == i for d in duplicates) else ""
-                print(f"  {i}: {rn_list[i]} -> {grn_list[i]}{marker}")
-        else:
-            print("No duplicates found - list is clean!")
-
-        print("=== END DEBUG ===\n")
-
-        if verbose >= 1:
             print(f"\n=== Expand Annotation Completed ===\n")
 
     except Exception as e:
