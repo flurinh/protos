@@ -1,0 +1,449 @@
+# Thesis Color Scales - Scientific Elegance
+# =============================================================================
+# Design Principles:
+#   - Muted, sophisticated palette inspired by Nature/Science publications
+#   - Structures/Graphs: Slate/Terracotta for protein families (Type I/II)
+#   - Sequences/Embeddings: Sage/Ochre for gene types (distinct from structures)
+#   - Molecules: Rust/Mauve for ligands
+#   - Consistent saturation and matte finish throughout
+# =============================================================================
+
+# =============================================================================
+# STRUCTURES - Protein Families (Slate/Terracotta palette)
+# Used for: Structure comparisons, Graph analysis, GRN, PyMOL
+# =============================================================================
+structures:
+  type_i:
+    name: "Type I (Microbial)"
+    hex: "#3d5a80"
+    rgb: [61, 90, 128]
+    rgb_norm: [0.239, 0.353, 0.502]
+
+  type_i_light:
+    name: "Type I Light"
+    hex: "#98c1d9"
+    rgb: [152, 193, 217]
+    rgb_norm: [0.596, 0.757, 0.851]
+
+  type_ii:
+    name: "Type II (Animal)"
+    hex: "#c1666b"
+    rgb: [193, 102, 107]
+    rgb_norm: [0.757, 0.400, 0.420]
+
+  type_ii_light:
+    name: "Type II Light"
+    hex: "#e4c1c1"
+    rgb: [228, 193, 193]
+    rgb_norm: [0.894, 0.757, 0.757]
+
+  # Specific structures (inherit from type)
+  1C3W:
+    name: "Bacteriorhodopsin"
+    type: "type_i"
+    hex: "#3d5a80"
+    rgb_norm: [0.239, 0.353, 0.502]
+
+  3UG9:
+    name: "Channelrhodopsin"
+    type: "type_i"
+    hex: "#98c1d9"
+    rgb_norm: [0.596, 0.757, 0.851]
+
+  1U19:
+    name: "Bovine Rhodopsin"
+    type: "type_ii"
+    hex: "#c1666b"
+    rgb_norm: [0.757, 0.400, 0.420]
+
+  2Z73:
+    name: "Squid Rhodopsin"
+    type: "type_ii"
+    hex: "#e4c1c1"
+    rgb_norm: [0.894, 0.757, 0.757]
+
+# =============================================================================
+# SEQUENCES - Gene Types (Sage/Ochre palette)
+# Used for: Sequence analysis, Phylogenetic trees, Embeddings
+# Distinct from structure colors to avoid confusion
+# =============================================================================
+sequences:
+  short_wave:
+    name: "Short Wave"
+    hex: "#457b6b"
+    rgb: [69, 123, 107]
+    rgb_norm: [0.271, 0.482, 0.420]
+
+  short_wave_light:
+    name: "Short Wave Light"
+    hex: "#a3c4b8"
+    rgb: [163, 196, 184]
+    rgb_norm: [0.639, 0.769, 0.722]
+
+  long_wave:
+    name: "Long Wave"
+    hex: "#d4a03c"
+    rgb: [212, 160, 60]
+    rgb_norm: [0.831, 0.627, 0.235]
+
+  long_wave_light:
+    name: "Long Wave Light"
+    hex: "#edd9a8"
+    rgb: [237, 217, 168]
+    rgb_norm: [0.929, 0.851, 0.659]
+
+# =============================================================================
+# MOLECULES - Ligands (Rust/Mauve palette)
+# Used for: Molecule processor, Similarity search, Structure ligands
+# =============================================================================
+molecules:
+  retinal:
+    name: "Retinal"
+    hex: "#bc6c25"
+    rgb: [188, 108, 37]
+    rgb_norm: [0.737, 0.424, 0.145]
+
+  retinal_light:
+    name: "Retinal Light"
+    hex: "#ddb892"
+    rgb: [221, 184, 146]
+    rgb_norm: [0.867, 0.722, 0.573]
+
+  # Retinal states (for Figure 4.1 spectral tuning physics)
+  retinal_11cis:
+    name: "11-cis Retinal (dark state)"
+    hex: "#bc6c25"
+    rgb: [188, 108, 37]
+    rgb_norm: [0.737, 0.424, 0.145]
+
+  retinal_alltrans:
+    name: "All-trans Retinal (activated)"
+    hex: "#ddb892"
+    rgb: [221, 184, 146]
+    rgb_norm: [0.867, 0.722, 0.573]
+
+  retinal_deprotonated:
+    name: "Deprotonated Retinal"
+    hex: "#7a5980"
+    rgb: [122, 89, 128]
+    rgb_norm: [0.478, 0.349, 0.502]
+
+  schiff_base:
+    name: "Schiff Base Nitrogen"
+    hex: "#6a994e"
+    rgb: [106, 153, 78]
+    rgb_norm: [0.416, 0.600, 0.306]
+
+  carazolol:
+    name: "Carazolol"
+    hex: "#7a5980"
+    rgb: [122, 89, 128]
+    rgb_norm: [0.478, 0.349, 0.502]
+
+  carazolol_light:
+    name: "Carazolol Light"
+    hex: "#c4b3c7"
+    rgb: [196, 179, 199]
+    rgb_norm: [0.769, 0.702, 0.780]
+
+  # Similarity scale (for bar charts)
+  high_similarity:
+    hex: "#7a5980"
+    rgb_norm: [0.478, 0.349, 0.502]
+  moderate_similarity:
+    hex: "#c4b3c7"
+    rgb_norm: [0.769, 0.702, 0.780]
+  low_similarity:
+    hex: "#6c757d"
+    rgb_norm: [0.424, 0.459, 0.490]
+
+# =============================================================================
+# EMBEDDINGS - Same as Sequences (Sage/Ochre)
+# Embeddings represent sequence data, so use same color scheme
+# =============================================================================
+embeddings:
+  group_a:
+    name: "Group A"
+    hex: "#457b6b"
+    rgb_norm: [0.271, 0.482, 0.420]
+
+  group_b:
+    name: "Group B"
+    hex: "#d4a03c"
+    rgb_norm: [0.831, 0.627, 0.235]
+
+  same_type:
+    hex: "#457b6b"
+    rgb_norm: [0.271, 0.482, 0.420]
+
+  different_type:
+    hex: "#d4a03c"
+    rgb_norm: [0.831, 0.627, 0.235]
+
+# =============================================================================
+# GRAPHS - Same as Structures (Slate/Terracotta)
+# Graphs represent structural data
+# =============================================================================
+graphs:
+  type_i:
+    hex: "#3d5a80"
+    rgb_norm: [0.239, 0.353, 0.502]
+
+  type_ii:
+    hex: "#c1666b"
+    rgb_norm: [0.757, 0.400, 0.420]
+
+  edges:
+    hex: "#6c757d"
+    rgb_norm: [0.424, 0.459, 0.490]
+
+  edges_light:
+    hex: "#adb5bd"
+    rgb_norm: [0.678, 0.710, 0.741]
+
+# =============================================================================
+# FUNCTIONAL ELEMENTS
+# =============================================================================
+functional:
+  conserved:
+    name: "Conserved positions"
+    hex: "#6a994e"
+    rgb: [106, 153, 78]
+    rgb_norm: [0.416, 0.600, 0.306]
+
+  conserved_light:
+    name: "Conserved Light"
+    hex: "#a7c494"
+    rgb: [167, 196, 148]
+    rgb_norm: [0.655, 0.769, 0.580]
+
+  binding_pocket:
+    hex: "#6c757d"
+    rgb_norm: [0.424, 0.459, 0.490]
+
+# =============================================================================
+# DIAGRAMS - Architecture & Data Flow (PowerPoint)
+# Used for: Figures 2.1, 4.2, 5.1, 6.2
+# =============================================================================
+diagrams:
+  database:
+    name: "Database / Data Storage"
+    hex: "#3d5a80"
+    rgb: [61, 90, 128]
+    note: "Slate - structural/persistent data"
+
+  compute:
+    name: "Computation / Processing"
+    hex: "#457b6b"
+    rgb: [69, 123, 107]
+    note: "Sage - sequence/analysis operations"
+
+  model:
+    name: "ML Model / Prediction"
+    hex: "#d4a03c"
+    rgb: [212, 160, 60]
+    note: "Ochre - learned/derived outputs"
+
+  external:
+    name: "External Service / API"
+    hex: "#adb5bd"
+    rgb: [173, 181, 189]
+    note: "Light gray - outside system boundary"
+
+  user:
+    name: "User / Interface"
+    hex: "#c1666b"
+    rgb: [193, 102, 107]
+    note: "Terracotta - human interaction"
+
+  flow_arrow:
+    name: "Data Flow Arrow"
+    hex: "#6c757d"
+    rgb: [108, 117, 125]
+    note: "Gray - neutral connections"
+
+  flow_arrow_emphasis:
+    name: "Emphasized Flow Arrow"
+    hex: "#343a40"
+    rgb: [52, 58, 64]
+    note: "Dark gray - primary data path"
+
+  box_background:
+    name: "Component Background"
+    hex: "#f7f5f3"
+    rgb: [247, 245, 243]
+    note: "Warm white - subtle container"
+
+# =============================================================================
+# FIGURE ELEMENTS - Common plot components
+# =============================================================================
+figure_elements:
+  error_bar:
+    name: "Error Bars"
+    hex: "#6c757d"
+    rgb: [108, 117, 125]
+    rgb_norm: [0.424, 0.459, 0.490]
+    note: "Gray - non-distracting"
+
+  regression_line:
+    name: "Regression / Trend Line"
+    hex: "#343a40"
+    rgb: [52, 58, 64]
+    rgb_norm: [0.204, 0.227, 0.251]
+    note: "Dark gray - crisp, distinct"
+
+  identity_line:
+    name: "Identity Line (y=x)"
+    hex: "#343a40"
+    rgb: [52, 58, 64]
+    rgb_norm: [0.204, 0.227, 0.251]
+    style: "dashed"
+    note: "Dark gray dashed - reference"
+
+  confidence_interval:
+    name: "Confidence Interval Fill"
+    note: "Use *_light variant of main color at 50% opacity"
+
+  backbone_unfocused:
+    name: "Protein Backbone (context)"
+    hex: "#adb5bd"
+    rgb: [173, 181, 189]
+    rgb_norm: [0.678, 0.710, 0.741]
+    note: "Light gray - recedes visually"
+
+  panel_label:
+    name: "Panel Labels (A, B, C)"
+    hex: "#343a40"
+    rgb: [52, 58, 64]
+    font: "bold, sans-serif"
+    note: "Dark gray - consistent with regression"
+
+  annotation:
+    name: "Annotations / Callouts"
+    hex: "#343a40"
+    rgb: [52, 58, 64]
+    note: "Dark gray - readable on white"
+
+  axis:
+    name: "Axis Lines and Ticks"
+    hex: "#343a40"
+    rgb: [52, 58, 64]
+    note: "Dark gray - standard"
+
+  grid:
+    name: "Grid Lines"
+    hex: "#e9ecef"
+    rgb: [233, 236, 239]
+    note: "Very light gray - subtle reference"
+
+# =============================================================================
+# NEUTRAL / GENERAL
+# =============================================================================
+neutral:
+  gray:
+    hex: "#6c757d"
+    rgb: [108, 117, 125]
+    rgb_norm: [0.424, 0.459, 0.490]
+
+  light_gray:
+    hex: "#adb5bd"
+    rgb: [173, 181, 189]
+    rgb_norm: [0.678, 0.710, 0.741]
+
+  dark_gray:
+    hex: "#343a40"
+    rgb: [52, 58, 64]
+    rgb_norm: [0.204, 0.227, 0.251]
+
+  warm_white:
+    hex: "#f7f5f3"
+    rgb: [247, 245, 243]
+    rgb_norm: [0.969, 0.961, 0.953]
+
+# =============================================================================
+# CONTINUOUS SCALES - For heatmaps, gradients, spectral data
+# =============================================================================
+continuous:
+  # Sequential: single-hue gradients
+  sequential_type_i:
+    name: "Sequential Type I (Slate)"
+    low: "#e8eff5"
+    high: "#3d5a80"
+    low_rgb_norm: [0.910, 0.937, 0.961]
+    high_rgb_norm: [0.239, 0.353, 0.502]
+
+  sequential_type_ii:
+    name: "Sequential Type II (Terracotta)"
+    low: "#f5eaea"
+    high: "#c1666b"
+    low_rgb_norm: [0.961, 0.918, 0.918]
+    high_rgb_norm: [0.757, 0.400, 0.420]
+
+  sequential_sage:
+    name: "Sequential Sage"
+    low: "#eef3f1"
+    high: "#457b6b"
+    low_rgb_norm: [0.933, 0.953, 0.945]
+    high_rgb_norm: [0.271, 0.482, 0.420]
+
+  sequential_ochre:
+    name: "Sequential Ochre"
+    low: "#f9f4e8"
+    high: "#d4a03c"
+    low_rgb_norm: [0.976, 0.957, 0.910]
+    high_rgb_norm: [0.831, 0.627, 0.235]
+
+  # Diverging: two-hue with neutral midpoint
+  diverging_type:
+    name: "Diverging Type I/II"
+    low: "#3d5a80"
+    mid: "#f7f5f3"
+    high: "#c1666b"
+    low_rgb_norm: [0.239, 0.353, 0.502]
+    mid_rgb_norm: [0.969, 0.961, 0.953]
+    high_rgb_norm: [0.757, 0.400, 0.420]
+
+  # Spectral: wavelength-mapped (400-650nm)
+  spectral_lambda:
+    name: "Spectral λmax (400-650nm)"
+    stops:
+      - wavelength: 400
+        hex: "#5c5a7a"
+        rgb_norm: [0.361, 0.353, 0.478]
+      - wavelength: 450
+        hex: "#3d5a80"
+        rgb_norm: [0.239, 0.353, 0.502]
+      - wavelength: 490
+        hex: "#457b6b"
+        rgb_norm: [0.271, 0.482, 0.420]
+      - wavelength: 530
+        hex: "#6a994e"
+        rgb_norm: [0.416, 0.600, 0.306]
+      - wavelength: 570
+        hex: "#d4a03c"
+        rgb_norm: [0.831, 0.627, 0.235]
+      - wavelength: 600
+        hex: "#bc6c25"
+        rgb_norm: [0.737, 0.424, 0.145]
+      - wavelength: 650
+        hex: "#c1666b"
+        rgb_norm: [0.757, 0.400, 0.420]
+
+# =============================================================================
+# PYMOL COMMANDS (copy-paste ready)
+# =============================================================================
+# # Structure colors (protein families) - Scientific Elegance
+# set_color type1_slate, [0.239, 0.353, 0.502]
+# set_color type1_light, [0.596, 0.757, 0.851]
+# set_color type2_terracotta, [0.757, 0.400, 0.420]
+# set_color type2_light, [0.894, 0.757, 0.757]
+#
+# # Ligand colors
+# set_color retinal_rust, [0.737, 0.424, 0.145]
+# set_color carazolol_mauve, [0.478, 0.349, 0.502]
+#
+# # Functional
+# set_color conserved_olive, [0.416, 0.600, 0.306]
+#
+# # Always white background
+# bg_color white

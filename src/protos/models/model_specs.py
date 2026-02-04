@@ -3,8 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+
+class JobStatus(Enum):
+    """Status of a submitted job."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 @dataclass
@@ -30,6 +42,37 @@ class ExecutionSpec:
 
 
 @dataclass
+class IngestionSpec:
+    """Describes how model outputs should be registered in Protos.
+
+    Different models produce different output types that need to be
+    ingested into appropriate Protos subsystems:
+    - Structures (CIF/PDB) → StructureProcessor
+    - Properties (CSV) → PropertyProcessor
+    - Embeddings (NPZ) → EmbeddingProcessor
+    - Molecules (SDF) → MoleculeProcessor
+    """
+
+    # Output type: structure, property, embedding, ligand, metadata
+    output_type: str
+
+    # Glob pattern to find output files (relative to output_dir)
+    file_pattern: str
+
+    # Processor to use: structure, property, embedding, molecule
+    processor: str
+
+    # Dataset/entity name template (supports {job_name}, {model}, {timestamp})
+    name_template: str = "{job_name}_{stem}"
+
+    # Additional registration parameters
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    # Whether this output is required
+    required: bool = False
+
+
+@dataclass
 class ModelCard:
     """High-level descriptor combining IO specs and execution metadata."""
 
@@ -39,6 +82,7 @@ class ModelCard:
     execution: ExecutionSpec
     input_spec: List[ArtifactSpec] = field(default_factory=list)
     output_spec: List[ArtifactSpec] = field(default_factory=list)
+    ingestion_spec: List[IngestionSpec] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -53,10 +97,15 @@ class ArtifactBundle:
 
 @dataclass
 class PreparedJob:
-    """Command/configuration payload for externally executed models."""
+    """Command/configuration payload for externally executed models.
 
+    The run_id is the canonical identifier for this job - a timestamp-based ID
+    that uniquely identifies the run directory and all associated state.
+    """
+
+    run_id: str  # Canonical identifier (timestamp, e.g., "20260204_143052")
     command: List[str]
-    working_dir: Path
+    working_dir: Path  # = data/models/<model>/<run_id>/
     artifacts: List[ArtifactBundle]
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -104,5 +153,53 @@ class ModelBatch:
             "model": self.model,
             "input_count": len(self.inputs),
             "inputs": self.inputs,
+            "metadata": self.metadata,
+        }
+
+
+@dataclass
+class JobResult:
+    """Result from executing a job."""
+
+    exit_code: int
+    stdout: str
+    stderr: str
+    output_dir: Optional[Path] = None
+    output_files: List[Path] = field(default_factory=list)
+    duration_seconds: float = 0.0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def success(self) -> bool:
+        return self.exit_code == 0
+
+
+@dataclass
+class JobState:
+    """Tracks the state of a submitted job."""
+
+    job_id: str
+    model: str
+    status: JobStatus
+    prepared_job: PreparedJob
+    created_at: datetime = field(default_factory=datetime.now)
+    submitted_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    result: Optional[JobResult] = None
+    error: Optional[str] = None
+    executor: str = "unknown"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "job_id": self.job_id,
+            "model": self.model,
+            "status": self.status.value,
+            "created_at": self.created_at.isoformat(),
+            "submitted_at": self.submitted_at.isoformat() if self.submitted_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "working_dir": str(self.prepared_job.working_dir),
+            "executor": self.executor,
+            "error": self.error,
             "metadata": self.metadata,
         }

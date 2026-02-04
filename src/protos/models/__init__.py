@@ -55,6 +55,17 @@ _LAZY_IMPORTS = {
     "ModelDownloader": "protos.models.model_downloader",
     "ModelInstaller": "protos.models.model_installer",
     "ModelManager": "protos.models.model_manager",
+    "JobExecutor": "protos.models.model_manager",
+    "DockerJobExecutor": "protos.models.model_manager",
+    "APIJobExecutor": "protos.models.model_manager",
+    # Job client for API communication
+    "JobClient": "protos.models.job_client",
+    "ServerConfig": "protos.models.job_client",
+    # Job execution data structures
+    "JobStatus": "protos.models.model_specs",
+    "JobResult": "protos.models.model_specs",
+    "JobState": "protos.models.model_specs",
+    "PreparedJob": "protos.models.model_specs",
 }
 
 def __getattr__(name):
@@ -113,7 +124,11 @@ __all__ = [
     
     # Lazy-loaded components
     "StandardModel", "ModelRegistry", "ModelDownloader", "ModelInstaller",
-    "ModelManager"
+    "ModelManager",
+    # Job execution
+    "JobExecutor", "DockerJobExecutor", "APIJobExecutor",
+    "JobClient", "ServerConfig",
+    "JobStatus", "JobResult", "JobState", "PreparedJob",
 ]
 
 # Model type registry for dynamic loading - populate lazily

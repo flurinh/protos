@@ -389,6 +389,109 @@ STANDARD_MODELS = {
         },
         paper_url="https://arxiv.org/abs/2205.05789",
         citation="Hesslow et al. 2022"
+    ),
+
+    "rfdiffusion2": ModelDefinition(
+        name="rfdiffusion2",
+        full_name="RFdiffusion2",
+        version="2.0",
+        description="All-atom protein structure generation via diffusion",
+        framework=ModelFramework.PYTORCH,
+        input_formats=[InputFormat.STRUCTURE],
+        output_format=OutputFormat.STRUCTURE,
+        max_sequence_length=None,  # Variable length generation
+        sources={
+            "sif_container": ModelSource(
+                url="https://files.ipd.uw.edu/pub/rfdiffusion2/sifs/rfdiffusion.sif",
+                format="singularity",
+                size_mb=1750
+            ),
+            "weights_173": ModelSource(
+                url="https://files.ipd.uw.edu/pub/rfdiffusion2/model_weights/RFD_173.pt",
+                format="weights",
+                size_mb=800
+            ),
+            "weights_140": ModelSource(
+                url="https://files.ipd.uw.edu/pub/rfdiffusion2/model_weights/RFD_140.pt",
+                format="weights",
+                size_mb=800
+            ),
+            "ligandmpnn": ModelSource(
+                url="https://files.ipd.uw.edu/pub/rfdiffusion2/third_party_model_weights/ligand_mpnn/",
+                format="weights",
+                size_mb=200
+            )
+        },
+        pip_dependencies=[],
+        conda_dependencies=[],
+        setup_commands=["python setup.py"],
+        requirements=ModelRequirements(
+            min_gpu_memory_gb=16,
+            recommended_gpu_memory_gb=40,
+            supports_cpu=False,
+            batch_size_recommendations={
+                "small": 4,
+                "medium": 2,
+                "large": 1
+            }
+        ),
+        preprocessing_config={
+            "input_format": "pdb",
+            "contigs": "required",  # e.g., "A1-100/0 B1-50"
+            "hotspot_residues": "optional",
+            "partial_diffusion": True,
+        },
+        postprocessing_config={
+            "output_format": "pdb",
+            "num_designs": 10,
+            "ligandmpnn_integration": True,
+        },
+        model_config={
+            "diffusion_steps": 50,
+            "noise_scale": 1.0,
+            "partial_T": 20,  # For partial diffusion
+        },
+        default_params={
+            "inference.num_designs": 10,
+            "inference.output_prefix": "design",
+            "diffuser.partial_T": 20,
+        },
+        paper_url="https://www.biorxiv.org/content/10.1101/2024.11.20.624467v1",
+        citation="Baker Lab 2024"
+    ),
+
+    "boltzgen": ModelDefinition(
+        name="boltzgen",
+        full_name="BoltzGen",
+        version="1.0",
+        description="All-atom generative model for protein binder design",
+        framework=ModelFramework.PYTORCH,
+        input_formats=[InputFormat.STRUCTURE],
+        output_format=OutputFormat.STRUCTURE,
+        sources={
+            "docker": ModelSource(
+                url="docker://protos/boltzgen:latest",
+                format="docker",
+                size_mb=5000
+            )
+        },
+        pip_dependencies=[],
+        requirements=ModelRequirements(
+            min_gpu_memory_gb=8,
+            recommended_gpu_memory_gb=24,
+            supports_cpu=False
+        ),
+        preprocessing_config={
+            "config_format": "yaml",
+            "design_regions": "required",
+            "constraints": "optional",
+        },
+        model_config={
+            "num_designs": 24,
+            "pipeline_steps": ["design", "inverse_folding", "folding", "design_folding", "analysis", "filtering"],
+        },
+        paper_url="https://www.biorxiv.org/content/10.1101/2025.11.20.689494v1",
+        citation="BoltzGen Team 2025"
     )
 }
 

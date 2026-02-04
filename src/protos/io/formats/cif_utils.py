@@ -295,6 +295,210 @@ def read_cif_file(file_path: str) -> pd.DataFrame:
     return cif_to_df(cif_content, structure_id)
 
 
+def _generate_entity_sections(df: pd.DataFrame) -> str:
+    """
+    Generate entity metadata sections required by mmCIF format.
+
+    Creates _entity, _entity_poly, and _entity_poly_seq sections from
+    the structure DataFrame. These are required by tools like BoltzGen.
+
+    Args:
+        df: DataFrame with atomic structure data
+
+    Returns:
+        String with entity-related CIF sections
+    """
+    content = ""
+
+    # Determine chain column to use
+    chain_col = 'auth_chain_id' if 'auth_chain_id' in df.columns else 'label_chain_id'
+    if chain_col not in df.columns:
+        logger.warning("No chain column found, using default entity")
+        chain_col = None
+
+    # Get unique chains/entities
+    if chain_col:
+        chains = df[chain_col].unique()
+    else:
+        chains = ['A']
+
+    # Map chains to entity IDs
+    chain_to_entity = {chain: str(i + 1) for i, chain in enumerate(chains)}
+
+    # Determine residue name column
+    res_name_col = 'res_name' if 'res_name' in df.columns else 'auth_comp_id'
+
+    # Standard amino acids for detecting polymer type
+    std_amino_acids = {
+        "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY",
+        "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER",
+        "THR", "TRP", "TYR", "VAL", "MSE"  # Include selenomethionine
+    }
+
+    # One-letter code mapping
+    three_to_one = {
+        "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
+        "GLN": "Q", "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I",
+        "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F", "PRO": "P",
+        "SER": "S", "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V",
+        "MSE": "M"  # Selenomethionine -> Met
+    }
+
+    # =========================================================================
+    # _entity section
+    # =========================================================================
+    content += "\n#\nloop_\n"
+    content += "_entity.id\n"
+    content += "_entity.type\n"
+    content += "_entity.pdbx_description\n"
+
+    for chain in chains:
+        entity_id = chain_to_entity[chain]
+        # Determine entity type (polymer vs non-polymer)
+        if chain_col:
+            chain_df = df[df[chain_col] == chain]
+        else:
+            chain_df = df
+
+        res_names = set(chain_df[res_name_col].unique()) if res_name_col in chain_df.columns else set()
+        is_polymer = len(res_names & std_amino_acids) > 0
+
+        entity_type = "polymer" if is_polymer else "non-polymer"
+        description = f"Chain {chain}"
+
+        content += f"{entity_id} {entity_type} '{description}'\n"
+
+    content += "#\n"
+
+    # =========================================================================
+    # _entity_poly section (for polymer entities only)
+    # =========================================================================
+    polymer_entities = []
+
+    for chain in chains:
+        entity_id = chain_to_entity[chain]
+        if chain_col:
+            chain_df = df[df[chain_col] == chain]
+        else:
+            chain_df = df
+
+        res_names = set(chain_df[res_name_col].unique()) if res_name_col in chain_df.columns else set()
+        is_polymer = len(res_names & std_amino_acids) > 0
+
+        if is_polymer:
+            polymer_entities.append((entity_id, chain, chain_df))
+
+    if polymer_entities:
+        content += "\nloop_\n"
+        content += "_entity_poly.entity_id\n"
+        content += "_entity_poly.type\n"
+        content += "_entity_poly.pdbx_strand_id\n"
+        content += "_entity_poly.pdbx_seq_one_letter_code_can\n"
+
+        for entity_id, chain, chain_df in polymer_entities:
+            # Get sequence - prefer label_seq_id for consistency with entity_poly_seq
+            if 'label_seq_id' in chain_df.columns and chain_df['label_seq_id'].notna().any():
+                seq_col = 'label_seq_id'
+            else:
+                seq_col = 'auth_seq_id' if 'auth_seq_id' in chain_df.columns else None
+
+            if seq_col and seq_col in chain_df.columns and res_name_col in chain_df.columns:
+                # Get unique residues in order
+                residues = chain_df[[seq_col, res_name_col]].drop_duplicates()
+                residues = residues.sort_values(seq_col)
+
+                # Build one-letter sequence
+                seq_1letter = ""
+                for _, row in residues.iterrows():
+                    res_name = str(row[res_name_col]).upper()
+                    seq_1letter += three_to_one.get(res_name, "X")
+            else:
+                seq_1letter = "X"
+
+            # Split long sequences across lines (max 80 chars)
+            if len(seq_1letter) > 60:
+                # Use multi-line format with semicolons
+                seq_formatted = f"\n;{seq_1letter}\n;"
+            else:
+                seq_formatted = seq_1letter
+
+            content += f"{entity_id} 'polypeptide(L)' {chain} {seq_formatted}\n"
+
+        content += "#\n"
+
+    # =========================================================================
+    # _entity_poly_seq section (detailed sequence for each polymer)
+    # =========================================================================
+    if polymer_entities:
+        content += "\nloop_\n"
+        content += "_entity_poly_seq.entity_id\n"
+        content += "_entity_poly_seq.num\n"
+        content += "_entity_poly_seq.mon_id\n"
+        content += "_entity_poly_seq.hetero\n"
+
+        for entity_id, chain, chain_df in polymer_entities:
+            # Prefer label_seq_id if available and valid (matches BoltzGen expectations)
+            # label_seq_id should be sequential 1,2,3... matching entity_poly_seq.num
+            if 'label_seq_id' in chain_df.columns and chain_df['label_seq_id'].notna().any():
+                seq_col = 'label_seq_id'
+            else:
+                seq_col = 'auth_seq_id' if 'auth_seq_id' in chain_df.columns else None
+
+            if seq_col and seq_col in chain_df.columns and res_name_col in chain_df.columns:
+                # Get unique residues in order
+                residues = chain_df[[seq_col, res_name_col]].drop_duplicates()
+                residues = residues.sort_values(seq_col)
+
+                # Use the actual label_seq_id values as entity_poly_seq.num
+                # This ensures consistency between atom records and sequence
+                for _, row in residues.iterrows():
+                    seq_num = int(row[seq_col])
+                    res_name = str(row[res_name_col]).upper()
+                    # hetero flag: 'n' for standard, 'y' for non-standard
+                    hetero = 'n' if res_name in std_amino_acids else 'y'
+                    content += f"{entity_id} {seq_num} {res_name} {hetero}\n"
+
+        content += "#\n"
+
+    # =========================================================================
+    # _struct_asym section (maps label_asym_id to entity_id)
+    # =========================================================================
+    # We need to include ALL unique label_asym_id values, not just auth_chain_id
+    # Some structures have different label_asym_id for ligands/waters
+
+    # Get all unique label_asym_id values from the data
+    label_chain_col = 'label_chain_id' if 'label_chain_id' in df.columns else chain_col
+    all_label_chains = set(df[label_chain_col].unique()) if label_chain_col in df.columns else set(chains)
+
+    # Also check if label_chain_id differs from auth_chain_id (ligands often have different labels)
+    if chain_col in df.columns and label_chain_col in df.columns and label_chain_col != chain_col:
+        # For each unique label_chain, find corresponding auth_chain and entity
+        label_to_entity = {}
+        for label_chain in all_label_chains:
+            mask = df[label_chain_col] == label_chain
+            if mask.any():
+                auth_chain = df.loc[mask, chain_col].iloc[0]
+                label_to_entity[label_chain] = chain_to_entity.get(auth_chain, str(len(chain_to_entity) + 1))
+    else:
+        label_to_entity = chain_to_entity
+
+    content += "\nloop_\n"
+    content += "_struct_asym.id\n"
+    content += "_struct_asym.pdbx_blank_PDB_chainid_flag\n"
+    content += "_struct_asym.pdbx_modified\n"
+    content += "_struct_asym.entity_id\n"
+    content += "_struct_asym.details\n"
+
+    # Sort for consistent output
+    for label_chain in sorted(all_label_chains):
+        entity_id = label_to_entity.get(label_chain, '1')
+        content += f"{label_chain} N N {entity_id} ?\n"
+
+    content += "#\n"
+
+    return content
+
+
 def df_to_cif(df: pd.DataFrame, structure_id: Optional[str] = None) -> str:
     """
     Convert a DataFrame to CIF format string using a fixed width line.
@@ -372,6 +576,19 @@ def df_to_cif(df: pd.DataFrame, structure_id: Optional[str] = None) -> str:
                 axis=1
             )
 
+    # Ensure entity_id is properly set based on chain
+    chain_col = 'auth_chain_id' if 'auth_chain_id' in df.columns else 'label_chain_id'
+    if chain_col in df.columns:
+        chains = df[chain_col].unique()
+        chain_to_entity = {chain: str(i + 1) for i, chain in enumerate(chains)}
+        if 'entity_id' not in df.columns or df['entity_id'].isna().all():
+            df['entity_id'] = df[chain_col].map(chain_to_entity)
+            logger.debug("Generated entity_id from chain mapping")
+
+    # Ensure label_chain_id is set (use auth_chain_id if not present)
+    if 'label_chain_id' not in df.columns and 'auth_chain_id' in df.columns:
+        df['label_chain_id'] = df['auth_chain_id']
+
     # Generate CIF content
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cif_content = f"data_{structure_id}\n"
@@ -380,6 +597,10 @@ def df_to_cif(df: pd.DataFrame, structure_id: Optional[str] = None) -> str:
 
     # Basic structure metadata
     cif_content += "_struct.title 'Generated Structure'\n"
+
+    # Generate entity metadata sections (required by BoltzGen and other tools)
+    entity_sections = _generate_entity_sections(df)
+    cif_content += entity_sections
 
     # Write atom_site category with proper loop_ format
     cif_content += "\nloop_\n"

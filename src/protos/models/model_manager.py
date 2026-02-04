@@ -35,11 +35,22 @@ from .model_specs import (
     ArtifactBundle,
     ArtifactSpec,
     ExecutionSpec,
+    IngestionSpec,
+    JobResult,
+    JobState,
+    JobStatus,
     ModelBatch,
     ModelCard,
     ModelInvocation,
     PreparedJob,
     RuntimeResult,
+)
+from .job_client import (
+    JobClient,
+    ServerConfig,
+    JobState as APIJobState,
+    JobResult as APIJobResult,
+    JobStatus as APIJobStatus,
 )
 
 # Lambda runtime imports are deprecated - models now run via remote/container execution
@@ -205,6 +216,950 @@ class RuntimeAdapter(ModelAdapterBase):
         """Execute the model locally and return results."""
 
 
+# ---------------------------------------------------------------------------
+# Job Execution Framework
+# ---------------------------------------------------------------------------
+
+
+class JobExecutor(ABC):
+    """Abstract interface for executing prepared jobs.
+
+    Implementations handle the actual execution of jobs on different backends:
+    - DockerJobExecutor: Local Docker containers
+    - Future: RemoteClusterExecutor for HPC/cloud clusters
+    """
+
+    @abstractmethod
+    def submit(self, job: PreparedJob, model: str) -> JobState:
+        """Submit a job for execution.
+
+        Args:
+            job: The prepared job to execute
+            model: Name of the model (for tracking)
+
+        Returns:
+            JobState with job_id and initial status
+        """
+
+    @abstractmethod
+    def status(self, job_id: str) -> JobState:
+        """Get the current status of a job."""
+
+    @abstractmethod
+    def result(self, job_id: str) -> Optional[JobResult]:
+        """Get the result of a completed job, or None if not ready."""
+
+    @abstractmethod
+    def cancel(self, job_id: str) -> bool:
+        """Cancel a running job. Returns True if successfully cancelled."""
+
+    @abstractmethod
+    def list_jobs(self, status: Optional[JobStatus] = None) -> List[JobState]:
+        """List jobs, optionally filtered by status."""
+
+
+class DockerJobExecutor(JobExecutor):
+    """Execute jobs in local Docker containers.
+
+    This executor runs PreparedJob commands inside Docker containers with:
+    - Volume mounts for input/output directories
+    - GPU support when requested
+    - Configurable image per model
+
+    Job state is stored in job.json within each run directory:
+    data/models/<model>/<run_id>/job.json
+
+    After ingestion, job directories are cleaned up unless persistent=True.
+    """
+
+    # Default Docker images per model
+    DEFAULT_IMAGES: Dict[str, str] = {
+        "boltzgen": "protos/boltzgen:latest",
+        "boltz": "protos/boltz:latest",
+        "lambda": "protos/lambda:latest",
+    }
+
+    def __init__(
+        self,
+        models_dir: Optional[Path] = None,
+        default_image: str = "protos/base:latest",
+        use_gpu: Optional[bool] = None,
+    ) -> None:
+        # All jobs stored under data/models/
+        self.models_dir = models_dir or Path.home() / ".protos" / "models"
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        self.default_image = default_image
+        # Auto-detect GPU if not specified
+        self.use_gpu = use_gpu if use_gpu is not None else self._detect_gpu()
+        self._jobs: Dict[str, JobState] = {}
+        self._load_jobs()
+
+    @property
+    def jobs_dir(self) -> Path:
+        """Backwards compatibility - returns models_dir."""
+        return self.models_dir
+
+    def _detect_gpu(self) -> bool:
+        """Detect if NVIDIA GPU is available for Docker."""
+        import subprocess
+        try:
+            # Check if nvidia-smi exists and works
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                capture_output=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Also verify Docker can access GPU
+                docker_result = subprocess.run(
+                    ["docker", "run", "--rm", "--gpus", "all", "nvidia/cuda:12.2.2-base-ubuntu22.04", "nvidia-smi", "-L"],
+                    capture_output=True,
+                    timeout=30,
+                )
+                return docker_result.returncode == 0
+        except Exception:
+            pass
+        return False
+
+    def _load_jobs(self) -> None:
+        """Load job states by scanning model directories for job.json files.
+
+        Supports both new format (job.json in run directories) and legacy
+        format (global job_states.json) for backwards compatibility.
+        """
+        # First, load from legacy job_states.json if it exists
+        legacy_state_file = self.models_dir / "job_states.json"
+        if legacy_state_file.exists():
+            try:
+                with open(legacy_state_file, "r") as f:
+                    data = json.load(f)
+                for job_data in data.get("jobs", []):
+                    job_id = job_data["job_id"]
+                    self._jobs[job_id] = self._deserialize_job_state(job_data)
+            except Exception:
+                pass
+
+        # Then scan for job.json files in run directories
+        if not self.models_dir.exists():
+            return
+
+        for model_dir in self.models_dir.iterdir():
+            if not model_dir.is_dir():
+                continue
+            for run_dir in model_dir.iterdir():
+                if not run_dir.is_dir():
+                    continue
+                job_json = run_dir / "job.json"
+                if job_json.exists():
+                    try:
+                        state = self._read_job_state(job_json)
+                        # Prefer job.json over legacy state
+                        self._jobs[state.job_id] = state
+                    except Exception:
+                        pass
+
+    def _write_job_state(self, path: Path, state: JobState) -> None:
+        """Write job state to job.json in run directory."""
+        data = self._serialize_job_state(state)
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2, default=str)
+
+    def _read_job_state(self, path: Path) -> JobState:
+        """Read job state from job.json."""
+        with open(path) as f:
+            data = json.load(f)
+        return self._deserialize_job_state(data)
+
+    def _save_jobs(self) -> None:
+        """Persist job states to their respective job.json files."""
+        for state in self._jobs.values():
+            job_json = state.prepared_job.working_dir / "job.json"
+            if job_json.parent.exists():
+                self._write_job_state(job_json, state)
+
+    def _serialize_job_state(self, state: JobState) -> Dict[str, Any]:
+        """Serialize JobState for persistence."""
+        return {
+            "job_id": state.job_id,
+            "model": state.model,
+            "status": state.status.value,
+            "created_at": state.created_at.isoformat(),
+            "submitted_at": state.submitted_at.isoformat() if state.submitted_at else None,
+            "completed_at": state.completed_at.isoformat() if state.completed_at else None,
+            "executor": state.executor,
+            "error": state.error,
+            "metadata": state.metadata,
+            "working_dir": str(state.prepared_job.working_dir),
+            "command": state.prepared_job.command,
+            "run_id": state.prepared_job.run_id,
+        }
+
+    def _deserialize_job_state(self, data: Dict[str, Any]) -> JobState:
+        """Deserialize JobState from persistence."""
+        # For backwards compatibility, use job_id as run_id if run_id is missing
+        run_id = data.get("run_id") or data["job_id"]
+        return JobState(
+            job_id=data["job_id"],
+            model=data["model"],
+            status=JobStatus(data["status"]),
+            prepared_job=PreparedJob(
+                run_id=run_id,
+                command=data.get("command", []),
+                working_dir=Path(data["working_dir"]),
+                artifacts=[],
+                metadata={},
+            ),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            submitted_at=datetime.fromisoformat(data["submitted_at"]) if data.get("submitted_at") else None,
+            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None,
+            executor=data.get("executor", "docker"),
+            error=data.get("error"),
+            metadata=data.get("metadata", {}),
+        )
+
+    def _get_docker_image(self, model: str, config: Dict[str, Any]) -> str:
+        """Get the Docker image for a model."""
+        # Check config override first
+        if "docker_image" in config:
+            return config["docker_image"]
+        return self.DEFAULT_IMAGES.get(model, self.default_image)
+
+    def submit(self, job: PreparedJob, model: str, persistent: bool = False) -> JobState:
+        """Submit a job to run in a Docker container.
+
+        Args:
+            job: The prepared job to execute (must have run_id set)
+            model: Name of the model (for tracking)
+            persistent: If False (default), job directory will be cleaned up
+                       after successful ingestion. If True, keep all files.
+
+        Returns:
+            JobState with job_id (= run_id) and initial status
+        """
+        import subprocess
+        import threading
+
+        # Use run_id from PreparedJob as the canonical job identifier
+        job_id = job.run_id
+        docker_image = self._get_docker_image(model, job.metadata)
+
+        # Create job state - working_dir is already under data/models/<model>/<run_id>/
+        state = JobState(
+            job_id=job_id,
+            model=model,
+            status=JobStatus.PENDING,
+            prepared_job=job,
+            executor="docker",
+            metadata={
+                "docker_image": docker_image,
+                "use_gpu": self.use_gpu,
+                "persistent": persistent,
+                "job_name": job.metadata.get("job_name", job_id),
+            },
+        )
+        self._jobs[job_id] = state
+
+        # Write job state to job.json in the run directory
+        self._write_job_state(job.working_dir / "job.json", state)
+
+        # Build Docker command
+        docker_cmd = self._build_docker_command(job, docker_image)
+
+        # Store logs in the job's working directory (already under data/models/)
+        stdout_file = job.working_dir / "stdout.log"
+        stderr_file = job.working_dir / "stderr.log"
+
+        def run_job():
+            state.status = JobStatus.RUNNING
+            state.submitted_at = datetime.now()
+            self._save_jobs()
+
+            start_time = datetime.now()
+            try:
+                with open(stdout_file, "w") as out, open(stderr_file, "w") as err:
+                    proc = subprocess.run(
+                        docker_cmd,
+                        cwd=str(job.working_dir),
+                        stdout=out,
+                        stderr=err,
+                        timeout=3600 * 24,  # 24 hour timeout
+                    )
+
+                duration = (datetime.now() - start_time).total_seconds()
+
+                # Collect output files
+                output_dir = Path(job.metadata.get("output_dir", job.working_dir / "outputs"))
+                output_files = list(output_dir.glob("**/*")) if output_dir.exists() else []
+
+                state.result = JobResult(
+                    exit_code=proc.returncode,
+                    stdout=stdout_file.read_text() if stdout_file.exists() else "",
+                    stderr=stderr_file.read_text() if stderr_file.exists() else "",
+                    output_dir=output_dir,
+                    output_files=[f for f in output_files if f.is_file()],
+                    duration_seconds=duration,
+                )
+
+                if proc.returncode == 0:
+                    state.status = JobStatus.COMPLETED
+                else:
+                    state.status = JobStatus.FAILED
+                    state.error = f"Exit code: {proc.returncode}"
+
+            except subprocess.TimeoutExpired:
+                state.status = JobStatus.FAILED
+                state.error = "Job timed out after 24 hours"
+            except Exception as e:
+                state.status = JobStatus.FAILED
+                state.error = str(e)
+
+            state.completed_at = datetime.now()
+            self._save_jobs()
+
+        # Run in background thread
+        thread = threading.Thread(target=run_job, daemon=True)
+        thread.start()
+        state.metadata["thread_id"] = thread.ident
+
+        return state
+
+    def _build_docker_command(self, job: PreparedJob, image: str) -> List[str]:
+        """Build the Docker run command."""
+        working_dir = job.working_dir
+        output_dir = Path(job.metadata.get("output_dir", working_dir / "outputs"))
+
+        cmd = ["docker", "run", "--rm"]
+
+        # GPU support
+        if self.use_gpu:
+            cmd.extend(["--gpus", "all"])
+
+        # Shared memory for PyTorch multiprocessing (default 64MB is too small)
+        cmd.extend(["--shm-size", "8g"])
+
+        # Volume mounts - working directory
+        cmd.extend(["-v", f"{working_dir}:/workspace"])
+
+        # Mount HuggingFace cache for model weights (shared across jobs)
+        hf_cache = Path.home() / ".cache" / "huggingface"
+        hf_cache.mkdir(parents=True, exist_ok=True)
+        cmd.extend(["-v", f"{hf_cache}:/cache"])
+        cmd.extend(["-e", "HF_HOME=/cache"])
+
+        # Working directory inside container
+        cmd.extend(["-w", "/workspace"])
+
+        # User mapping to avoid permission issues
+        cmd.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
+
+        # Image
+        cmd.append(image)
+
+        # The original command (already uses relative paths for container)
+        cmd.extend(job.command)
+        return cmd
+
+    def status(self, job_id: str) -> JobState:
+        """Get the current status of a job."""
+        if job_id not in self._jobs:
+            raise KeyError(f"Job '{job_id}' not found")
+        return self._jobs[job_id]
+
+    def result(self, job_id: str) -> Optional[JobResult]:
+        """Get the result of a completed job."""
+        state = self.status(job_id)
+        return state.result
+
+    def cancel(self, job_id: str) -> bool:
+        """Cancel a running job."""
+        if job_id not in self._jobs:
+            return False
+
+        state = self._jobs[job_id]
+        if state.status not in (JobStatus.PENDING, JobStatus.RUNNING):
+            return False
+
+        # For Docker, we'd need to track container ID to stop it
+        # For now, just mark as cancelled
+        state.status = JobStatus.CANCELLED
+        state.completed_at = datetime.now()
+        self._save_jobs()
+        return True
+
+    def list_jobs(self, status: Optional[JobStatus] = None) -> List[JobState]:
+        """List jobs, optionally filtered by status."""
+        jobs = list(self._jobs.values())
+        if status is not None:
+            jobs = [j for j in jobs if j.status == status]
+        return sorted(jobs, key=lambda j: j.created_at, reverse=True)
+
+    def cleanup_job(self, job_id: str, force: bool = False) -> bool:
+        """Clean up a job's working directory after ingestion.
+
+        Args:
+            job_id: The job ID to clean up
+            force: If True, clean up even if persistent=True or not ingested
+
+        Returns:
+            True if cleanup was performed
+        """
+        if job_id not in self._jobs:
+            return False
+
+        state = self._jobs[job_id]
+
+        # Check if job should be kept
+        if not force:
+            if state.metadata.get("persistent", False):
+                return False
+            if not state.metadata.get("ingested", False):
+                return False
+
+        # Only clean completed/failed jobs
+        if state.status not in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+            return False
+
+        # Remove working directory
+        working_dir = state.prepared_job.working_dir
+        if working_dir and working_dir.exists():
+            try:
+                shutil.rmtree(working_dir)
+            except Exception:
+                return False
+
+        # Mark as cleaned up
+        state.metadata["cleaned_up"] = True
+        state.metadata["cleaned_up_at"] = datetime.now().isoformat()
+        self._save_jobs()
+
+        return True
+
+    def cleanup_completed_jobs(self, model: Optional[str] = None) -> int:
+        """Clean up all completed and ingested job directories.
+
+        Args:
+            model: Optional model name to filter by
+
+        Returns:
+            Number of jobs cleaned up
+        """
+        cleaned = 0
+        for job_id, state in list(self._jobs.items()):
+            if model and state.model != model:
+                continue
+            if state.metadata.get("cleaned_up"):
+                continue
+            if self.cleanup_job(job_id):
+                cleaned += 1
+        return cleaned
+
+    def remove_job(self, job_id: str) -> bool:
+        """Remove a job from tracking (and optionally clean up files).
+
+        This removes the job from the state file. Use cleanup_job first
+        if you want to remove the files.
+        """
+        if job_id not in self._jobs:
+            return False
+
+        del self._jobs[job_id]
+        self._save_jobs()
+        return True
+
+
+class ApptainerJobExecutor(JobExecutor):
+    """Execute jobs in Apptainer/Singularity containers.
+
+    This executor runs PreparedJob commands inside Apptainer containers with:
+    - Bind mounts for input/output directories
+    - GPU support via --nv flag
+    - SIF images per model
+
+    Job state is stored in job.json within each run directory:
+    data/models/<model>/<run_id>/job.json
+
+    Similar to DockerJobExecutor but uses Apptainer for HPC compatibility.
+    """
+
+    # Default SIF images per model (paths relative to protos/models)
+    DEFAULT_SIFS: Dict[str, str] = {
+        "rfdiffusion2": "RFdiffusion2/rf_diffusion/exec/bakerlab_rf_diffusion_aa.sif",
+    }
+
+    def __init__(
+        self,
+        models_dir: Optional[Path] = None,
+        protos_models_dir: Optional[Path] = None,
+        use_gpu: Optional[bool] = None,
+    ) -> None:
+        """Initialize Apptainer executor.
+
+        Args:
+            models_dir: Directory for job outputs (data/models/)
+            protos_models_dir: Directory containing model installations (src/protos/models/)
+            use_gpu: Whether to use GPU (--nv flag). Auto-detects if None.
+        """
+        self.models_dir = models_dir or Path.home() / ".protos" / "models"
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        self.protos_models_dir = protos_models_dir or Path(__file__).parent
+        self.use_gpu = use_gpu if use_gpu is not None else self._detect_gpu()
+        self._jobs: Dict[str, JobState] = {}
+        self._load_jobs()
+
+    def _detect_gpu(self) -> bool:
+        """Detect if NVIDIA GPU is available for Apptainer."""
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                capture_output=True,
+                timeout=5,
+            )
+            return result.returncode == 0 and bool(result.stdout.strip())
+        except Exception:
+            return False
+
+    def _load_jobs(self) -> None:
+        """Load job states by scanning model directories for job.json files.
+
+        Supports both new format (job.json in run directories) and legacy
+        format (global apptainer_job_states.json) for backwards compatibility.
+        """
+        # First, load from legacy apptainer_job_states.json if it exists
+        legacy_state_file = self.models_dir / "apptainer_job_states.json"
+        if legacy_state_file.exists():
+            try:
+                with open(legacy_state_file, "r") as f:
+                    data = json.load(f)
+                for job_data in data.get("jobs", []):
+                    job_id = job_data["job_id"]
+                    self._jobs[job_id] = self._deserialize_job_state(job_data)
+            except Exception:
+                pass
+
+        # Then scan for job.json files in run directories
+        if not self.models_dir.exists():
+            return
+
+        for model_dir in self.models_dir.iterdir():
+            if not model_dir.is_dir():
+                continue
+            for run_dir in model_dir.iterdir():
+                if not run_dir.is_dir():
+                    continue
+                job_json = run_dir / "job.json"
+                if job_json.exists():
+                    try:
+                        state = self._read_job_state(job_json)
+                        # Only load apptainer jobs
+                        if state.executor == "apptainer":
+                            self._jobs[state.job_id] = state
+                    except Exception:
+                        pass
+
+    def _write_job_state(self, path: Path, state: JobState) -> None:
+        """Write job state to job.json in run directory."""
+        data = self._serialize_job_state(state)
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2, default=str)
+
+    def _read_job_state(self, path: Path) -> JobState:
+        """Read job state from job.json."""
+        with open(path) as f:
+            data = json.load(f)
+        return self._deserialize_job_state(data)
+
+    def _save_jobs(self) -> None:
+        """Persist job states to their respective job.json files."""
+        for state in self._jobs.values():
+            job_json = state.prepared_job.working_dir / "job.json"
+            if job_json.parent.exists():
+                self._write_job_state(job_json, state)
+
+    def _serialize_job_state(self, state: JobState) -> Dict[str, Any]:
+        """Serialize JobState for persistence."""
+        return {
+            "job_id": state.job_id,
+            "model": state.model,
+            "status": state.status.value,
+            "created_at": state.created_at.isoformat(),
+            "submitted_at": state.submitted_at.isoformat() if state.submitted_at else None,
+            "completed_at": state.completed_at.isoformat() if state.completed_at else None,
+            "executor": state.executor,
+            "error": state.error,
+            "metadata": state.metadata,
+            "working_dir": str(state.prepared_job.working_dir),
+            "command": state.prepared_job.command,
+            "run_id": state.prepared_job.run_id,
+        }
+
+    def _deserialize_job_state(self, data: Dict[str, Any]) -> JobState:
+        """Deserialize JobState from persistence."""
+        # For backwards compatibility, use job_id as run_id if run_id is missing
+        run_id = data.get("run_id") or data["job_id"]
+        return JobState(
+            job_id=data["job_id"],
+            model=data["model"],
+            status=JobStatus(data["status"]),
+            prepared_job=PreparedJob(
+                run_id=run_id,
+                command=data.get("command", []),
+                working_dir=Path(data["working_dir"]),
+                artifacts=[],
+                metadata={},
+            ),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            submitted_at=datetime.fromisoformat(data["submitted_at"]) if data.get("submitted_at") else None,
+            completed_at=datetime.fromisoformat(data["completed_at"]) if data.get("completed_at") else None,
+            executor=data.get("executor", "apptainer"),
+            error=data.get("error"),
+            metadata=data.get("metadata", {}),
+        )
+
+    def _get_sif_path(self, model: str, config: Dict[str, Any]) -> Path:
+        """Get the SIF container path for a model."""
+        # Check config override first
+        if "sif_path" in config:
+            return Path(config["sif_path"])
+        # Use default SIF path
+        if model in self.DEFAULT_SIFS:
+            return self.protos_models_dir / self.DEFAULT_SIFS[model]
+        raise ValueError(f"No SIF container configured for model '{model}'")
+
+    def submit(self, job: PreparedJob, model: str, persistent: bool = False) -> JobState:
+        """Submit a job to run in an Apptainer container.
+
+        Args:
+            job: The prepared job to execute (must have run_id set)
+            model: Name of the model (for tracking)
+            persistent: If False (default), job directory will be cleaned up
+                       after successful ingestion
+
+        Returns:
+            JobState with job_id (= run_id) and initial status
+        """
+        import subprocess
+        import threading
+
+        # Use run_id from PreparedJob as the canonical job identifier
+        job_id = job.run_id
+        sif_path = self._get_sif_path(model, job.metadata)
+
+        if not sif_path.exists():
+            raise FileNotFoundError(f"SIF container not found: {sif_path}")
+
+        state = JobState(
+            job_id=job_id,
+            model=model,
+            status=JobStatus.PENDING,
+            prepared_job=job,
+            executor="apptainer",
+            metadata={
+                "sif_path": str(sif_path),
+                "use_gpu": self.use_gpu,
+                "persistent": persistent,
+                "job_name": job.metadata.get("job_name", job_id),
+            },
+        )
+        self._jobs[job_id] = state
+
+        # Write job state to job.json in the run directory
+        self._write_job_state(job.working_dir / "job.json", state)
+
+        # Build Apptainer command
+        apptainer_cmd = self._build_apptainer_command(job, sif_path)
+
+        # Store logs
+        stdout_file = job.working_dir / "stdout.log"
+        stderr_file = job.working_dir / "stderr.log"
+
+        def run_job():
+            state.status = JobStatus.RUNNING
+            state.submitted_at = datetime.now()
+            self._save_jobs()
+
+            start_time = datetime.now()
+            try:
+                with open(stdout_file, "w") as out, open(stderr_file, "w") as err:
+                    proc = subprocess.run(
+                        apptainer_cmd,
+                        cwd=str(job.working_dir),
+                        stdout=out,
+                        stderr=err,
+                        timeout=3600 * 24,  # 24 hour timeout
+                    )
+
+                duration = (datetime.now() - start_time).total_seconds()
+
+                output_dir = Path(job.metadata.get("output_dir", job.working_dir / "outputs"))
+                output_files = list(output_dir.glob("**/*")) if output_dir.exists() else []
+
+                state.result = JobResult(
+                    exit_code=proc.returncode,
+                    stdout=stdout_file.read_text() if stdout_file.exists() else "",
+                    stderr=stderr_file.read_text() if stderr_file.exists() else "",
+                    output_dir=output_dir,
+                    output_files=[f for f in output_files if f.is_file()],
+                    duration_seconds=duration,
+                )
+
+                if proc.returncode == 0:
+                    state.status = JobStatus.COMPLETED
+                else:
+                    state.status = JobStatus.FAILED
+                    state.error = f"Exit code: {proc.returncode}"
+
+            except subprocess.TimeoutExpired:
+                state.status = JobStatus.FAILED
+                state.error = "Job timed out after 24 hours"
+            except Exception as e:
+                state.status = JobStatus.FAILED
+                state.error = str(e)
+
+            state.completed_at = datetime.now()
+            self._save_jobs()
+
+        thread = threading.Thread(target=run_job, daemon=True)
+        thread.start()
+        state.metadata["thread_id"] = thread.ident
+
+        return state
+
+    def _build_apptainer_command(self, job: PreparedJob, sif_path: Path) -> List[str]:
+        """Build the Apptainer exec command."""
+        working_dir = job.working_dir.absolute()
+        output_dir = Path(job.metadata.get("output_dir", working_dir / "outputs")).absolute()
+
+        cmd = ["apptainer", "exec"]
+
+        # GPU support
+        if self.use_gpu:
+            cmd.append("--nv")
+
+        # Working directory inside container (for models that need to run from their install dir)
+        container_workdir = job.metadata.get("container_workdir")
+        if container_workdir:
+            cmd.extend(["--pwd", container_workdir])
+
+        # Environment variables
+        for key, value in job.metadata.get("env", {}).items():
+            cmd.extend(["--env", f"{key}={value}"])
+
+        # Bind mounts - working directory and output
+        cmd.extend(["-B", f"{working_dir}:{working_dir}"])
+        if output_dir.parent != working_dir:
+            cmd.extend(["-B", f"{output_dir}:{output_dir}"])
+
+        # Additional bind mounts from metadata
+        for bind in job.metadata.get("bind_mounts", []):
+            cmd.extend(["-B", bind])
+
+        # SIF container
+        cmd.append(str(sif_path))
+
+        # The command to run inside container
+        cmd.extend(job.command)
+
+        return cmd
+
+    def status(self, job_id: str) -> JobState:
+        """Get the current status of a job."""
+        if job_id not in self._jobs:
+            raise KeyError(f"Job '{job_id}' not found")
+        return self._jobs[job_id]
+
+    def result(self, job_id: str) -> Optional[JobResult]:
+        """Get the result of a completed job."""
+        state = self.status(job_id)
+        return state.result
+
+    def cancel(self, job_id: str) -> bool:
+        """Cancel a running job."""
+        if job_id not in self._jobs:
+            return False
+        state = self._jobs[job_id]
+        if state.status not in (JobStatus.PENDING, JobStatus.RUNNING):
+            return False
+        state.status = JobStatus.CANCELLED
+        state.completed_at = datetime.now()
+        self._save_jobs()
+        return True
+
+    def list_jobs(self, status: Optional[JobStatus] = None) -> List[JobState]:
+        """List jobs, optionally filtered by status."""
+        jobs = list(self._jobs.values())
+        if status is not None:
+            jobs = [j for j in jobs if j.status == status]
+        return sorted(jobs, key=lambda j: j.created_at, reverse=True)
+
+
+class APIJobExecutor(JobExecutor):
+    """Execute jobs via the Protos Job Server API.
+
+    This executor sends jobs to a FastAPI server (running locally in Docker
+    or remotely) instead of executing Docker containers directly. This allows:
+    - Consistent interface for local development and production
+    - Future support for remote execution APIs
+    - Job persistence and status tracking via the server
+
+    Configuration is read from data/models/server_config.yaml.
+    """
+
+    def __init__(
+        self,
+        data_root: Optional[Path] = None,
+        config: Optional[ServerConfig] = None,
+    ) -> None:
+        self.data_root = data_root or Path.home() / ".protos"
+        self._client = JobClient(data_root=self.data_root, config=config)
+
+    def submit(self, job: PreparedJob, model: str, persistent: bool = False) -> JobState:
+        """Submit a job to the API server.
+
+        Uses the new submit_run_dir method to package and upload the entire
+        run directory, ensuring the run_id is preserved as the job_id.
+
+        Args:
+            job: The prepared job to execute (must have run_id set)
+            model: Name of the model (for tracking)
+            persistent: If True, keep job files after completion
+
+        Returns:
+            JobState with job_id (= run_id) and initial status
+        """
+        # Write job.json to the run directory before uploading
+        job_json_path = job.working_dir / "job.json"
+        job_data = {
+            "run_id": job.run_id,
+            "command": job.command,
+            "metadata": {
+                **job.metadata,
+                "persistent": persistent,
+            },
+        }
+        with open(job_json_path, "w") as f:
+            json.dump(job_data, f, indent=2, default=str)
+
+        # Use submit_run_dir to package and upload the entire run directory
+        api_state = self._client.submit_run_dir(job.working_dir, model)
+
+        # Convert API response to internal JobState
+        return self._convert_api_state(api_state, job)
+
+    def _convert_api_state(
+        self,
+        api_state: APIJobState,
+        job: Optional[PreparedJob] = None,
+    ) -> JobState:
+        """Convert API JobState to internal JobState."""
+        # Map API status to internal status
+        status_map = {
+            APIJobStatus.PENDING: JobStatus.PENDING,
+            APIJobStatus.RUNNING: JobStatus.RUNNING,
+            APIJobStatus.COMPLETED: JobStatus.COMPLETED,
+            APIJobStatus.FAILED: JobStatus.FAILED,
+            APIJobStatus.CANCELLED: JobStatus.CANCELLED,
+        }
+
+        # Create a PreparedJob placeholder if not provided
+        if job is None:
+            working_dir = Path(api_state.working_dir) if api_state.working_dir else Path("/tmp")
+            # Use job_id as run_id for API jobs
+            run_id = api_state.metadata.get("run_id", api_state.job_id)
+            job = PreparedJob(
+                run_id=run_id,
+                command=[],
+                working_dir=working_dir,
+                artifacts=[],
+                metadata={},
+            )
+
+        return JobState(
+            job_id=api_state.job_id,
+            model=api_state.model,
+            status=status_map.get(api_state.status, JobStatus.PENDING),
+            prepared_job=job,
+            created_at=datetime.fromisoformat(api_state.created_at),
+            submitted_at=datetime.fromisoformat(api_state.submitted_at) if api_state.submitted_at else None,
+            completed_at=datetime.fromisoformat(api_state.completed_at) if api_state.completed_at else None,
+            executor="api",
+            error=api_state.error,
+            metadata=api_state.metadata,
+        )
+
+    def status(self, job_id: str) -> JobState:
+        """Get the current status of a job from the API."""
+        api_state = self._client.status(job_id)
+        return self._convert_api_state(api_state)
+
+    def result(self, job_id: str) -> Optional[JobResult]:
+        """Get the result of a completed job from the API."""
+        state = self._client.status(job_id)
+        if state.status not in (APIJobStatus.COMPLETED, APIJobStatus.FAILED):
+            return None
+
+        api_result = self._client.result(job_id)
+        return JobResult(
+            exit_code=api_result.exit_code,
+            stdout=api_result.stdout,
+            stderr=api_result.stderr,
+            output_dir=Path(state.working_dir) / "predictions" if state.working_dir else Path("."),
+            output_files=[Path(f) for f in api_result.output_files],
+            duration_seconds=api_result.duration_seconds,
+        )
+
+    def cancel(self, job_id: str) -> bool:
+        """Cancel a running job via the API."""
+        return self._client.cancel(job_id)
+
+    def list_jobs(self, status: Optional[JobStatus] = None) -> List[JobState]:
+        """List jobs from the API server."""
+        # Map internal status to API status
+        api_status = None
+        if status is not None:
+            status_map = {
+                JobStatus.PENDING: APIJobStatus.PENDING,
+                JobStatus.RUNNING: APIJobStatus.RUNNING,
+                JobStatus.COMPLETED: APIJobStatus.COMPLETED,
+                JobStatus.FAILED: APIJobStatus.FAILED,
+                JobStatus.CANCELLED: APIJobStatus.CANCELLED,
+            }
+            api_status = status_map.get(status)
+
+        api_jobs = self._client.list_jobs(status=api_status)
+        return [self._convert_api_state(j) for j in api_jobs]
+
+    def wait_for_completion(
+        self,
+        job_id: str,
+        timeout: float = 3600,
+        poll_interval: float = 5.0,
+    ) -> JobState:
+        """Wait for a job to complete via the API."""
+        api_state = self._client.wait_for_completion(
+            job_id, timeout=timeout, poll_interval=poll_interval
+        )
+        return self._convert_api_state(api_state)
+
+    def download_outputs(self, job_id: str, dest_dir: Path) -> List[Path]:
+        """Download all output files from a completed job.
+
+        Args:
+            job_id: The job ID
+            dest_dir: Local directory to download files to
+
+        Returns:
+            List of downloaded file paths
+        """
+        api_result = self._client.result(job_id)
+        downloaded = []
+        for file_path in api_result.output_files:
+            dest = dest_dir / file_path
+            self._client.download_file(job_id, file_path, dest)
+            downloaded.append(dest)
+        return downloaded
+
+
 class ModelRunContext:
     """Filesystem context for a single model run under data/models/<model>/.
 
@@ -213,19 +1168,33 @@ class ModelRunContext:
     - inputs_dir:  .../inputs/
     - outputs_dir: .../outputs/
     - config_path: optional, when a config file is created
+
+    The run_id is the canonical identifier - either a timestamp (default) or
+    a user-provided name. When run_prefix is provided, it's incorporated into
+    the run_id as "{prefix}_{timestamp}" for better organization.
     """
 
     def __init__(
-        self, paths: ProtosPaths, card: ModelCard, run_prefix: str = "job"
+        self,
+        paths: ProtosPaths,
+        card: ModelCard,
+        run_prefix: Optional[str] = None,
+        run_id: Optional[str] = None,
     ) -> None:
         self.paths = paths
         self.card = card
-        self.run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if run_id:
+            self.run_id = run_id
+        elif run_prefix:
+            self.run_id = f"{run_prefix}_{timestamp}"
+        else:
+            self.run_id = timestamp
         self.work_dir = (
             Path(self.paths.data_root)
             / "models"
             / card.name
-            / f"{run_prefix}_{self.run_id}"
+            / self.run_id
         )
         self.inputs_dir = self.work_dir / "inputs"
         self.outputs_dir = self.work_dir / "outputs"
@@ -401,6 +1370,7 @@ class ConfigurableExternalAdapter(ExternalJobAdapter):
         ctx.config_path = config_path
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=cmd,
             working_dir=working_dir,
             artifacts=list(inputs),
@@ -412,10 +1382,6 @@ class ConfigurableExternalAdapter(ExternalJobAdapter):
             },
         )
         return job
-
-    def _working_dir_for_job(self, card: ModelCard) -> Path:
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return Path(self.paths.data_root) / "models" / card.name / f"job_{ts}"
 
     @staticmethod
     def _build_config_payload(
@@ -508,12 +1474,14 @@ class BoltzAdapter(ExternalJobAdapter):
 
         config_id = self._config_identifier(mutations) if mutations else "wild_type"
 
-        yaml_data = self._generate_yaml(entity_sequences, request.config)
-        input_dir = self._get_input_dir(entity_name, config_id)
-        input_dir.mkdir(parents=True, exist_ok=True)
+        # Create run context with descriptive prefix
+        run_prefix = f"{entity_name}_{config_id}"
+        ctx = ModelRunContext(self.paths, card, run_prefix=run_prefix)
+        ctx.create()
 
-        yaml_path = input_dir / "config.yaml"
-        fasta_path = input_dir / "sequences.fasta"
+        yaml_data = self._generate_yaml(entity_sequences, request.config)
+        yaml_path = ctx.work_dir / "config.yaml"
+        fasta_path = ctx.inputs_dir / "sequences.fasta"
 
         with open(yaml_path, "w", encoding="utf-8") as fh:
             yaml.dump(
@@ -529,7 +1497,7 @@ class BoltzAdapter(ExternalJobAdapter):
             for seq_name, seq in entity_sequences.items():
                 fh.write(f">{seq_name}\n{seq}\n")
 
-        metadata_path = input_dir / "metadata.json"
+        metadata_path = ctx.work_dir / "metadata.json"
         metadata_content = {
             "entity": entity_name,
             "config_id": config_id,
@@ -539,9 +1507,8 @@ class BoltzAdapter(ExternalJobAdapter):
         with open(metadata_path, "w", encoding="utf-8") as fh:
             json.dump(metadata_content, fh, indent=2)
 
-        # Build command with appropriate flags
-        output_dir = input_dir / "predictions"
-        command = ["boltz", "predict", str(yaml_path), "--out_dir", str(output_dir)]
+        # Build command with appropriate flags - use relative paths for container
+        command = ["boltz", "predict", "config.yaml", "--out_dir", "outputs"]
 
         # Add --use_msa_server unless MSA paths are provided
         has_msa = self._config_has_msa(request.config)
@@ -567,8 +1534,9 @@ class BoltzAdapter(ExternalJobAdapter):
             command.extend(["--accelerator", request.config["accelerator"]])
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
-            working_dir=input_dir,
+            working_dir=ctx.work_dir,
             artifacts=[
                 sequence_bundle,
                 ArtifactBundle(
@@ -596,7 +1564,7 @@ class BoltzAdapter(ExternalJobAdapter):
                 "entity": entity_name,
                 "config_id": config_id,
                 "mutations": mutations,
-                "output_dir": str(output_dir),
+                "output_dir": str(ctx.outputs_dir),
             },
         )
         return job
@@ -620,14 +1588,6 @@ class BoltzAdapter(ExternalJobAdapter):
             mut.get("name") or f"{mut['position']}{mut['mutant']}" for mut in mutations
         ]
         return "_".join(labels)
-
-    def _get_input_dir(self, entity: str, config_id: str) -> Path:
-        return (
-            Path(self.paths.data_root)
-            / "models"
-            / self.MODEL_DIR
-            / f"{entity}_{config_id}"
-        )
 
     def _apply_mutations(
         self,
@@ -789,14 +1749,15 @@ class BoltzGenAdapter(ExternalJobAdapter):
         config = request.config
         job_name = config.get("job_name", "design_job")
 
+        # Create run context with job_name as prefix
+        ctx = ModelRunContext(self.paths, card, run_prefix=job_name)
+        ctx.create()
+
         yaml_data = self._generate_yaml(config)
-        input_dir = self._get_input_dir(job_name)
-        input_dir.mkdir(parents=True, exist_ok=True)
+        yaml_path = ctx.work_dir / "config.yaml"
 
-        yaml_path = input_dir / "config.yaml"
-
-        # Copy any referenced structure files to the input directory
-        self._copy_structure_files(yaml_data, input_dir, config)
+        # Copy any referenced structure files to the inputs directory
+        self._copy_structure_files(yaml_data, ctx.inputs_dir, config)
 
         with open(yaml_path, "w", encoding="utf-8") as fh:
             yaml.dump(
@@ -808,7 +1769,7 @@ class BoltzGenAdapter(ExternalJobAdapter):
                 indent=2,
             )
 
-        metadata_path = input_dir / "metadata.json"
+        metadata_path = ctx.work_dir / "metadata.json"
         metadata_content = {
             "job_name": job_name,
             "config": {k: v for k, v in config.items() if k != "entities"},
@@ -816,17 +1777,33 @@ class BoltzGenAdapter(ExternalJobAdapter):
         with open(metadata_path, "w", encoding="utf-8") as fh:
             json.dump(metadata_content, fh, indent=2)
 
-        # Build command with appropriate flags
-        output_dir = input_dir / "predictions"
-        command = ["boltz", "design", str(yaml_path), "--out_dir", str(output_dir)]
+        # Use relative paths for container execution
+        # config.yaml is in working_dir, output goes to outputs/
+        command = [
+            "boltzgen", "run",
+            "config.yaml",
+            "--output", "outputs",
+        ]
 
-        # Optional: recycling and sampling steps
+        # Optional: number of designs (direct CLI arg)
+        if "num_designs" in config:
+            command.extend(["--num_designs", str(config["num_designs"])])
+
+        # Optional: diffusion batch size (direct CLI arg)
+        if "diffusion_batch_size" in config:
+            command.extend(["--diffusion_batch_size", str(config["diffusion_batch_size"])])
+
+        # Optional: design step config overrides via --config design key=value
+        # These are internal model parameters, not direct CLI args
+        design_overrides = []
         if "recycling_steps" in config:
-            command.extend(["--recycling_steps", str(config["recycling_steps"])])
+            design_overrides.append(f"recycling_steps={config['recycling_steps']}")
         if "sampling_steps" in config:
-            command.extend(["--sampling_steps", str(config["sampling_steps"])])
+            design_overrides.append(f"sampling_steps={config['sampling_steps']}")
         if "diffusion_samples" in config:
-            command.extend(["--diffusion_samples", str(config["diffusion_samples"])])
+            design_overrides.append(f"diffusion_samples={config['diffusion_samples']}")
+        if design_overrides:
+            command.extend(["--config", "design"] + design_overrides)
 
         # Optional: device configuration
         if "devices" in config:
@@ -834,9 +1811,14 @@ class BoltzGenAdapter(ExternalJobAdapter):
         if "accelerator" in config:
             command.extend(["--accelerator", config["accelerator"]])
 
+        # Protocol selection
+        if "protocol" in config:
+            command.extend(["--protocol", config["protocol"]])
+
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
-            working_dir=input_dir,
+            working_dir=ctx.work_dir,
             artifacts=[
                 ArtifactBundle(
                     spec=ArtifactSpec(
@@ -851,18 +1833,11 @@ class BoltzGenAdapter(ExternalJobAdapter):
             ],
             metadata={
                 "job_name": job_name,
-                "output_dir": str(output_dir),
+                "output_dir": str(ctx.outputs_dir),
+                "docker_image": config.get("docker_image", "protos/boltzgen:latest"),
             },
         )
         return job
-
-    def _get_input_dir(self, job_name: str) -> Path:
-        return (
-            Path(self.paths.data_root)
-            / "models"
-            / self.MODEL_DIR
-            / job_name
-        )
 
     def _copy_structure_files(
         self,
@@ -1521,13 +2496,13 @@ class LambdaAdapter(RuntimeAdapter):
 
         logger = logging.getLogger("LambdaAdapter")
 
-        # Create job directory
+        # Create run context
         job_name = request.config.get("job_name", "lambda_job")
-        job_dir = Path(self.paths.data_root) / "models" / "lambda" / "jobs" / job_name
-        input_dir = job_dir / "input"
-        output_dir = job_dir / "output"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        ctx = ModelRunContext(self.paths, card, run_prefix=job_name)
+        ctx.create()
+        job_dir = ctx.work_dir
+        input_dir = ctx.inputs_dir
+        output_dir = ctx.outputs_dir
 
         # Resolve inputs
         sequence_bundle = self._require_bundle(inputs, "sequence_dataset")
@@ -1631,6 +2606,7 @@ class LambdaAdapter(RuntimeAdapter):
             command.insert(4, "all")
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
             working_dir=job_dir,
             artifacts=[
@@ -1671,7 +2647,21 @@ class ModelManager:
         "property": "property_table",
     }
 
-    def __init__(self, data_root: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        data_root: Optional[Path] = None,
+        executor: Optional[JobExecutor] = None,
+        use_api: Optional[bool] = None,
+    ) -> None:
+        """Initialize the ModelManager.
+
+        Args:
+            data_root: Root directory for protos data (default: ~/.protos)
+            executor: Custom JobExecutor instance (overrides use_api)
+            use_api: If True, use APIJobExecutor (FastAPI server).
+                    If False, use DockerJobExecutor (direct Docker).
+                    If None (default), read from server_config.yaml.
+        """
         self.paths = ProtosPaths(data_root=str(data_root) if data_root else None)
         self.cards: Dict[str, ModelCard] = {}
         self.adapters: Dict[str, ModelAdapterBase] = {}
@@ -1687,6 +2677,28 @@ class ModelManager:
             "structure_entity": self._provide_structure_entity,
             "file_path": self._provide_file_path,
         }
+
+        # Job executor for running prepared jobs
+        # All jobs stored under data/models/<model>/jobs/
+        models_dir = Path(self.paths.data_root) / "models"
+        if executor is not None:
+            self._executor = executor
+        else:
+            # Determine executor type from config or parameter
+            config_path = models_dir / "server_config.yaml"
+            server_config = ServerConfig.from_file(config_path)
+
+            # use_api parameter overrides config file
+            should_use_api = use_api if use_api is not None else (server_config.mode == "remote")
+
+            if should_use_api:
+                self._executor = APIJobExecutor(
+                    data_root=Path(self.paths.data_root),
+                    config=server_config,
+                )
+            else:
+                self._executor = DockerJobExecutor(models_dir=models_dir)
+
         self._register_defaults()
 
     # ------------------------------------------------------------------
@@ -1724,6 +2736,237 @@ class ModelManager:
         )
         invocation.metadata.update(request.metadata)
         return invocation
+
+    # ------------------------------------------------------------------
+    # Job Execution API
+    # ------------------------------------------------------------------
+
+    def submit_job(
+        self,
+        invocation: ModelInvocation,
+        persistent: bool = False,
+    ) -> JobState:
+        """Submit a prepared job for execution.
+
+        Args:
+            invocation: A ModelInvocation with a prepared job (from prepare())
+            persistent: If True, keep job directory after ingestion.
+                       If False (default), clean up after successful ingestion.
+
+        Returns:
+            JobState with job_id for tracking
+
+        Raises:
+            ValueError: If the invocation doesn't have a prepared job
+        """
+        if not invocation.is_external():
+            raise ValueError(
+                "Cannot submit job: invocation is not an external job. "
+                "Use runtime execution instead."
+            )
+
+        # Check if job requires Apptainer execution
+        executor_type = invocation.job.metadata.get("executor", "docker")
+        if executor_type == "apptainer":
+            # Use ApptainerJobExecutor for this job
+            if not hasattr(self, "_apptainer_executor"):
+                models_dir = Path(self.paths.data_root) / "models"
+                self._apptainer_executor = ApptainerJobExecutor(
+                    models_dir=models_dir,
+                    protos_models_dir=Path(__file__).parent,
+                )
+            return self._apptainer_executor.submit(invocation.job, invocation.model, persistent=persistent)
+
+        return self._executor.submit(invocation.job, invocation.model, persistent=persistent)
+
+    def prepare_and_submit(
+        self,
+        model_name: str,
+        *,
+        inputs: Optional[MutableMapping[str, Any]] = None,
+        config: Optional[MutableMapping[str, Any]] = None,
+        metadata: Optional[MutableMapping[str, Any]] = None,
+        persistent: bool = False,
+    ) -> JobState:
+        """Prepare and immediately submit a job for execution.
+
+        Convenience method combining prepare() and submit_job().
+
+        Args:
+            persistent: If True, keep job directory after ingestion.
+
+        Returns:
+            JobState with job_id for tracking
+        """
+        invocation = self.prepare(model_name, inputs=inputs, config=config, metadata=metadata)
+        return self.submit_job(invocation, persistent=persistent)
+
+    def job_status(self, job_id: str) -> JobState:
+        """Get the current status of a submitted job.
+
+        Args:
+            job_id: The job ID returned from submit_job()
+
+        Returns:
+            JobState with current status and metadata
+        """
+        return self._executor.status(job_id)
+
+    def job_result(self, job_id: str) -> Optional[JobResult]:
+        """Get the result of a completed job.
+
+        Args:
+            job_id: The job ID returned from submit_job()
+
+        Returns:
+            JobResult if job is complete, None otherwise
+        """
+        return self._executor.result(job_id)
+
+    def cancel_job(self, job_id: str) -> bool:
+        """Cancel a running job.
+
+        Args:
+            job_id: The job ID to cancel
+
+        Returns:
+            True if successfully cancelled
+        """
+        return self._executor.cancel(job_id)
+
+    def list_jobs(
+        self,
+        status: Optional[JobStatus] = None,
+        model: Optional[str] = None,
+    ) -> List[JobState]:
+        """List submitted jobs.
+
+        Args:
+            status: Filter by job status (optional)
+            model: Filter by model name (optional)
+
+        Returns:
+            List of JobState objects, sorted by creation time (newest first)
+        """
+        jobs = self._executor.list_jobs(status)
+        if model is not None:
+            jobs = [j for j in jobs if j.model == model]
+        return jobs
+
+    def wait_for_job(
+        self,
+        job_id: str,
+        timeout_seconds: float = 3600,
+        poll_interval: float = 5.0,
+    ) -> JobState:
+        """Wait for a job to complete.
+
+        Args:
+            job_id: The job ID to wait for
+            timeout_seconds: Maximum time to wait (default 1 hour)
+            poll_interval: Time between status checks (default 5 seconds)
+
+        Returns:
+            Final JobState when job completes
+
+        Raises:
+            TimeoutError: If job doesn't complete within timeout
+        """
+        import time
+
+        start = time.time()
+        while time.time() - start < timeout_seconds:
+            state = self._executor.status(job_id)
+            if state.status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
+                return state
+            time.sleep(poll_interval)
+
+        raise TimeoutError(f"Job {job_id} did not complete within {timeout_seconds} seconds")
+
+    def run_and_ingest(
+        self,
+        invocation: ModelInvocation,
+        timeout_seconds: float = 3600,
+    ) -> Dict[str, Any]:
+        """Submit a job, wait for completion, and ingest results.
+
+        Convenience method for synchronous job execution with result registration.
+
+        Args:
+            invocation: A prepared ModelInvocation
+            timeout_seconds: Maximum time to wait for completion
+
+        Returns:
+            Ingestion summary from ingest_outputs()
+
+        Raises:
+            RuntimeError: If job fails or times out
+        """
+        state = self.submit_job(invocation)
+        final_state = self.wait_for_job(state.job_id, timeout_seconds=timeout_seconds)
+
+        if final_state.status == JobStatus.FAILED:
+            raise RuntimeError(f"Job failed: {final_state.error}")
+        if final_state.status == JobStatus.CANCELLED:
+            raise RuntimeError("Job was cancelled")
+
+        # Update invocation with output artifacts
+        if final_state.result and final_state.result.output_files:
+            invocation.outputs = self._parse_job_outputs(invocation, final_state.result)
+
+        return self.ingest_outputs(invocation)
+
+    def _parse_job_outputs(
+        self,
+        invocation: ModelInvocation,
+        result: JobResult,
+    ) -> List[ArtifactBundle]:
+        """Parse job output files into ArtifactBundles.
+
+        Override in model-specific adapters for custom parsing.
+        """
+        bundles: List[ArtifactBundle] = []
+
+        for output_file in result.output_files:
+            suffix = output_file.suffix.lower()
+
+            # Determine artifact kind from file extension
+            if suffix in (".cif", ".pdb", ".mmcif"):
+                kind = "structure"
+            elif suffix == ".csv":
+                kind = "property"
+            elif suffix == ".sdf":
+                kind = "ligand"
+            elif suffix in (".npz", ".npy"):
+                kind = "embedding"
+            elif suffix == ".json":
+                kind = "metadata"
+            else:
+                kind = "file"
+
+            bundle = ArtifactBundle(
+                spec=ArtifactSpec(
+                    name=output_file.stem,
+                    kind=kind,
+                    provider=f"{invocation.model}_output",
+                    format=suffix.lstrip("."),
+                ),
+                path=output_file,
+                metadata={"source_job": invocation.model},
+            )
+            bundles.append(bundle)
+
+        return bundles
+
+    @property
+    def executor(self) -> JobExecutor:
+        """Access the job executor."""
+        return self._executor
+
+    @executor.setter
+    def executor(self, executor: JobExecutor) -> None:
+        """Set a custom job executor."""
+        self._executor = executor
 
     def prepare_input(
         self,
@@ -1914,7 +3157,64 @@ class ModelManager:
                     optional=True,
                 )
             ],
-            output_spec=[],
+            output_spec=[
+                ArtifactSpec(
+                    name="designed_structures",
+                    kind="structure",
+                    provider="boltzgen_output",
+                    format="cif",
+                ),
+                ArtifactSpec(
+                    name="design_metrics",
+                    kind="property",
+                    provider="boltzgen_output",
+                    format="csv",
+                ),
+            ],
+            ingestion_spec=[
+                # Register final ranked designs (in subdirectories)
+                IngestionSpec(
+                    output_type="structure",
+                    file_pattern="predictions/final_ranked_designs/final_*_designs/rank*.cif",
+                    processor="structure",
+                    name_template="{job_name}_final_{stem}",
+                    params={"register_entity": True, "copy_to_mmcif": True},
+                ),
+                # Register intermediate ranked designs
+                IngestionSpec(
+                    output_type="structure",
+                    file_pattern="predictions/final_ranked_designs/intermediate_*_designs/rank*.cif",
+                    processor="structure",
+                    name_template="{job_name}_ranked_{stem}",
+                    params={"register_entity": True, "copy_to_mmcif": True},
+                    required=False,
+                ),
+                # Register design metrics as property table
+                IngestionSpec(
+                    output_type="property",
+                    file_pattern="predictions/final_ranked_designs/*_metrics*.csv",
+                    processor="property",
+                    name_template="{job_name}_metrics",
+                    params={"merge_existing": False},
+                ),
+                # Register all design metrics
+                IngestionSpec(
+                    output_type="property",
+                    file_pattern="predictions/final_ranked_designs/all_designs_metrics.csv",
+                    processor="property",
+                    name_template="{job_name}_all_metrics",
+                    params={"merge_existing": False},
+                ),
+                # Capture inverse-folded designs (refolded structures)
+                IngestionSpec(
+                    output_type="structure",
+                    file_pattern="predictions/intermediate_designs_inverse_folded/refold_cif/*.cif",
+                    processor="structure",
+                    name_template="{job_name}_refolded_{stem}",
+                    params={"register_entity": True, "intermediate": True},
+                    required=False,
+                ),
+            ],
         )
         self.register_model(boltzgen_card, BoltzGenAdapter(self))
 
@@ -2208,6 +3508,60 @@ class ModelManager:
             output_spec=[],
         )
         self.register_model(pocket2mol_card, Pocket2MolAdapter(self))
+
+        # RFdiffusion2 - all-atom protein generation via diffusion
+        rfdiffusion2_card = ModelCard(
+            name="rfdiffusion2",
+            version="2.0",
+            description="All-atom protein backbone generation via diffusion with motif scaffolding",
+            execution=ExecutionSpec(
+                mode="external_config",
+                entrypoint="apptainer exec",
+                environment={
+                    "container": "singularity",
+                    "sif_path": "RFdiffusion2/rf_diffusion/exec/bakerlab_rf_diffusion_aa.sif",
+                },
+            ),
+            input_spec=[
+                ArtifactSpec(
+                    name="structure_pdb",
+                    kind="structure",
+                    provider="file_path",
+                    format="pdb",
+                    optional=True,
+                ),
+            ],
+            output_spec=[
+                ArtifactSpec(
+                    name="designed_structures",
+                    kind="structure",
+                    provider="rfdiffusion2_adapter",
+                    format="pdb",
+                ),
+                ArtifactSpec(
+                    name="sequences",
+                    kind="sequence",
+                    provider="rfdiffusion2_adapter",
+                    format="fasta",
+                    optional=True,
+                ),
+            ],
+            ingestion_spec=[
+                IngestionSpec(
+                    output_type="structure",
+                    file_pattern="*.pdb",
+                    processor="structure",
+                    name_template="{job_name}_{stem}",
+                ),
+            ],
+            metadata={
+                "supports_ligands": True,
+                "supports_partial_diffusion": True,
+                "supports_motif_scaffolding": True,
+                "container_type": "apptainer",
+            },
+        )
+        self.register_model(rfdiffusion2_card, RFdiffusion2Adapter(self))
 
     def register_model(
         self, card: ModelCard, adapter: Optional[ModelAdapterBase]
@@ -2516,12 +3870,53 @@ class ModelManager:
     def ingest_outputs(self, invocation: ModelInvocation) -> Dict[str, Any]:
         """Register model outputs into Protos datasets/entities.
 
-        - Property tables: ensure datasets are recorded via PropertyProcessor
-        - No-ops for other kinds until dedicated ingesters are added
+        Uses the model card's ingestion_spec to determine how to process outputs:
+        - Structures (CIF/PDB) → StructureProcessor (register as entity)
+        - Properties (CSV) → PropertyProcessor (record in property table)
+        - Embeddings (NPZ) → EmbeddingProcessor
+        - Ligands (SDF) → MoleculeProcessor
         """
-        summary: Dict[str, Any] = {"model": invocation.model, "ingested": []}
+        import logging
+        import glob
 
-        # Ingest explicit artifacts bundled by adapters
+        logger = logging.getLogger("ModelManager.ingest")
+        summary: Dict[str, Any] = {
+            "model": invocation.model,
+            "job_id": invocation.metadata.get("job_id"),
+            "ingested": [],
+            "errors": [],
+        }
+
+        # Get working directory from job or metadata
+        working_dir = None
+        if invocation.job:
+            working_dir = invocation.job.working_dir
+        elif invocation.metadata.get("context"):
+            working_dir = Path(invocation.metadata["context"].get("work_dir", ""))
+
+        if not working_dir or not Path(working_dir).exists():
+            logger.warning("[ingest] No valid working directory found")
+            return summary
+
+        working_dir = Path(working_dir)
+        job_name = invocation.metadata.get("job_name", invocation.model)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Process ingestion specs from model card
+        if invocation.card and invocation.card.ingestion_spec:
+            for spec in invocation.card.ingestion_spec:
+                try:
+                    results = self._process_ingestion_spec(
+                        spec, working_dir, job_name, timestamp, invocation.model
+                    )
+                    summary["ingested"].extend(results)
+                except Exception as e:
+                    error_msg = f"Failed to process {spec.output_type} spec: {e}"
+                    logger.warning("[ingest] %s", error_msg)
+                    if spec.required:
+                        summary["errors"].append(error_msg)
+
+        # Fallback: process explicit artifacts bundled by adapters
         for bundle in invocation.outputs or []:
             if (
                 bundle.spec.kind == "property"
@@ -2531,7 +3926,6 @@ class ModelManager:
                 table_name = table_path.stem
                 try:
                     prop = PropertyProcessor()
-                    # Load and save to update dataset metadata/index
                     df = prop.load_property_table(table_name)
                     prop.save_property_table(table_name)
                     summary["ingested"].append(
@@ -2544,7 +3938,6 @@ class ModelManager:
                 except Exception:
                     continue
             elif bundle.spec.kind == "ligand":
-                # Register SDF artifact as a molecule record for discovery later
                 try:
                     from protos.processing.molecule import MoleculeProcessor
 
@@ -2584,7 +3977,416 @@ class ModelManager:
                 except Exception:
                     pass
 
+        logger.info(
+            "[ingest] Completed for %s: %d items ingested, %d errors",
+            invocation.model,
+            len(summary["ingested"]),
+            len(summary["errors"]),
+        )
         return summary
+
+    def _process_ingestion_spec(
+        self,
+        spec: IngestionSpec,
+        working_dir: Path,
+        job_name: str,
+        timestamp: str,
+        model: str,
+    ) -> List[Dict[str, Any]]:
+        """Process a single ingestion spec and register outputs.
+
+        Returns list of ingestion result dicts.
+        """
+        import glob
+        import logging
+
+        logger = logging.getLogger("ModelManager.ingest")
+        results: List[Dict[str, Any]] = []
+
+        # Find matching files
+        pattern = str(working_dir / spec.file_pattern)
+        matching_files = glob.glob(pattern, recursive=True)
+
+        if not matching_files:
+            logger.debug("[ingest] No files match pattern: %s", spec.file_pattern)
+            return results
+
+        logger.info(
+            "[ingest] Found %d files for %s pattern",
+            len(matching_files),
+            spec.output_type,
+        )
+
+        for file_path in matching_files:
+            file_path = Path(file_path)
+            stem = file_path.stem
+
+            # Generate entity name from template
+            entity_name = spec.name_template.format(
+                job_name=job_name,
+                stem=stem,
+                model=model,
+                timestamp=timestamp,
+            )
+
+            try:
+                if spec.processor == "structure":
+                    result = self._ingest_structure(
+                        file_path, entity_name, spec.params, model
+                    )
+                elif spec.processor == "property":
+                    result = self._ingest_property(
+                        file_path, entity_name, spec.params, model
+                    )
+                elif spec.processor == "embedding":
+                    result = self._ingest_embedding(
+                        file_path, entity_name, spec.params, model
+                    )
+                elif spec.processor == "molecule":
+                    result = self._ingest_molecule(
+                        file_path, entity_name, spec.params, model
+                    )
+                else:
+                    logger.warning("[ingest] Unknown processor: %s", spec.processor)
+                    continue
+
+                if result:
+                    results.append(result)
+
+            except Exception as e:
+                logger.warning("[ingest] Failed to ingest %s: %s", file_path, e)
+
+        return results
+
+    def _ingest_structure(
+        self,
+        file_path: Path,
+        entity_name: str,
+        params: Dict[str, Any],
+        source_model: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Ingest a structure file (CIF/PDB) into Protos.
+
+        Args:
+            file_path: Path to the structure file
+            entity_name: Name to register the entity as
+            params: Additional parameters (register_entity, copy_to_mmcif, etc.)
+            source_model: Name of the model that produced this output
+
+        Returns:
+            Ingestion result dict or None
+        """
+        import logging
+        from protos.processing.structure import StructureProcessor
+        from protos.io.ingest.structure_loader import StructureLoader
+
+        logger = logging.getLogger("ModelManager.ingest")
+
+        try:
+            sp = StructureProcessor()
+            loader = StructureLoader(processor=sp)
+
+            # Copy structure to mmcif directory if requested
+            if params.get("copy_to_mmcif", True):
+                mmcif_dir = Path(self.paths.data_root) / "structure" / "mmcif"
+                mmcif_dir.mkdir(parents=True, exist_ok=True)
+                dest_path = mmcif_dir / f"{entity_name}.cif"
+
+                # Copy file
+                shutil.copy2(file_path, dest_path)
+                logger.info("[ingest] Copied structure to %s", dest_path)
+
+                # Also copy to models directory for organized storage
+                models_dir = Path(self.paths.data_root) / "models" / source_model / "structures"
+                models_dir.mkdir(parents=True, exist_ok=True)
+                model_dest = models_dir / f"{entity_name}.cif"
+                shutil.copy2(file_path, model_dest)
+
+            # Register as entity if requested
+            if params.get("register_entity", True):
+                # Register via loader (will parse and index)
+                try:
+                    # Import the structure file to register it
+                    target_path = dest_path if params.get("copy_to_mmcif") else file_path
+                    # The structure is already in mmcif dir, just load to verify
+                    df = sp.load_entity(entity_name)
+                    if df is None:
+                        # Try loading directly from file
+                        from protos.io.formats.cif_utils import read_cif_file
+                        df = read_cif_file(str(target_path))
+                        if df is not None and not df.empty:
+                            sp.save_entity(entity_name, df)
+                    logger.info("[ingest] Registered entity: %s", entity_name)
+                except Exception as e:
+                    logger.debug("[ingest] Entity registration: %s", e)
+
+            return {
+                "type": "structure",
+                "name": entity_name,
+                "source_file": str(file_path),
+                "registered": params.get("register_entity", True),
+                "intermediate": params.get("intermediate", False),
+            }
+
+        except Exception as e:
+            logger.warning("[ingest] Structure ingestion failed: %s", e)
+            return None
+
+    def _ingest_property(
+        self,
+        file_path: Path,
+        table_name: str,
+        params: Dict[str, Any],
+        source_model: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Ingest a property table (CSV) into Protos.
+
+        Args:
+            file_path: Path to the CSV file
+            table_name: Name for the property table
+            params: Additional parameters (merge_existing, etc.)
+            source_model: Name of the model that produced this output
+
+        Returns:
+            Ingestion result dict or None
+        """
+        import logging
+
+        logger = logging.getLogger("ModelManager.ingest")
+
+        try:
+            # Load the CSV
+            df = pd.read_csv(file_path)
+
+            # Copy to property directory
+            property_dir = Path(self.paths.data_root) / "property"
+            property_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = property_dir / f"{table_name}.csv"
+
+            if params.get("merge_existing", False) and dest_path.exists():
+                # Merge with existing table
+                existing = pd.read_csv(dest_path)
+                df = pd.concat([existing, df], ignore_index=True)
+                df = df.drop_duplicates()
+
+            df.to_csv(dest_path, index=False)
+
+            # Also keep a copy in models directory
+            models_dir = Path(self.paths.data_root) / "models" / source_model / "properties"
+            models_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(dest_path, models_dir / f"{table_name}.csv")
+
+            logger.info("[ingest] Saved property table: %s (%d rows)", table_name, len(df))
+
+            return {
+                "type": "property_table",
+                "name": table_name,
+                "rows": len(df),
+                "source_file": str(file_path),
+            }
+
+        except Exception as e:
+            logger.warning("[ingest] Property ingestion failed: %s", e)
+            return None
+
+    def _ingest_embedding(
+        self,
+        file_path: Path,
+        dataset_name: str,
+        params: Dict[str, Any],
+        source_model: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Ingest embeddings (NPZ) into Protos.
+
+        Args:
+            file_path: Path to the NPZ file
+            dataset_name: Name for the embedding dataset
+            params: Additional parameters
+            source_model: Name of the model that produced this output
+
+        Returns:
+            Ingestion result dict or None
+        """
+        import logging
+
+        logger = logging.getLogger("ModelManager.ingest")
+
+        try:
+            # Copy to embeddings directory
+            emb_dir = Path(self.paths.data_root) / "embeddings"
+            emb_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = emb_dir / f"{dataset_name}.npz"
+
+            shutil.copy2(file_path, dest_path)
+
+            # Count entities in NPZ
+            npz = np.load(file_path, allow_pickle=False)
+            num_entities = len(npz.files)
+
+            logger.info("[ingest] Saved embedding dataset: %s (%d entities)", dataset_name, num_entities)
+
+            return {
+                "type": "embedding",
+                "name": dataset_name,
+                "entities": num_entities,
+                "source_file": str(file_path),
+            }
+
+        except Exception as e:
+            logger.warning("[ingest] Embedding ingestion failed: %s", e)
+            return None
+
+    def _ingest_molecule(
+        self,
+        file_path: Path,
+        entity_name: str,
+        params: Dict[str, Any],
+        source_model: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Ingest a molecule file (SDF) into Protos.
+
+        Args:
+            file_path: Path to the SDF file
+            entity_name: Name for the molecule entity
+            params: Additional parameters
+            source_model: Name of the model that produced this output
+
+        Returns:
+            Ingestion result dict or None
+        """
+        import logging
+
+        logger = logging.getLogger("ModelManager.ingest")
+
+        try:
+            from protos.processing.molecule import MoleculeProcessor
+
+            mp = MoleculeProcessor()
+
+            # Copy to molecules directory
+            mol_dir = Path(self.paths.data_root) / "molecules"
+            mol_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = mol_dir / f"{entity_name}.sdf"
+
+            shutil.copy2(file_path, dest_path)
+
+            # Register as entity
+            rel_path = dest_path.relative_to(self.paths.data_root)
+            mp.save_entity(
+                entity_name,
+                {"kind": "sdf", "file_path": str(rel_path)},
+                metadata={"source_model": source_model},
+            )
+
+            logger.info("[ingest] Registered molecule: %s", entity_name)
+
+            return {
+                "type": "molecule",
+                "name": entity_name,
+                "source_file": str(file_path),
+            }
+
+        except Exception as e:
+            logger.warning("[ingest] Molecule ingestion failed: %s", e)
+            return None
+
+    def ingest_job_outputs(
+        self,
+        job_id: str,
+        *,
+        force: bool = False,
+        cleanup: bool = True,
+    ) -> Dict[str, Any]:
+        """Ingest outputs from a completed job by job ID.
+
+        This is the main entry point for ingesting outputs from Docker/external jobs.
+        It packages the outputs and registers them in Protos, then optionally
+        cleans up the job directory.
+
+        Args:
+            job_id: The job ID to ingest outputs from
+            force: Force re-ingestion even if already processed
+            cleanup: If True (default), clean up job directory after successful
+                    ingestion (unless job was marked as persistent)
+
+        Returns:
+            Ingestion summary dict
+        """
+        import logging
+
+        logger = logging.getLogger("ModelManager.ingest")
+
+        # Get job state
+        state = self._executor.status(job_id)
+
+        if state.status != JobStatus.COMPLETED:
+            raise ValueError(f"Job {job_id} is not completed (status: {state.status})")
+
+        # Check if already ingested
+        if state.metadata.get("ingested") and not force:
+            logger.info("[ingest] Job %s already ingested", job_id)
+            return state.metadata.get("ingestion_summary", {})
+
+        # Get model card
+        card = self.cards.get(state.model)
+        if not card:
+            raise ValueError(f"No model card found for '{state.model}'")
+
+        # Create a synthetic invocation for ingestion
+        invocation = ModelInvocation(
+            model=state.model,
+            card=card,
+            job=state.prepared_job,
+            metadata={
+                "job_id": job_id,
+                "job_name": state.metadata.get("job_name", state.model),
+            },
+        )
+
+        # Run ingestion
+        summary = self.ingest_outputs(invocation)
+        summary["job_id"] = job_id
+
+        # Update job state to mark as ingested
+        state.metadata["ingested"] = True
+        state.metadata["ingestion_summary"] = summary
+        state.metadata["ingested_at"] = datetime.now().isoformat()
+        self._executor._save_jobs()
+
+        logger.info("[ingest] Job %s ingestion complete: %d items", job_id, len(summary.get("ingested", [])))
+
+        # Cleanup job directory if requested (and not persistent)
+        if cleanup and not state.metadata.get("persistent", False):
+            if self._executor.cleanup_job(job_id):
+                summary["cleaned_up"] = True
+                logger.info("[ingest] Cleaned up job directory for %s", job_id)
+            else:
+                summary["cleaned_up"] = False
+
+        return summary
+
+    def cleanup_job(self, job_id: str, force: bool = False) -> bool:
+        """Clean up a job's working directory.
+
+        Args:
+            job_id: The job ID to clean up
+            force: If True, clean up even if persistent=True or not ingested
+
+        Returns:
+            True if cleanup was performed
+        """
+        return self._executor.cleanup_job(job_id, force=force)
+
+    def cleanup_completed_jobs(self, model: Optional[str] = None) -> int:
+        """Clean up all completed and ingested job directories.
+
+        Args:
+            model: Optional model name to filter by
+
+        Returns:
+            Number of jobs cleaned up
+        """
+        return self._executor.cleanup_completed_jobs(model=model)
 
 
 def prepare_mutation_screen(
@@ -2692,7 +4494,9 @@ def prepare_mutation_screen(
 
 
 __all__ = [
+    # Core manager
     "ModelManager",
+    # Adapters
     "ModelAdapterBase",
     "ExternalJobAdapter",
     "RuntimeAdapter",
@@ -2701,6 +4505,10 @@ __all__ = [
     "ModelRequest",
     "BoltzAdapter",
     "LambdaAdapter",
+    # Job execution
+    "JobExecutor",
+    "DockerJobExecutor",
+    # Utilities
     "prepare_mutation_screen",
 ]
 
@@ -2999,6 +4807,7 @@ class UniDockAdapter(ExternalJobAdapter):
             pass
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
             working_dir=ctx.work_dir,
             artifacts=[receptor, ligand],
@@ -3049,6 +4858,7 @@ class EquiBindAdapter(ExternalJobAdapter):
         command = ["python", str(inference_script), "--config", str(config_path)]
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
             working_dir=ctx.work_dir,
             artifacts=[
@@ -3129,6 +4939,7 @@ class PocketDtaAdapter(ExternalJobAdapter):
             job_artifacts.append(checkpoint)
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
             working_dir=ctx.work_dir,
             artifacts=job_artifacts,
@@ -3198,6 +5009,7 @@ class GraphscoreDtaAdapter(ExternalJobAdapter):
         command = ["python", str(predict_script)]
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
             working_dir=predict_script_dir,
             artifacts=[graphs, labels, vina, model],
@@ -3312,6 +5124,7 @@ class Pocket2MolAdapter(ExternalJobAdapter):
             ctx.config_path = config_path
 
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=command,
             working_dir=ctx.work_dir,
             artifacts=[protein] + ([ligand] if ligand else []),
@@ -3430,6 +5243,7 @@ class LigandMpnnAdapter(ExternalJobAdapter):
 
         # Build job
         job = PreparedJob(
+            run_id=ctx.run_id,
             command=cmd,
             working_dir=ctx.work_dir,
             artifacts=[pdb_bundle],
@@ -3439,3 +5253,178 @@ class LigandMpnnAdapter(ExternalJobAdapter):
             },
         )
         return job
+
+
+class RFdiffusion2Adapter(ExternalJobAdapter):
+    """Adapter for RFdiffusion2 protein backbone generation.
+
+    RFdiffusion2 generates protein backbones via diffusion with support for:
+    - Unconditional generation (de novo design)
+    - Partial diffusion (inpainting)
+    - Motif scaffolding with atomic constraints
+    - Ligand-aware design
+    - Multi-chain complexes
+
+    Uses Apptainer/Singularity container for execution.
+    """
+
+    MODEL_DIR = "rfdiffusion2"
+    SIF_RELATIVE = "RFdiffusion2/rf_diffusion/exec/bakerlab_rf_diffusion_aa.sif"
+    PIPELINE_SCRIPT = "rf_diffusion/benchmark/pipeline.py"
+
+    def build_job(
+        self,
+        card: ModelCard,
+        request: ModelRequest,
+        inputs: List[ArtifactBundle],
+    ) -> PreparedJob:
+        """Build RFdiffusion2 job from request config.
+
+        Config keys:
+            input_pdb: Path to input PDB/CIF structure
+            contigs: Contig specification (e.g., "A1-100/0 B1-50")
+            num_designs: Number of designs to generate
+            ligands: Comma-separated ligand names (e.g., "RET,ATP")
+            contig_atoms: Dict mapping residue IDs to atoms (e.g., {"A230": ["OG"]})
+            guidepost: Use unindexed scaffolding (default True)
+            partial_T: Partial diffusion timesteps (for inpainting)
+            stop_step: Pipeline stop point ("design", "ligandmpnn", "end")
+        """
+        config = request.config or {}
+        job_name = config.get("job_name", "rfd2_job")
+
+        # Create run context with job_name as prefix
+        ctx = ModelRunContext(self.paths, card, run_prefix=job_name)
+        ctx.create()
+
+        # Copy/convert input structure
+        input_pdb = config.get("input_pdb")
+        if not input_pdb:
+            # Try to get from input artifacts
+            for bundle in inputs:
+                if bundle.spec.kind == "structure":
+                    input_pdb = str(bundle.path)
+                    break
+        if not input_pdb:
+            raise ValueError("RFdiffusion2 requires 'input_pdb' in config or structure input")
+
+        # Ensure PDB exists (convert CIF if needed)
+        pdb_path = self._ensure_pdb_file(Path(input_pdb), ctx, purpose="rfdiffusion2")
+
+        # Build inference arguments
+        args = self._build_inference_args(config, pdb_path, ctx.outputs_dir)
+
+        # Build command for Apptainer execution
+        # The pipeline.py script is run inside the container
+        command = [
+            "python",
+            self.PIPELINE_SCRIPT,
+        ] + args
+
+        # Save job metadata
+        metadata_path = ctx.work_dir / "metadata.json"
+        metadata_content = {
+            "job_name": job_name,
+            "input_pdb": str(pdb_path),
+            "contigs": config.get("contigs", ""),
+            "num_designs": config.get("num_designs", 10),
+            "config": {k: v for k, v in config.items() if k != "input_pdb"},
+        }
+        with open(metadata_path, "w", encoding="utf-8") as fh:
+            json.dump(metadata_content, fh, indent=2)
+
+        # Determine SIF path and RFdiffusion2 install directory
+        rfd2_install_dir = Path(__file__).parent / "RFdiffusion2"
+        sif_path = rfd2_install_dir / "rf_diffusion" / "exec" / "bakerlab_rf_diffusion_aa.sif"
+
+        job = PreparedJob(
+            run_id=ctx.run_id,
+            command=command,
+            working_dir=ctx.work_dir,
+            artifacts=[
+                ArtifactBundle(
+                    spec=ArtifactSpec(
+                        name="rfd2_input",
+                        kind="structure",
+                        provider="rfdiffusion2_adapter",
+                        format="pdb",
+                    ),
+                    path=pdb_path,
+                    metadata={"job_name": job_name},
+                ),
+            ],
+            metadata={
+                "job_name": job_name,
+                "output_dir": str(ctx.outputs_dir),
+                "sif_path": str(sif_path),
+                "container_workdir": str(rfd2_install_dir),  # Run from RFdiffusion2 install dir
+                "bind_mounts": [
+                    f"{pdb_path.parent}:{pdb_path.parent}",
+                    f"{ctx.outputs_dir}:{ctx.outputs_dir}",
+                    f"{rfd2_install_dir}:{rfd2_install_dir}",  # Bind RFdiffusion2 install
+                ],
+                "env": {
+                    "PYTHONPATH": str(rfd2_install_dir),  # Add RFdiffusion2 to Python path
+                },
+                "executor": "apptainer",
+            },
+        )
+        return job
+
+    def _build_inference_args(
+        self,
+        config: MutableMapping[str, Any],
+        pdb_path: Path,
+        output_dir: Path,
+    ) -> List[str]:
+        """Build RFdiffusion2 inference arguments."""
+        args = []
+
+        # Input PDB
+        args.append(f"inference.input_pdb={pdb_path}")
+
+        # Contigs specification
+        contigs = config.get("contigs", "")
+        if contigs:
+            args.append(f"contigmap.contigs=['{contigs}']")
+
+        # Number of designs
+        num_designs = config.get("num_designs", 10)
+        args.append(f"inference.num_designs={num_designs}")
+
+        # Ligands
+        ligands = config.get("ligands")
+        if ligands:
+            args.append(f"inference.ligand='{ligands}'")
+
+        # Guidepost mode (unindexed scaffolding)
+        guidepost = config.get("guidepost", True)
+        args.append(f"inference.contig_as_guidepost={guidepost}")
+
+        # Contig atoms (atomic constraints for motif scaffolding)
+        contig_atoms = config.get("contig_atoms")
+        if contig_atoms:
+            atoms_str = json.dumps(contig_atoms).replace('"', "'")
+            args.append(f'contigmap.contig_atoms="{atoms_str}"')
+
+        # Partial diffusion (for inpainting)
+        partial_T = config.get("partial_T")
+        if partial_T is not None:
+            args.append(f"diffuser.partial_T={partial_T}")
+
+        # Stop step (design, ligandmpnn, or end)
+        stop_step = config.get("stop_step", "end")
+        args.append(f"stop_step='{stop_step}'")
+
+        # Output directory
+        args.append(f"outdir={output_dir}")
+
+        # Additional inference parameters
+        extra_params = config.get("extra_params", {})
+        for key, value in extra_params.items():
+            if isinstance(value, str):
+                args.append(f"{key}='{value}'")
+            else:
+                args.append(f"{key}={value}")
+
+        return args
