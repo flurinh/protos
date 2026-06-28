@@ -8,7 +8,7 @@
 <p align="center"><img src="docs/architecture.jpg" alt="ProtOS architecture: ProtosPath, Registry/Entity/Dataset, processors and loaders, and a Model Manager with Boltz, Ankh and Lambda backends" width="760"></p>
 
 <p align="center">
-  <a href="https://flurinh.github.io">◆ Portfolio</a> &nbsp;·&nbsp;
+  <a href="https://flurinh.github.io/aboutme">◆ Portfolio</a> &nbsp;·&nbsp;
   <b>The build:</b>
   <a href="https://github.com/flurinh/LM-DTA">LM-DTA</a> →
   <a href="https://github.com/flurinh/mt">Master thesis</a> →
