@@ -7,16 +7,15 @@
 
 <p align="center"><img src="docs/architecture.jpg" alt="ProtOS architecture: ProtosPath, Registry/Entity/Dataset, processors and loaders, and a Model Manager with Boltz, Ankh and Lambda backends" width="760"></p>
 
-<p align="center">
-  <a href="https://flurinh.github.io/aboutme">◆ Portfolio</a> &nbsp;·&nbsp;
-  <b>The build:</b>
-  <a href="https://github.com/flurinh/LM-DTA">LM-DTA</a> →
-  <a href="https://github.com/flurinh/mt">Master thesis</a> →
-  <b>ProtOS</b> →
-  <a href="https://github.com/flurinh/MOGRN">MOGRN</a> →
-  <a href="https://github.com/flurinh/lambda">Lambda</a> →
-  <a href="https://github.com/flurinh/Protos_MCP">ProtOS-MCP</a>
-</p>
+<p align="center"><a href="https://flurinh.github.io/aboutme">◆ Portfolio</a></p>
+
+<p align="center"><i>You may also be interested in</i></p>
+
+<table align="center"><tr>
+<td align="left">←&nbsp; <b>Previous work</b><br><a href="https://github.com/flurinh/mt">Master thesis — GPCRs as graphs</a></td>
+<td width="56"></td>
+<td align="right"><b>Continuation of this project</b> &nbsp;→<br><a href="https://github.com/flurinh/MOGRN">MOGRN — one numbering for every opsin</a></td>
+</tr></table>
 
 ---
 
@@ -73,10 +72,3 @@ Structures, sequences, GRNs, embeddings — all one tracked registry.
 
 More detail lives in [`docs/`](docs/) — unified data access, the entity registry, zero-configuration design, and the Model Manager.
 
----
-
-<p align="center">
-◀ <b>Previously:</b> <a href="https://github.com/flurinh/mt">Master thesis — GPCRs as graphs</a>
-&nbsp;·&nbsp;
-<b>Next:</b> <a href="https://github.com/flurinh/MOGRN">MOGRN — one numbering for every opsin</a> ▶
-</p>
