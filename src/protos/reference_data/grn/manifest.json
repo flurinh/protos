@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "bundle_version": "2026.07.11",
+  "distribution": "bundled",
+  "files": {
+    "bistable_ao.csv": "b07b7b518790025934694866ca7dff5a2ba47bab0e5ca0c144994130299de7c4",
+    "gpcr_a_core.csv": "ebe73181d7122d399ccb7bbcf13841ced8f960cf433cbf9f593fb174e49b69c5",
+    "gpcrdb_ref.csv": "63b740f2188cca152203f777294e01b65d65ec8bd8e7c1c58ffff9c34953773a",
+    "hCRBPII.csv": "5eb8d0a9e0f3ee6046ca7d3420d3b9fc2dcdd500269c20d70ee93d49d92a4b1a",
+    "inoue.csv": "514512b2851c741dda0b233518eb70ac4d3a89dc35993de902a7a88e09ada74b",
+    "mo_ref.csv": "a4456ed674b20563ffdf8832ebead1a8bba90ecf187f9ee423a6a8bb771a1229",
+    "ref.csv": "d0eff20dcf2a1a5b9a0835da987691d6132ffed610681b0756522c01cc409b63",
+    "type_I_opsins.csv": "3038b6c1a3a41c9e0585d3be8bee4eb7cb915c2b63e55a7bd2149a5a49852598",
+    "type_II_opsins.csv": "22c448ab296495009150e7f6b5941c9a86989911fa94c1a0a770a96531a64000",
+    "vpod1_2.csv": "22c448ab296495009150e7f6b5941c9a86989911fa94c1a0a770a96531a64000"
+  },
+  "aliases": {
+    "vpod1_2.csv": "type_II_opsins.csv"
+  }
+}

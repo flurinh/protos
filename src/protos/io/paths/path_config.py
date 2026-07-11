@@ -210,6 +210,16 @@ class ProtosPaths:
                 if grn_src.exists():
                     grn_dest = Path(self.data_root) / 'grn'
 
+                    # Preserve bundle provenance alongside the installed data.
+                    # The manifest records the exact curated table release and
+                    # checksums; it is intentionally local package data rather
+                    # than a runtime network dependency.
+                    for metadata_name in ('README.md', 'manifest.json'):
+                        metadata_src = grn_src / metadata_name
+                        if metadata_src.exists():
+                            grn_dest.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(metadata_src, grn_dest / metadata_name)
+
                     configs_src = grn_src / 'configs'
                     if configs_src.exists():
                         shutil.copytree(configs_src, grn_dest / 'configs', dirs_exist_ok=True)

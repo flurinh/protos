@@ -1,0 +1,9 @@
+[submodule "src/protos/models/boltz"]
+	path = src/protos/models/boltz
+	url = https://github.com/jwohlwend/boltz.git
+[submodule "src/protos/models/boltzgen"]
+	path = src/protos/models/boltzgen
+	url = https://github.com/HannesStark/boltzgen.git
+[submodule "src/protos/models/lambda"]
+	path = src/protos/models/lambda
+	url = https://github.com/flurinh/lambda.git
