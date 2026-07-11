@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">ProtOS implemented architecture</title>
+  <desc id="desc">Explicit loaders acquire source artifacts. Processors persist managed representations through ProtosPaths and register entities and datasets. ModelManager resolves managed artifacts and returns either a runtime result or a prepared external job.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+    <style>
+      .title { font: 700 25px sans-serif; fill: #0f172a; }
+      .label { font: 600 19px sans-serif; fill: #0f172a; }
+      .small { font: 16px sans-serif; fill: #1e293b; }
+      .box { stroke: #334155; stroke-width: 2; rx: 14; }
+      .arrow { stroke: #334155; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1200" height="650" fill="#f8fafc"/>
+  <text class="title" x="600" y="42" text-anchor="middle">ProtOS data and model orchestration</text>
+
+  <rect class="box" x="45" y="90" width="250" height="150" fill="#dbeafe"/>
+  <text class="label" x="170" y="125" text-anchor="middle">Explicit loaders</text>
+  <text class="small" x="70" y="160">StructureLoader</text>
+  <text class="small" x="70" y="190">SequenceLoader</text>
+  <text class="small" x="70" y="220">LigandLoader</text>
+
+  <rect class="box" x="390" y="75" width="420" height="235" fill="#dcfce7"/>
+  <text class="label" x="600" y="112" text-anchor="middle">Managed processors</text>
+  <text class="small" x="425" y="150">Structure (canonical PKL)</text>
+  <text class="small" x="425" y="182">Sequence (FASTA)</text>
+  <text class="small" x="425" y="214">GRN / Property (CSV)</text>
+  <text class="small" x="625" y="150">Molecule (JSON)</text>
+  <text class="small" x="625" y="182">Graph (NumPy dictionary)</text>
+  <text class="small" x="625" y="214">Embedding (arrays)</text>
+  <text class="small" x="600" y="270" text-anchor="middle">load · save · datasets · analysis</text>
+
+  <rect class="box" x="905" y="90" width="250" height="150" fill="#fef3c7"/>
+  <text class="label" x="1030" y="125" text-anchor="middle">Shared state</text>
+  <text class="small" x="930" y="165">ProtosPaths</text>
+  <text class="small" x="930" y="195">EntityRegistry</text>
+  <text class="small" x="930" y="225">DatasetManager</text>
+
+  <path class="arrow" d="M295 165 L385 165"/>
+  <path class="arrow" d="M810 165 L900 165"/>
+  <path class="arrow" d="M900 210 L815 240"/>
+
+  <rect class="box" x="390" y="400" width="420" height="105" fill="#e0e7ff"/>
+  <text class="label" x="600" y="440" text-anchor="middle">ModelManager</text>
+  <text class="small" x="600" y="475" text-anchor="middle">resolve registered artifacts · call registered adapter</text>
+  <path class="arrow" d="M600 315 L600 395"/>
+
+  <rect class="box" x="170" y="555" width="330" height="65" fill="#fae8ff"/>
+  <text class="label" x="335" y="595" text-anchor="middle">RuntimeResult (in process)</text>
+  <rect class="box" x="700" y="555" width="330" height="65" fill="#ffe4e6"/>
+  <text class="label" x="865" y="585" text-anchor="middle">PreparedJob (external)</text>
+  <text class="small" x="865" y="608" text-anchor="middle">preparation is not submission</text>
+  <path class="arrow" d="M540 505 L390 550"/>
+  <path class="arrow" d="M660 505 L810 550"/>
+</svg>

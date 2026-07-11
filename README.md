@@ -5,7 +5,7 @@
   Structures, sequences, GRNs, properties, and ML embeddings — every piece of data is a named entity in one registry.
 </p>
 
-<p align="center"><img src="docs/architecture.jpg" alt="ProtOS architecture: ProtosPath, Registry/Entity/Dataset, processors and loaders, and a Model Manager with Boltz, Ankh and Lambda backends" width="760"></p>
+<p align="center"><img src="docs/architecture.svg" alt="ProtOS architecture: explicit loaders feed managed processors and the shared registry; ModelManager resolves managed artifacts into runtime results or prepared external jobs" width="900"></p>
 
 <p align="center"><a href="https://flurinh.github.io/aboutme">◆ Portfolio</a></p>
 
@@ -22,10 +22,10 @@
 ## What it is
 
 ProtOS handles structural-biology data the way a good toolkit should: you work with
-**human-readable names** (`1ubq`, `EGFR_HUMAN`) and the framework manages every file path,
-format conversion, and dataset behind the scenes. A modular **processor** handles each data
+**human-readable names** (`1ubq`, `EGFR_HUMAN`) and the framework manages its data paths,
+registered artifacts, and datasets. A modular **processor** handles each data
 type, a central **registry** tracks everything, **datasets** group entities for batch work,
-and a **Model Manager** dispatches jobs to ML backends (Boltz, Ankh, Lambda).
+and a **Model Manager** prepares external jobs or invokes registered Python runtimes.
 
 It's the analysis engine the rest of my PhD work is built on.
 
@@ -60,11 +60,11 @@ Structures, sequences, GRNs, embeddings — all one tracked registry.
 
 ## Core ideas
 
-- **Zero configuration** — set a data path once (or use the default); never touch a file path again.
+- **Central data root** — set a data path before creating processors, or use `~/protos_data`.
 - **Entity registry** — every structure / sequence / property / embedding is an entity with a name, linkable across formats.
 - **Datasets** — named collections for batch operations across any processor.
-- **Processors** — Structure, Sequence, GRN, Embedding, Graph, and Property, each with its own loaders.
-- **Model Manager** — submit and track ML jobs (structure prediction, embeddings, property prediction).
+- **Processors** — Structure, Sequence, GRN, Embedding, Graph, Property, and Molecule.
+- **Model Manager** — assemble model inputs and prepare or invoke registered adapters.
 
 ## What it powers
 

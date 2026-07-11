@@ -398,9 +398,10 @@ class GraphProcessor(BaseProcessor):
         cutoff = float(cutoff or self.default_cutoff)
         level = level or self.default_level
 
-        structures = self.struct_proc.load_dataset(structure_dataset)
-        if isinstance(structures, pd.DataFrame):
-            structures = {structure_dataset: structures}
+        structures = self.struct_proc.load_dataset(
+            structure_dataset,
+            return_format="dict",
+        )
         if not isinstance(structures, dict) or len(structures) == 0:
             raise ValueError(f"Structure dataset '{structure_dataset}' is empty")
 

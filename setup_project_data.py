@@ -97,16 +97,8 @@ def setup_project_data(refresh: bool = False) -> bool:
     if all_exist:
         print("\n🎉 Project data setup complete!")
         print(f"📁 Location: {PROJECT_DATA_DIR}")
-        print("\n📝 Example usage:")
-        print("```python")
-        print("from protos.processing.structure import StructureProcessor")
-        print()
-        print("# Create a processor - it will use the project data directory")
-        print('processor = StructureProcessor("my_analysis")')
-        print()
-        print("# Load a structure")
-        print('processor.load_structure("1ubq")')
-        print("```")
+        print("\nBundled GRN references are available under:")
+        print(f"  {grn_reference_dir}")
     else:
         print("\n⚠️  Some directories or reference files were not created. Please check the output above.")
 
