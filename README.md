@@ -34,22 +34,26 @@ It's the analysis engine the rest of my PhD work is built on.
 ```bash
 git clone https://github.com/flurinh/protos.git
 cd protos
-pip install -e .
-pip install -e ".[embedding]"   # optional: protein-LM embeddings
+python -m pip install -e .
 ```
 
 ```python
-import protos
+from protos.io.ingest.structure_loader import StructureLoader
 from protos.processing.structure import StructureProcessor
 
 sp = StructureProcessor()
+loader = StructureLoader(processor=sp)
 
-# Load any structure by name — RCSB, AlphaFold, or a local file
-rho = sp.load_entity("1u19")                      # bovine rhodopsin
+# Fetch an RCSB mmCIF file, register it, and store its canonical representation.
+name = loader.download_and_register("1ubq")
+if name is None:
+    raise RuntimeError("RCSB download failed")
+
+structure = sp.load_entity(name)
 
 # Group entities once, operate on the whole set
-sp.create_dataset("opsins", ["1u19", "6fk6", "1c3w"])
-structures = sp.load_dataset("opsins")
+sp.create_dataset("example_structures", [name])
+structures = sp.load_dataset("example_structures", return_format="dict")
 ```
 
 Structures, sequences, GRNs, embeddings — all one tracked registry.
@@ -71,4 +75,3 @@ Structures, sequences, GRNs, embeddings — all one tracked registry.
 | **[ProtOS-MCP](https://github.com/flurinh/Protos_MCP)** | exposes the whole toolkit to LLM agents over the Model Context Protocol |
 
 More detail lives in [`docs/`](docs/) — unified data access, the entity registry, zero-configuration design, and the Model Manager.
-
