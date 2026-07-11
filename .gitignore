@@ -39,5 +39,5 @@ protos/models/lambda
 
 # Local research inputs and regenerable thesis caches
 /*.pdb
-/spectral_resonance*.mp4
+/resources/spectral_resonance.mp4
 /thesis/outputs/atlas/*.npz
