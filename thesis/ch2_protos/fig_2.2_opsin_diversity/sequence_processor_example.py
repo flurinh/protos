@@ -24,10 +24,12 @@ import numpy as np
 import pandas as pd
 
 # Setup paths
-THESIS_DIR = Path(__file__).resolve().parent.parent
+THESIS_DIR = Path(__file__).resolve().parent.parent.parent
 REPO_ROOT = THESIS_DIR.parent
 if (REPO_ROOT / "src").exists():
     sys.path.insert(0, str(REPO_ROOT / "src"))
+sys.path.insert(0, str(THESIS_DIR / "shared"))
+from thesis_style import COLORS, TYPE_COLORS, SAGE, OCHRE, GRAY, DARK_GRAY, apply_style, plotly_layout_defaults
 
 import protos
 from protos.processing.sequence import SequenceProcessor
@@ -83,119 +85,136 @@ def main() -> int:
     # Initialize ProtOS
     protos.set_data_path(str(REPO_ROOT / "data"))
 
-    # -------------------------------------------------------------------------
-    # Step 1: Download query sequences using ProtOS SequenceLoader
-    # -------------------------------------------------------------------------
-    print("\n[1] Downloading query sequences...")
-    seq_proc = SequenceProcessor()
-    loader = SequenceLoader(processor=seq_proc)
-
-    query_sequences = {}
-    for gene, info in QUERY_OPSINS.items():
-        loader.download_and_register(
-            f"uniprot:{info['uniprot']}",
-            name=info["name"],
-            materialize_entities=True,
-        )
-        seq = seq_proc.load_entity(info["name"])
-        if seq:
-            query_sequences[gene] = seq
-            print(f"  {info['name']}: {len(seq)} aa ({info['type']})")
-
-    # -------------------------------------------------------------------------
-    # Step 2: Run BLAST for each opsin type using ProtOS NCBILoader
-    # -------------------------------------------------------------------------
-    print("\n[2] Running NCBI BLAST searches...")
-    ncbi_loader = NCBILoader(processor=seq_proc)
-
-    all_hits: Dict[str, pd.DataFrame] = {}
-
-    for gene, info in QUERY_OPSINS.items():
-        if gene not in query_sequences:
-            continue
-
-        print(f"\n  Searching for {gene} ({info['type']}) homologs...")
-
-        result = ncbi_loader.blast_search(
-            sequence=query_sequences[gene],
-            query_id=info["name"],
-            program="blastp",
-            database=BLAST_DATABASE,
-            hitlist_size=HITS_PER_QUERY,
-            expect=0.001,
-        )
-
-        if result:
-            hits_df = ncbi_loader.to_dataframe(result)
-            hits_df["query_gene"] = gene
-            hits_df["opsin_type"] = info["type"]
-            hits_df["query_lambda_max"] = info["lambda_max"]
-            all_hits[gene] = hits_df
-            print(f"    Found {len(hits_df)} hits")
-            print(f"    Identity range: {hits_df['identity_percent'].min():.1f}% - {hits_df['identity_percent'].max():.1f}%")
-        else:
-            print(f"    BLAST search failed for {gene}")
-
-    # Combine all hits
-    if not all_hits:
-        print("\nNo BLAST results obtained!")
-        return 1
-
-    combined_df = pd.concat(all_hits.values(), ignore_index=True)
-    print(f"\n  Total hits: {len(combined_df)}")
-
-    # Remove duplicates (same sequence found by multiple queries)
-    combined_df = combined_df.drop_duplicates(subset=["hit_accession"])
-    print(f"  Unique sequences: {len(combined_df)}")
-
-    # Save combined results
-    combined_df.to_csv(OUTPUT_DIR / "blast_all_opsins.csv", index=False)
-
-    # -------------------------------------------------------------------------
-    # Step 3: Fetch homolog sequences using ProtOS NCBILoader
-    # -------------------------------------------------------------------------
-    print("\n[3] Fetching homolog sequences...")
-
-    # Get all unique accessions
-    accessions = combined_df["hit_accession"].tolist()
-
-    # ProtOS batch download with dataset registration
-    result = ncbi_loader.download_batch(
-        accessions=accessions,
-        dataset_name=DATASET_NAME,
-        metadata={
-            "source": "ncbi_blast",
-            "queries": list(QUERY_OPSINS.keys()),
-            "description": "Cone opsin diversity dataset for embedding analysis",
-        },
-    )
-
-    success_count = len(result.get("success", []))
-    fail_count = len(result.get("failed", []))
-    print(f"  Downloaded: {success_count}/{len(accessions)} sequences")
-    if fail_count:
-        print(f"  Failed: {fail_count}")
-
-    # -------------------------------------------------------------------------
-    # Step 4: Annotate sequences with opsin type
-    # -------------------------------------------------------------------------
-    print("\n[4] Annotating sequences with opsin type...")
-
-    # Create annotation mapping from BLAST results
-    seq_annotations = {}
-    for _, row in combined_df.iterrows():
-        seq_annotations[row["hit_accession"]] = {
-            "opsin_type": row["opsin_type"],
-            "query_gene": row["query_gene"],
-            "identity_to_query": row["identity_percent"],
-            "query_lambda_max": row["query_lambda_max"],
-        }
-
-    # Save annotation mapping for EmbeddingProcessor
     import json
-    with open(OUTPUT_DIR / "opsin_annotations.json", "w") as f:
-        json.dump(seq_annotations, f, indent=2)
-    print(f"  Saved annotations for {len(seq_annotations)} sequences")
+
+    seq_proc = SequenceProcessor()
+
+    # Check for cached BLAST results and dataset
+    blast_csv = OUTPUT_DIR / "blast_all_opsins.csv"
+    annotations_file = OUTPUT_DIR / "opsin_annotations.json"
+
+    if blast_csv.exists() and annotations_file.exists():
+        # Use cached data - skip expensive NCBI network calls
+        print("\n[1-4] Loading cached BLAST results and annotations...")
+        combined_df = pd.read_csv(blast_csv)
+        print(f"  Loaded {len(combined_df)} BLAST hits from cache")
+
+        with open(annotations_file) as f:
+            seq_annotations = json.load(f)
+        print(f"  Loaded annotations for {len(seq_annotations)} sequences")
+
+    else:
+        # -------------------------------------------------------------------------
+        # Step 1: Download query sequences using ProtOS SequenceLoader
+        # -------------------------------------------------------------------------
+        print("\n[1] Downloading query sequences...")
+        loader = SequenceLoader(processor=seq_proc)
+
+        query_sequences = {}
+        for gene, info in QUERY_OPSINS.items():
+            loader.download_and_register(
+                f"uniprot:{info['uniprot']}",
+                name=info["name"],
+                materialize_entities=True,
+            )
+            seq = seq_proc.load_entity(info["name"])
+            if seq:
+                query_sequences[gene] = seq
+                print(f"  {info['name']}: {len(seq)} aa ({info['type']})")
+
+        # -------------------------------------------------------------------------
+        # Step 2: Run BLAST for each opsin type using ProtOS NCBILoader
+        # -------------------------------------------------------------------------
+        print("\n[2] Running NCBI BLAST searches...")
+        ncbi_loader = NCBILoader(processor=seq_proc)
+
+        all_hits: Dict[str, pd.DataFrame] = {}
+
+        for gene, info in QUERY_OPSINS.items():
+            if gene not in query_sequences:
+                continue
+
+            print(f"\n  Searching for {gene} ({info['type']}) homologs...")
+
+            result = ncbi_loader.blast_search(
+                sequence=query_sequences[gene],
+                query_id=info["name"],
+                program="blastp",
+                database=BLAST_DATABASE,
+                hitlist_size=HITS_PER_QUERY,
+                expect=0.001,
+            )
+
+            if result:
+                hits_df = ncbi_loader.to_dataframe(result)
+                hits_df["query_gene"] = gene
+                hits_df["opsin_type"] = info["type"]
+                hits_df["query_lambda_max"] = info["lambda_max"]
+                all_hits[gene] = hits_df
+                print(f"    Found {len(hits_df)} hits")
+                print(f"    Identity range: {hits_df['identity_percent'].min():.1f}% - {hits_df['identity_percent'].max():.1f}%")
+            else:
+                print(f"    BLAST search failed for {gene}")
+
+        # Combine all hits
+        if not all_hits:
+            print("\nNo BLAST results obtained!")
+            return 1
+
+        combined_df = pd.concat(all_hits.values(), ignore_index=True)
+        print(f"\n  Total hits: {len(combined_df)}")
+
+        # Remove duplicates (same sequence found by multiple queries)
+        combined_df = combined_df.drop_duplicates(subset=["hit_accession"])
+        print(f"  Unique sequences: {len(combined_df)}")
+
+        # Save combined results
+        combined_df.to_csv(blast_csv, index=False)
+
+        # -------------------------------------------------------------------------
+        # Step 3: Fetch homolog sequences using ProtOS NCBILoader
+        # -------------------------------------------------------------------------
+        print("\n[3] Fetching homolog sequences...")
+
+        # Get all unique accessions
+        accessions = combined_df["hit_accession"].tolist()
+
+        # ProtOS batch download with dataset registration
+        result = ncbi_loader.download_batch(
+            accessions=accessions,
+            dataset_name=DATASET_NAME,
+            metadata={
+                "source": "ncbi_blast",
+                "queries": list(QUERY_OPSINS.keys()),
+                "description": "Cone opsin diversity dataset for embedding analysis",
+            },
+        )
+
+        success_count = len(result.get("success", []))
+        fail_count = len(result.get("failed", []))
+        print(f"  Downloaded: {success_count}/{len(accessions)} sequences")
+        if fail_count:
+            print(f"  Failed: {fail_count}")
+
+        # -------------------------------------------------------------------------
+        # Step 4: Annotate sequences with opsin type
+        # -------------------------------------------------------------------------
+        print("\n[4] Annotating sequences with opsin type...")
+
+        # Create annotation mapping from BLAST results
+        seq_annotations = {}
+        for _, row in combined_df.iterrows():
+            seq_annotations[row["hit_accession"]] = {
+                "opsin_type": row["opsin_type"],
+                "query_gene": row["query_gene"],
+                "identity_to_query": row["identity_percent"],
+                "query_lambda_max": row["query_lambda_max"],
+            }
+
+        # Save annotation mapping for EmbeddingProcessor
+        with open(annotations_file, "w") as f:
+            json.dump(seq_annotations, f, indent=2)
+        print(f"  Saved annotations for {len(seq_annotations)} sequences")
 
     # -------------------------------------------------------------------------
     # Step 5: Visualize dataset composition
@@ -204,11 +223,7 @@ def main() -> int:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
-    # Sequence colors from colorscales.yaml (teal/gold - distinct from structure blue/red)
-    type_colors = {
-        "short_wave": "#006d77",   # Teal
-        "long_wave": "#e9c46a",    # Gold
-    }
+    layout_defaults = plotly_layout_defaults()
 
     fig = make_subplots(
         rows=1, cols=2,
@@ -221,7 +236,7 @@ def main() -> int:
     fig.add_trace(go.Pie(
         labels=["SW", "LW"],
         values=type_counts.values,
-        marker_colors=[type_colors.get(t, "#888") for t in type_counts.index],
+        marker_colors=[TYPE_COLORS.get(t, GRAY) for t in type_counts.index],
         hole=0.4,
         textinfo="label+value",
         textfont_size=11,
@@ -235,7 +250,7 @@ def main() -> int:
             fig.add_trace(go.Box(
                 y=type_df["identity_percent"],
                 name=label,
-                marker_color=type_colors.get(opsin_type, "#888"),
+                marker_color=TYPE_COLORS.get(opsin_type, GRAY),
                 boxpoints="outliers",
             ), row=1, col=2)
 
@@ -243,9 +258,7 @@ def main() -> int:
         height=400,
         width=800,
         showlegend=False,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        margin=dict(t=30, b=40),
+        **layout_defaults,
     )
     fig.update_yaxes(title_text="Identity (%)", row=1, col=2, title_font_size=11)
     fig.update_yaxes(showgrid=False)
@@ -266,7 +279,7 @@ def main() -> int:
                 name=label,
                 marker=dict(
                     size=8,
-                    color=type_colors.get(opsin_type, "#888"),
+                    color=TYPE_COLORS.get(opsin_type, GRAY),
                     opacity=0.7,
                 ),
                 text=type_df["hit_accession"],
@@ -278,10 +291,8 @@ def main() -> int:
         yaxis_title="E-value",
         height=450,
         width=650,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
         legend=dict(x=0.02, y=0.98, font_size=10),
-        margin=dict(t=30, b=50, l=60, r=30),
+        **layout_defaults,
     )
     fig.update_xaxes(showgrid=False, title_font_size=11)
     fig.update_yaxes(type="log", showgrid=False, title_font_size=11)
@@ -374,11 +385,12 @@ def main() -> int:
             # Create proper dendrogram using matplotlib
             import matplotlib.pyplot as plt
             from matplotlib.patches import Patch
+            apply_style()
 
             # Get leaf colors based on opsin type
             def get_leaf_color(name):
                 opsin_type = get_opsin_type(name)
-                return type_colors.get(opsin_type, "#888888")
+                return TYPE_COLORS.get(opsin_type, GRAY)
 
             # Build the dendrogram with custom leaf coloring
             fig_tree, ax = plt.subplots(figsize=(14, 8))
@@ -389,7 +401,7 @@ def main() -> int:
                 labels=seq_names,
                 no_labels=True,
                 ax=ax,
-                above_threshold_color="#888888",
+                above_threshold_color=GRAY,
                 color_threshold=0,  # Color all links gray
             )
 
@@ -436,13 +448,13 @@ def main() -> int:
 
             # Add legend with concise labels
             legend_elements = [
-                Patch(facecolor=type_colors["short_wave"], label=f"SW (n={type_counts_tree['short_wave']})"),
-                Patch(facecolor=type_colors["long_wave"], label=f"LW (n={type_counts_tree['long_wave']})"),
+                Patch(facecolor=TYPE_COLORS["short_wave"], label=f"SW (n={type_counts_tree['short_wave']})"),
+                Patch(facecolor=TYPE_COLORS["long_wave"], label=f"LW (n={type_counts_tree['long_wave']})"),
             ]
             ax.legend(handles=legend_elements, loc="upper right", frameon=True, fontsize=9)
 
             plt.tight_layout()
-            fig_tree.savefig(str(FIGURES_DIR / "sequence_phylogenetic_tree.png"), dpi=150, facecolor="white")
+            fig_tree.savefig(str(FIGURES_DIR / "sequence_phylogenetic_tree.png"), dpi=300, facecolor="white")
             plt.close(fig_tree)
             print(f"  Saved: {FIGURES_DIR / 'sequence_phylogenetic_tree.png'}")
 

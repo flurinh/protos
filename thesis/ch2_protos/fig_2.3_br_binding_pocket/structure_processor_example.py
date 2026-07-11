@@ -28,7 +28,7 @@ import pandas as pd
 import yaml
 
 # Setup paths
-THESIS_DIR = Path(__file__).resolve().parent.parent
+THESIS_DIR = Path(__file__).resolve().parent.parent.parent
 REPO_ROOT = THESIS_DIR.parent
 SRC_DIR = REPO_ROOT / "src"
 LOG_DIR = THESIS_DIR / "logs"
@@ -58,10 +58,10 @@ from protos.io.ingest.structure_loader import StructureLoader
 from protos.io.formats.cif_utils import write_cif_file
 
 # =============================================================================
-# Load Color Scheme
+# Load Color Scheme (shared across all chapters)
 # =============================================================================
-with open(THESIS_DIR / "colorscales.yaml") as f:
-    COLORS = yaml.safe_load(f)
+sys.path.insert(0, str(THESIS_DIR / "shared"))
+from thesis_style import COLORS, plotly_layout_defaults
 
 # =============================================================================
 # Structure Dataset
@@ -385,10 +385,10 @@ def visualize_alignment(
 
     # Color scheme from colorscales.yaml
     type_colors = {
-        "Type I": COLORS["types"]["type_i"]["hex"],
-        "Type II": COLORS["types"]["type_ii"]["hex"],
+        "Type I": COLORS["structures"]["type_i"]["hex"],
+        "Type II": COLORS["structures"]["type_ii"]["hex"],
     }
-    retinal_color = COLORS["ligands"]["retinal"]["hex"]
+    retinal_color = COLORS["molecules"]["retinal"]["hex"]
 
     # Add each structure
     for pdb_id, df in aligned_structures.items():
@@ -460,11 +460,6 @@ def visualize_alignment(
             ))
 
     fig.update_layout(
-        title=dict(
-            text="Type I vs Type II Opsins: Different Folds, Same Ligand<br>"
-                 "<sup>Retinal-based structural alignment reveals distinct 7TM topologies</sup>",
-            font=dict(size=18),
-        ),
         scene=dict(
             xaxis_title="X (A)",
             yaxis_title="Y (A)",
@@ -479,7 +474,7 @@ def visualize_alignment(
         ),
         width=1000,
         height=800,
-        template="plotly_white",
+        **plotly_layout_defaults(),
     )
 
     # Save

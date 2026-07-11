@@ -276,6 +276,7 @@ class DockerJobExecutor(JobExecutor):
     DEFAULT_IMAGES: Dict[str, str] = {
         "boltzgen": "protos/boltzgen:latest",
         "boltz": "protos/boltz:latest",
+        "boltz2": "protos/boltz:latest",
         "lambda": "protos/lambda:latest",
     }
 

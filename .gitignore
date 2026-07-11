@@ -36,3 +36,8 @@ projects
 src/protos/models
 
 protos/models/lambda
+
+# Thesis workstation artefacts kept outside the archival branch
+/*.pdb
+/spectral_resonance*.mp4
+/thesis/outputs/atlas/*.npz

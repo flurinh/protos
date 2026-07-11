@@ -1,0 +1,196 @@
+# Rhodozyme Figure Colors
+# ===========================================================================
+# Single source of truth for all Ch5 figures (PyMOL + matplotlib).
+# Consistent with fig 4.2 spectral TM helix colors.
+#
+# Convention:
+#   gray = experimental / crystal structure / locked
+#   color = highlighted element or model-generated
+#
+# Python usage:
+#   import yaml
+#   with open("rhodozyme_colors.yaml") as f:
+#       C = yaml.safe_load(f)
+#
+# PyMOL usage:
+#   @rhodozyme_colors.pml
+#
+# Parent palette: thesis/colorscales.yaml (Scientific Elegance)
+# Spectral TM colors: continuous.spectral_lambda
+# ===========================================================================
+
+# --- Backbone / experimental structures (gray hues) -----------------------
+
+backbone:
+  name: "Backbone (experimental structure)"
+  hex: "#adb5bd"
+  rgb_norm: [0.678, 0.710, 0.741]
+  source: "figure_elements.backbone_unfocused"
+
+backbone_dark:
+  name: "Backbone variant (darker gray, e.g. dark-state overlay)"
+  hex: "#6c757d"
+  rgb_norm: [0.424, 0.459, 0.490]
+  source: "neutral.gray"
+
+backbone_faint:
+  name: "Backbone variant (very faded context)"
+  hex: "#e9ecef"
+  rgb_norm: [0.914, 0.926, 0.937]
+  source: "figure_elements.grid"
+
+# --- Designed backbone (model output, Steps 4-6) -------------------------
+
+designed:
+  name: "Designed backbone (model output)"
+  hex: "#c1666b"
+  rgb_norm: [0.757, 0.400, 0.420]
+  source: "structures.type_ii / spectral_lambda.620"
+
+designed_light:
+  name: "Designed backbone variant (multi-design overlay)"
+  hex: "#e4c1c1"
+  rgb_norm: [0.894, 0.757, 0.757]
+  source: "structures.type_ii_light"
+
+# --- TM helix spectral colors (from fig 4.2) -----------------------------
+# Used to highlight specific helices (e.g. TM5/TM6 displacement in Fig 5.1)
+
+tm1:
+  name: "TM1"
+  hex: "#5c5a7a"
+  rgb_norm: [0.361, 0.353, 0.478]
+  source: "continuous.spectral_lambda.400"
+
+tm2:
+  name: "TM2"
+  hex: "#3d5a80"
+  rgb_norm: [0.239, 0.353, 0.502]
+  source: "continuous.spectral_lambda.450"
+
+tm3:
+  name: "TM3"
+  hex: "#457b6b"
+  rgb_norm: [0.271, 0.482, 0.420]
+  source: "continuous.spectral_lambda.490"
+
+tm4:
+  name: "TM4"
+  hex: "#6a994e"
+  rgb_norm: [0.416, 0.600, 0.306]
+  source: "continuous.spectral_lambda.530"
+
+tm5:
+  name: "TM5"
+  hex: "#d4a03c"
+  rgb_norm: [0.831, 0.627, 0.235]
+  source: "continuous.spectral_lambda.570"
+
+tm6:
+  name: "TM6"
+  hex: "#bc6c25"
+  rgb_norm: [0.737, 0.424, 0.145]
+  source: "continuous.spectral_lambda.580"
+
+tm7:
+  name: "TM7"
+  hex: "#c1666b"
+  rgb_norm: [0.757, 0.400, 0.420]
+  source: "continuous.spectral_lambda.620"
+
+loop:
+  name: "Loop regions"
+  hex: "#adb5bd"
+  rgb_norm: [0.678, 0.710, 0.741]
+  source: "figure_elements.backbone_unfocused"
+
+# --- Functional roles -----------------------------------------------------
+
+retinal:
+  name: "Retinal cofactor (type II opsin color)"
+  hex: "#bc6c25"
+  rgb_norm: [0.737, 0.424, 0.145]
+  source: "molecules.retinal"
+
+theozyme:
+  name: "Theozyme residues (Ser, His, Asp)"
+  hex: "#6a994e"
+  rgb_norm: [0.416, 0.600, 0.306]
+  source: "functional.conserved / spectral_lambda.530"
+
+substrate:
+  name: "Substrate (succinyl-AAPR)"
+  hex: "#d4a03c"
+  rgb_norm: [0.831, 0.627, 0.235]
+  source: "spectral_lambda.570"
+
+candidate_region:
+  name: "GRN candidate region (Step 3)"
+  hex: "#457b6b"
+  rgb_norm: [0.271, 0.482, 0.420]
+  source: "spectral_lambda.490"
+
+candidate_region_light:
+  name: "GRN candidate region surface"
+  hex: "#a3c4b8"
+  rgb_norm: [0.639, 0.769, 0.722]
+  source: "sequences.short_wave_light"
+
+# --- Geometry / annotation ------------------------------------------------
+
+geometry:
+  name: "Theozyme geometry (triangle, vectors, Cα spheres)"
+  hex: "#343a40"
+  rgb_norm: [0.204, 0.227, 0.251]
+  source: "neutral.dark_gray"
+
+hbond:
+  name: "H-bonds, dashed distance lines"
+  hex: "#6c757d"
+  rgb_norm: [0.424, 0.459, 0.490]
+  source: "neutral.gray"
+
+# --- Text / axes ----------------------------------------------------------
+
+label:
+  name: "Labels, annotations, axes, ticks"
+  hex: "#343a40"
+  rgb_norm: [0.204, 0.227, 0.251]
+  source: "figure_elements.annotation"
+
+# --- Sequence alignment (Fig 5.5) -----------------------------------------
+
+seq_identity:
+  name: "Identical positions (WT = designed)"
+  hex: "#adb5bd"
+  rgb_norm: [0.678, 0.710, 0.741]
+  source: "neutral.light_gray"
+
+seq_mutation:
+  name: "Mutated positions (designed != WT)"
+  hex: "#c1666b"
+  rgb_norm: [0.757, 0.400, 0.420]
+  source: "structures.type_ii"
+
+# --- Region markers (Fig 5.5 alignment) -----------------------------------
+
+region_tm:
+  name: "TM helix region markers"
+  hex: "#3d5a80"
+  rgb_norm: [0.239, 0.353, 0.502]
+  source: "structures.type_i"
+
+region_icl:
+  name: "ICL region markers"
+  hex: "#457b6b"
+  rgb_norm: [0.271, 0.482, 0.420]
+  source: "sequences.short_wave"
+
+# --- pLDDT plot (Fig 5.6C) ------------------------------------------------
+
+plddt_threshold:
+  name: "Confidence threshold line"
+  hex: "#343a40"
+  rgb_norm: [0.204, 0.227, 0.251]
+  style: "dashed"
+  source: "neutral.dark_gray"

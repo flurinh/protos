@@ -405,6 +405,7 @@ def _generate_entity_sections(df: pd.DataFrame) -> str:
             if seq_col and seq_col in chain_df.columns and res_name_col in chain_df.columns:
                 # Get unique residues in order
                 residues = chain_df[[seq_col, res_name_col]].drop_duplicates()
+                residues = residues[residues[seq_col].notna()]
                 residues = residues.sort_values(seq_col)
 
                 # Build one-letter sequence
@@ -447,6 +448,7 @@ def _generate_entity_sections(df: pd.DataFrame) -> str:
             if seq_col and seq_col in chain_df.columns and res_name_col in chain_df.columns:
                 # Get unique residues in order
                 residues = chain_df[[seq_col, res_name_col]].drop_duplicates()
+                residues = residues[residues[seq_col].notna()]
                 residues = residues.sort_values(seq_col)
 
                 # Use the actual label_seq_id values as entity_poly_seq.num

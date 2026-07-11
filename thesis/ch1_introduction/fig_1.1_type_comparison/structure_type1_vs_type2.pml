@@ -1,214 +1,282 @@
-# PyMOL Script: Type I vs Type II Opsin Structural Comparison
-# ============================================================
+# Figure 1.1 — Type I vs Type II Opsin Structural Comparison
+# ===========================================================================
+# Two structures, four panels:
 #
-# This script visualizes the structural alignment of Type I (microbial)
-# and Type II (animal) opsins around their retinal binding sites.
+#   A: 1C3W  Bacteriorhodopsin  (Type I)  — full structure
+#   B: 1U19  Bovine rhodopsin   (Type II) — full structure
+#   C: 1C3W  Bacteriorhodopsin  (Type I)  — binding pocket close-up
+#   D: 1U19  Bovine rhodopsin   (Type II) — binding pocket close-up
 #
-# KEY INSIGHT: Despite completely different 7TM topologies, both opsin types
-# bind the same chromophore (retinal) - this is convergent evolution at work.
+# Full structure panels (A, B):
+#   Gray transparent cartoon, retinal (rust), Schiff base lysine (green).
+#   No other sidechains shown.
 #
-# Structures:
-#   Type I (Microbial):
-#     - 1C3W: Bacteriorhodopsin (proton pump)
-#     - 3UG9: C1C2 Channelrhodopsin (cation channel)
-#   Type II (Animal/GPCR):
-#     - 1U19: Bovine rhodopsin (dim light vision)
-#     - 2Z73: Squid rhodopsin (vision)
+# Binding pocket panels (C, D):
+#   Pocket residues within 6A of retinal as gray sticks.
+#   Retinal (rust), Schiff base lysine (green). No cartoon.
 #
-# Usage: Open in PyMOL and run: @structure_type1_vs_type2.pml
+# Style matches ch5 figures (gray backbone, rust retinal, green Schiff base).
+#
+# Usage:
+#   pymol structure_type1_vs_type2.pml
+#   Then: scene panel_A, recall  (B, C, D)
+# ===========================================================================
 
-# Load colorscales
-@colorscales_pymol.pml
+# Load shared colorscales (colors + render settings)
+@thesis/shared/colorscales_pymol.pml
 
-# Ensure white background
-bg_color white
-
-# =============================================================================
-# Fetch Structures from PDB
-# =============================================================================
-print("Fetching structures from PDB...")
-
-# Type I (Microbial)
-fetch 1C3W, async=0
-fetch 3UG9, async=0
-
-# Type II (Animal)
-fetch 1U19, async=0
-fetch 2Z73, async=0
 
 # =============================================================================
-# Extract Chain A from each structure (single chain + retinal)
+# Fetch structures
 # =============================================================================
-print("Extracting chain A from each structure...")
+print("Fetching structures...")
 
-# Create selections for chain A only
-create bR, 1C3W and chain A
-create ChR, 3UG9 and chain A
-create bovine, 1U19 and chain A
-create squid, 2Z73 and chain A
+fetch 1C3W, name=bR_raw, type=pdb, async=0
+fetch 1U19, name=bovine_raw, type=pdb, async=0
 
-# Delete original multi-chain structures
-delete 1C3W
-delete 3UG9
-delete 1U19
-delete 2Z73
+# Extract chain A only
+create bR, bR_raw and chain A
+create bovine, bovine_raw and chain A
 
-# =============================================================================
-# Align Type I structures to bacteriorhodopsin (1C3W)
-# =============================================================================
-print("Aligning Type I structures...")
-align ChR, bR
+delete bR_raw
+delete bovine_raw
+
+remove resn HOH
+
 
 # =============================================================================
-# Align Type II structures to bovine rhodopsin
+# Align on retinal (common reference frame)
 # =============================================================================
-print("Aligning Type II structures...")
-align squid, bovine
+print("Aligning on retinal...")
+
+align bovine and resn RET, bR and resn RET
+
 
 # =============================================================================
-# Align Type II to Type I on retinal position
+# Selections
 # =============================================================================
-print("Aligning Type II to Type I on retinal...")
+print("Building selections...")
 
-# Select retinal in each structure
+# Retinal
 select ret_bR, bR and resn RET
 select ret_bovine, bovine and resn RET
 
-# Align bovine to bR using retinal
-align bovine and resn RET, bR and resn RET
-align squid and resn RET, bR and resn RET
-align ChR and resn RET, bR and resn RET
+# Schiff base lysines
+select schiff_bR, bR and chain A and resi 216
+select schiff_bovine, bovine and chain A and resi 296
+
+# Binding pocket residues (within 6A of retinal, protein only)
+select pocket_bR, bR and byres (bR within 6 of (bR and resn RET)) and not resn RET and polymer
+select pocket_bovine, bovine and byres (bovine within 6 of (bovine and resn RET)) and not resn RET and polymer
+
 
 # =============================================================================
-# Display Settings
+# Panel A — 1C3W full structure
 # =============================================================================
-print("Setting up display...")
-
-# Hide everything first
 hide everything
 
-# Show cartoon for protein backbone
-show cartoon, all
+# Cartoon: gray, transparent
+show cartoon, bR and polymer
+color backbone, bR
+set cartoon_transparency, 0.7, bR
 
-# Make cartoon transparent so retinal is visible
-set cartoon_transparency, 0.7
+# Retinal: rust, prominent
+show sticks, ret_bR
+color retinal_rust, ret_bR
+set stick_radius, 0.25, ret_bR
 
-# Color by structure type
-color color_1C3W, bR
-color color_3UG9, ChR
-color color_1U19, bovine
-color color_2Z73, squid
+# Schiff base lysine: green sticks
+show sticks, schiff_bR
+color schiff_base, schiff_bR
 
-# =============================================================================
-# Retinal Visualization
-# =============================================================================
-print("Highlighting retinal chromophore...")
-
-# Select all retinals
-select all_retinal, resn RET
-
-# Show retinal as prominent sticks (thicker, fully opaque)
-show sticks, all_retinal
-color retinal_orange, all_retinal
-set stick_radius, 0.25, all_retinal
-set stick_transparency, 0, all_retinal
-
-# =============================================================================
-# Binding Pocket Visualization (7A around retinal)
-# =============================================================================
-print("Highlighting binding pockets...")
-
-# Select binding pocket residues (within 7A of retinal)
-select pocket_bR, bR and byres (bR within 7 of (bR and resn RET)) and not resn RET
-select pocket_ChR, ChR and byres (ChR within 7 of (ChR and resn RET)) and not resn RET
-select pocket_bovine, bovine and byres (bovine within 7 of (bovine and resn RET)) and not resn RET
-select pocket_squid, squid and byres (squid within 7 of (squid and resn RET)) and not resn RET
-
-# Create combined selections by type
-select pocket_type1, pocket_bR or pocket_ChR
-select pocket_type2, pocket_bovine or pocket_squid
-select all_pockets, pocket_type1 or pocket_type2
-
-# Show binding pocket residues as lines
-show lines, all_pockets
-set line_width, 2
-
-# =============================================================================
-# Labels and Annotations
-# =============================================================================
-# Create pseudoatom labels for structure identification
-pseudoatom label_bR, pos=[0, 0, 30], label="1C3W: Bacteriorhodopsin (Type I)"
-pseudoatom label_ChR, pos=[0, 0, 25], label="3UG9: Channelrhodopsin (Type I)"
-pseudoatom label_bovine, pos=[0, 0, 20], label="1U19: Bovine rhodopsin (Type II)"
-pseudoatom label_squid, pos=[0, 0, 15], label="2Z73: Squid rhodopsin (Type II)"
-
-color color_1C3W, label_bR
-color color_3UG9, label_ChR
-color color_1U19, label_bovine
-color color_2Z73, label_squid
-
-# =============================================================================
-# Camera and Final View
-# =============================================================================
-print("Setting camera view...")
-
-# Center on retinal
-center all_retinal
-zoom all_retinal, 15
-
-# Set a good viewing angle
 set_view (\
-     0.866025388,    0.000000000,    0.500000000,\
-     0.250000000,    0.866025388,   -0.433012694,\
-    -0.433012694,    0.500000000,    0.750000000,\
-     0.000000000,    0.000000000, -100.000000000,\
-     0.000000000,    0.000000000,    0.000000000,\
-    80.000000000,  120.000000000,  -20.000000000 )
+     0.521108687,   -0.214197397,    0.826174915,\
+    -0.851958215,   -0.072513409,    0.518566728,\
+    -0.051166043,   -0.974096894,   -0.220273525,\
+    -0.000103682,   -0.000014109, -168.123947144,\
+    18.453006744,   40.861843109,    6.949202061,\
+   135.654693604,  200.583694458,   20.000000000 )
+
+scene panel_A, store, message=1C3W full structure
+
 
 # =============================================================================
-# Output Information
+# Panel A_nolig — 1C3W full structure, no ligand/lysine
 # =============================================================================
+hide everything
+
+show cartoon, bR and polymer
+color backbone, bR
+set cartoon_transparency, 0.7, bR
+
+set_view (\
+     0.521108687,   -0.214197397,    0.826174915,\
+    -0.851958215,   -0.072513409,    0.518566728,\
+    -0.051166043,   -0.974096894,   -0.220273525,\
+    -0.000103682,   -0.000014109, -168.123947144,\
+    18.453006744,   40.861843109,    6.949202061,\
+   135.654693604,  200.583694458,   20.000000000 )
+
+scene panel_A_nolig, store, message=1C3W no ligand
+
+
+# =============================================================================
+# Panel B — 1U19 full structure
+# =============================================================================
+hide everything
+
+show cartoon, bovine and polymer
+color backbone, bovine
+set cartoon_transparency, 0.7, bovine
+
+show sticks, ret_bovine
+color retinal_rust, ret_bovine
+set stick_radius, 0.25, ret_bovine
+
+show sticks, schiff_bovine
+color schiff_base, schiff_bovine
+
+set_view (\
+     0.778251946,   -0.559981763,    0.284156501,\
+    -0.496124566,   -0.825713933,   -0.268439978,\
+     0.384953201,    0.067935660,   -0.920435607,\
+    -0.000135182,    0.000050765, -214.546783447,\
+    21.781805038,   48.353328705,    7.465656757,\
+   183.837738037,  245.230148315,   20.000000000 )
+
+scene panel_B, store, message=1U19 full structure
+
+
+# =============================================================================
+# Panel B_nolig — 1U19 full structure, no ligand/lysine
+# =============================================================================
+hide everything
+
+show cartoon, bovine and polymer
+color backbone, bovine
+set cartoon_transparency, 0.7, bovine
+
+set_view (\
+     0.778251946,   -0.559981763,    0.284156501,\
+    -0.496124566,   -0.825713933,   -0.268439978,\
+     0.384953201,    0.067935660,   -0.920435607,\
+    -0.000135182,    0.000050765, -214.546783447,\
+    21.781805038,   48.353328705,    7.465656757,\
+   183.837738037,  245.230148315,   20.000000000 )
+
+scene panel_B_nolig, store, message=1U19 no ligand
+
+
+# =============================================================================
+# Panel C — 1C3W binding pocket
+# =============================================================================
+hide everything
+
+# Pocket: gray sticks (no cartoon)
+show sticks, pocket_bR
+color backbone, pocket_bR
+
+# Retinal: rust
+show sticks, ret_bR
+color retinal_rust, ret_bR
+set stick_radius, 0.25, ret_bR
+
+# Schiff base lysine: green
+color schiff_base, schiff_bR
+
+# Same view as Panel A
+set_view (\
+     0.521108687,   -0.214197397,    0.826174915,\
+    -0.851958215,   -0.072513409,    0.518566728,\
+    -0.051166043,   -0.974096894,   -0.220273525,\
+    -0.000103682,   -0.000014109, -168.123947144,\
+    18.453006744,   40.861843109,    6.949202061,\
+   135.654693604,  200.583694458,   20.000000000 )
+
+scene panel_C, store, message=1C3W binding pocket
+
+
+# =============================================================================
+# Panel D — 1U19 binding pocket
+# =============================================================================
+hide everything
+
+# Pocket: gray sticks (no cartoon)
+show sticks, pocket_bovine
+color backbone, pocket_bovine
+
+# Retinal: rust
+show sticks, ret_bovine
+color retinal_rust, ret_bovine
+set stick_radius, 0.25, ret_bovine
+
+# Schiff base lysine: green
+color schiff_base, schiff_bovine
+
+# Same view as Panel B
+set_view (\
+     0.778251946,   -0.559981763,    0.284156501,\
+    -0.496124566,   -0.825713933,   -0.268439978,\
+     0.384953201,    0.067935660,   -0.920435607,\
+    -0.000135182,    0.000050765, -214.546783447,\
+    21.781805038,   48.353328705,    7.465656757,\
+   183.837738037,  245.230148315,   20.000000000 )
+
+scene panel_D, store, message=1U19 binding pocket
+
+
+# =============================================================================
+# Interactive navigation
+# =============================================================================
+scene panel_A, recall
+deselect
+
 print("")
 print("=" * 60)
-print("TYPE I vs TYPE II OPSIN COMPARISON")
+print("Figure 1.1 — Type I vs Type II Opsin Comparison")
 print("=" * 60)
 print("")
-print("Structures loaded:")
-print("  Type I (Microbial) - Blue tones:")
-print("    - bR (1C3W): Bacteriorhodopsin")
-print("    - ChR (3UG9): Channelrhodopsin")
-print("  Type II (Animal/GPCR) - Red tones:")
-print("    - bovine (1U19): Bovine rhodopsin")
-print("    - squid (2Z73): Squid rhodopsin")
+print("Panels:")
+print("  A: 1C3W  Bacteriorhodopsin  (Type I)  — full structure")
+print("  B: 1U19  Bovine rhodopsin   (Type II) — full structure")
+print("  C: 1C3W  Bacteriorhodopsin  (Type I)  — binding pocket")
+print("  D: 1U19  Bovine rhodopsin   (Type II) — binding pocket")
 print("")
-print("KEY INSIGHT:")
-print("  Despite completely different 7TM folds,")
-print("  both opsin types bind retinal in a similar pocket.")
-print("  This enables LAMBDA's fold-agnostic analysis.")
+print("Color key:")
+print("  Gray   (backbone)     = cartoon / pocket sticks")
+print("  Rust   (retinal_rust) = retinal chromophore")
+print("  Green  (schiff_base)  = Schiff base lysine")
 print("")
-print("To export figure:")
-print("  ray 2400, 1800")
-print("  png structure_type1_vs_type2.png, dpi=300")
+print("Navigate: scene panel_A, recall  (B, C, D)")
+print("Get view: get_view")
 print("=" * 60)
 
-# =============================================================================
-# Alternate Views (uncomment to use)
-# =============================================================================
-# View 1: Type I only
-# hide everything
-# show cartoon, bR or ChR
-# show sticks, (bR or ChR) and resn RET
-# color color_1C3W, bR
-# color color_3UG9, ChR
 
-# View 2: Type II only
-# hide everything
-# show cartoon, bovine or squid
-# show sticks, (bovine or squid) and resn RET
-# color color_1U19, bovine
-# color color_2Z73, squid
+# =============================================================================
+# Export
+# =============================================================================
+scene panel_A, recall
+ray 2400, 1800
+png thesis/ch1_introduction/fig_1.1_type_comparison/fig_1.1a_bR_structure.png, dpi=300
 
-# View 3: Side by side comparison
-# set grid_mode, 1
-# set grid_slot, 1, bR
-# set grid_slot, 2, bovine
+scene panel_A_nolig, recall
+ray 2400, 1800
+png thesis/ch1_introduction/fig_1.1_type_comparison/fig_1.1a_bR_structure_nolig.png, dpi=300
+
+scene panel_B, recall
+ray 2400, 1800
+png thesis/ch1_introduction/fig_1.1_type_comparison/fig_1.1b_bovine_structure.png, dpi=300
+
+scene panel_B_nolig, recall
+ray 2400, 1800
+png thesis/ch1_introduction/fig_1.1_type_comparison/fig_1.1b_bovine_structure_nolig.png, dpi=300
+
+scene panel_C, recall
+ray 2400, 1800
+png thesis/ch1_introduction/fig_1.1_type_comparison/fig_1.1c_bR_pocket.png, dpi=300
+
+scene panel_D, recall
+ray 2400, 1800
+png thesis/ch1_introduction/fig_1.1_type_comparison/fig_1.1d_bovine_pocket.png, dpi=300
+
+save thesis/ch1_introduction/fig_1.1_type_comparison/fig_1.1_type_comparison.pse
