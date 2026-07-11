@@ -1,4 +1,5 @@
-data/
+/data/
+/thesis/data/
 
 # Compiled python files and caches
 __pycache__/
@@ -19,25 +20,23 @@ build/
 *.env
 .env
 
-# CSV/CIF and temporary data
-*.cif
+# Root-level downloaded structures do not belong in the project home. CIF/PDB
+# files inside documented fixtures or the thesis archive may be tracked.
+/*.cif
+/*.pdb
 
 # Internal tool references
 .claude
 claude/
 CLAUDE.md
 
-# Test folders
-tests/
-
 # Project folders (if temporary)
 projects
 
-src/protos/models
-
-protos/models/lambda
+# Large local upstream checkout and its runtime artefacts. The smaller pinned
+# model dependencies are represented explicitly by .gitmodules.
+/src/protos/models/RFdiffusion2/
 
 # Thesis workstation artefacts kept outside the archival branch
-/*.pdb
 /resources/spectral_resonance.mp4
 /thesis/outputs/atlas/*.npz
