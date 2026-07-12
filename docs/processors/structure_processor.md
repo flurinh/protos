@@ -58,3 +58,36 @@ filters and output options.
 Deprecated compatibility methods `load_structure`, `save_structure`, and
 `load_structures` remain present, but new code should use the entity and dataset
 methods above.
+
+## Structure-level GRN annotation and Plotly output
+
+`annotate_with_grn()` extracts one C-alpha record per polymer residue, annotates
+that sequence, and maps the resulting GRNs back onto every atom of each matched
+residue. Polymeric modified residues stored as `HETATM` (for example MSE) are
+included. `label_seq_id` defines intrinsic polymer order; author numbering plus
+insertion code is the fallback lookup key.
+
+Experimental constructs often include T4 lysozyme, endolysin, antibodies, or
+other fusion partners. Consequently, generated insertion coordinates are
+disabled by default for structure annotation. Use `residue_ranges={"A":
+(start, end)}` to isolate a biological component when multiple components share
+one author chain. `return_summary=True` returns the selected reference,
+coverage, indel counts, and status for each chain.
+
+`plot_grn_ca_structure()` produces a Plotly figure with one marker per C-alpha,
+GRN hover text, and edges between sequential C-alpha atoms within each chain.
+Edges longer than 4.5 Å are omitted by default so unresolved structure gaps are
+not bridged visually.
+
+The following exercised script downloads and annotates a standalone GPCR,
+arrestin, G-protein heterotrimer, GPCR–Gs complex, and GPCR–arrestin complex,
+then writes individual self-contained HTML files and a combined gallery:
+
+```bash
+python scripts/visualize_grn_structures.py \
+  --data-root data/grn_structure_demo \
+  --output-dir data/visualizations/grn_structures
+```
+
+See [`scripts/visualize_grn_structures.py`](../../scripts/visualize_grn_structures.py)
+for the exact PDB chains, component ranges, and reference tables used.

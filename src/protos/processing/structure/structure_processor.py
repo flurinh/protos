@@ -775,8 +775,11 @@ class StructureProcessor(BaseProcessor):
         reference_table: str = "gpcrdb_ref",
         protein_family: str = "gpcr_a",
         chains: Optional[List[str]] = None,
+        residue_ranges: Optional[Dict[str, Tuple[int, int]]] = None,
+        assign_insertions: bool = False,
         save: bool = True,
-    ) -> pd.DataFrame:
+        return_summary: bool = False,
+    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, Any]]]:
         """
         Directly annotate a structure with Generic Residue Numbers (GRN).
 
@@ -790,7 +793,13 @@ class StructureProcessor(BaseProcessor):
             reference_table: GRN reference table name
             protein_family: Protein family for GRN reference
             chains: Specific chains to annotate (default: all protein chains)
+            residue_ranges: Optional inclusive author-residue range per chain.
+                Use this to isolate biological components in fusion constructs.
+            assign_insertions: Generate GRNs for query residues inserted relative
+                to the reference. Disabled by default because experimental
+                structures commonly contain engineered fusion partners.
             save: Whether to save the annotated structure
+            return_summary: Return per-chain alignment diagnostics with the frame.
 
         Returns:
             Structure DataFrame with 'grn' column populated
@@ -806,50 +815,36 @@ class StructureProcessor(BaseProcessor):
         if 'grn' not in df.columns:
             df['grn'] = ''
 
-        # Get protein atoms only
-        protein = df[df['group'].str.upper() == 'ATOM']
-        if protein.empty:
+        # Identify polymer chains from their C-alpha residues.  Modified amino
+        # acids such as MSE are commonly stored as HETATM, so filtering to ATOM
+        # would silently drop them and shift every downstream sequence index.
+        atom_col = 'atom_name' if 'atom_name' in df.columns else 'res_atom_name'
+        ca_atoms = df[df[atom_col].astype(str).str.upper() == 'CA']
+        if 'label_seq_id' in ca_atoms.columns:
+            polymer_ca = ca_atoms[ca_atoms['label_seq_id'].notna()]
+            if not polymer_ca.empty:
+                ca_atoms = polymer_ca
+        if ca_atoms.empty:
             self.logger.warning(f"No protein atoms in {structure_id}")
             return self._ensure_canonical(df, structure_id)
 
         # Filter chains if specified
-        available_chains = protein['auth_chain_id'].unique().tolist()
+        available_chains = ca_atoms['auth_chain_id'].astype(str).unique().tolist()
         target_chains = chains if chains else available_chains
 
         grn_proc = GRNProcessor()
+        chain_summary: Dict[str, Dict[str, Any]] = {}
 
         for chain_id in target_chains:
             if chain_id not in available_chains:
                 continue
 
-            # Extract sequence for this chain
-            chain_atoms = protein[protein['auth_chain_id'] == chain_id]
-
-            # Get unique residues in order
-            residue_data = []
-            for (res_id, res_name), atoms in chain_atoms.groupby(
-                ['auth_seq_id', 'res_name3l'], sort=True, dropna=False
-            ):
-                if pd.isna(res_id):
-                    continue
-                residue_data.append((int(res_id), res_name))
-
-            if not residue_data:
-                continue
-
-            # Convert to sequence (standard amino acid mapping)
-            THREE_TO_ONE = {
-                'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
-                'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
-                'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
-                'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V',
-            }
-            sequence = ''
-            res_id_list = []
-            for res_id, res_name in sorted(residue_data, key=lambda x: x[0]):
-                aa = THREE_TO_ONE.get(res_name, 'X')
-                sequence += aa
-                res_id_list.append(res_id)
+            residue_range = (residue_ranges or {}).get(str(chain_id))
+            sequence, residue_keys = self._extract_chain_residue_keys(
+                df,
+                chain_id,
+                auth_residue_range=residue_range,
+            )
 
             if not sequence or len(sequence) < 10:
                 continue
@@ -861,10 +856,21 @@ class StructureProcessor(BaseProcessor):
                     {seq_name: sequence},
                     reference_table=reference_table,
                     protein_family=protein_family,
+                    assign_unambiguous_insertions=assign_insertions,
                 )
 
                 if seq_name not in annotations_df.index:
+                    chain_summary[str(chain_id)] = {
+                        "status": "annotation_missing",
+                        "reference_table": reference_table,
+                    }
                     continue
+
+                chain_summary[str(chain_id)] = dict(
+                    summary.get("per_sequence", {}).get(seq_name, {})
+                )
+                chain_summary[str(chain_id)]["reference_table"] = reference_table
+                chain_summary[str(chain_id)]["protein_family"] = protein_family
 
                 # Get the annotation row for this sequence
                 # Values are like 'M1', 'E2' where the number is 1-indexed position in sequence
@@ -880,18 +886,31 @@ class StructureProcessor(BaseProcessor):
                     if not match:
                         continue
                     seq_pos = int(match.group(2))  # 1-indexed position in sequence
-                    if seq_pos < 1 or seq_pos > len(res_id_list):
+                    if seq_pos < 1 or seq_pos > len(residue_keys):
                         continue
-                    res_id = res_id_list[seq_pos - 1]  # Convert to 0-indexed
-
-                    mask = (
-                        (df['auth_chain_id'] == chain_id) &
-                        (df['auth_seq_id'] == res_id)
-                    )
+                    residue_key = residue_keys[seq_pos - 1]
+                    mask = df['auth_chain_id'].astype(str) == str(chain_id)
+                    if residue_key['label_seq_id'] is not None:
+                        mask &= df['label_seq_id'] == residue_key['label_seq_id']
+                    else:
+                        mask &= df['auth_seq_id'] == residue_key['auth_seq_id']
+                        if 'insertion' in df.columns:
+                            mask &= (
+                                df['insertion'].fillna('').astype(str)
+                                == residue_key['insertion']
+                            )
                     df.loc[mask, 'grn'] = grn_position
 
             except Exception as e:
-                self.logger.warning(f"GRN annotation failed for {structure_id} chain {chain_id}: {e}")
+                self.logger.warning(
+                    f"GRN annotation failed for {structure_id} chain {chain_id}: {e}"
+                )
+                chain_summary[str(chain_id)] = {
+                    "status": "annotation_failed",
+                    "error": str(e),
+                    "reference_table": reference_table,
+                    "protein_family": protein_family,
+                }
                 continue
 
         # Canonicalize and optionally save
@@ -901,7 +920,100 @@ class StructureProcessor(BaseProcessor):
         if save:
             self.save_entity(structure_id, df_canonical)
 
+        if return_summary:
+            return df_canonical, {
+                "structure_id": structure_id,
+                "chains": chain_summary,
+            }
         return df_canonical
+
+    @staticmethod
+    def _extract_chain_residue_keys(
+        structure_df: pd.DataFrame,
+        chain_id: str,
+        auth_residue_range: Optional[Tuple[int, int]] = None,
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """Return a CA-derived chain sequence and stable residue lookup keys.
+
+        ``label_seq_id`` is the preferred intrinsic polymer order.  Author
+        numbering plus insertion code is retained as a fallback for structures
+        without label numbering.  Using CA records keeps sequence extraction
+        and structure projection on exactly the same residue set, including
+        polymeric modified residues represented as HETATM.
+        """
+
+        from protos.analysis.structure.sequence import AA_3TO1
+
+        df = (
+            structure_df.reset_index()
+            if isinstance(structure_df.index, pd.MultiIndex)
+            else structure_df.copy()
+        )
+        atom_col = 'atom_name' if 'atom_name' in df.columns else 'res_atom_name'
+        chain = df[
+            (df['auth_chain_id'].astype(str) == str(chain_id))
+            & (df[atom_col].astype(str).str.upper() == 'CA')
+        ].copy()
+        if chain.empty:
+            return '', []
+
+        if auth_residue_range is not None:
+            start, end = auth_residue_range
+            lower, upper = sorted((start, end))
+            chain = chain[chain['auth_seq_id'].between(lower, upper)]
+            if chain.empty:
+                return '', []
+
+        if 'model_num' in chain.columns and chain['model_num'].notna().any():
+            first_model = chain['model_num'].dropna().min()
+            chain = chain[chain['model_num'] == first_model]
+
+        has_label_order = 'label_seq_id' in chain.columns and chain['label_seq_id'].notna().any()
+        if has_label_order:
+            chain = chain[chain['label_seq_id'].notna()].sort_values(
+                ['label_seq_id', 'atom_id']
+            )
+            chain = chain.drop_duplicates(subset=['label_seq_id'], keep='first')
+        else:
+            chain['_insertion_order'] = chain.get(
+                'insertion', pd.Series('', index=chain.index)
+            ).fillna('').astype(str)
+            chain = chain.sort_values(['auth_seq_id', '_insertion_order', 'atom_id'])
+            chain = chain.drop_duplicates(
+                subset=['auth_seq_id', '_insertion_order'], keep='first'
+            )
+
+        sequence: List[str] = []
+        keys: List[Dict[str, Any]] = []
+        for _, residue in chain.iterrows():
+            one_letter_value = residue.get('res_name1l', '')
+            one_letter = (
+                '' if pd.isna(one_letter_value) else str(one_letter_value).strip().upper()
+            )
+            if len(one_letter) != 1 or one_letter not in 'ACDEFGHIKLMNPQRSTVWYBJZX*':
+                name3_value = residue.get('res_name3l', '')
+                if pd.isna(name3_value) or not str(name3_value).strip():
+                    name3_value = residue.get('auth_comp_id', '')
+                name3 = '' if pd.isna(name3_value) else str(name3_value).upper()
+                one_letter = AA_3TO1.get(name3, 'X')
+            sequence.append(one_letter)
+            label_seq_id = residue.get('label_seq_id') if has_label_order else None
+            keys.append(
+                {
+                    'label_seq_id': int(label_seq_id) if pd.notna(label_seq_id) else None,
+                    'auth_seq_id': (
+                        int(residue['auth_seq_id'])
+                        if pd.notna(residue['auth_seq_id'])
+                        else None
+                    ),
+                    'insertion': (
+                        ''
+                        if pd.isna(residue.get('insertion', ''))
+                        else str(residue.get('insertion', ''))
+                    ),
+                }
+            )
+        return ''.join(sequence), keys
 
     # ---------- Frame Management ----------
     

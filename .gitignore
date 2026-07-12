@@ -28,6 +28,7 @@ build/
 .claude
 claude/
 CLAUDE.md
+/graphify-out/
 
 # Project folders (if temporary)
 projects
