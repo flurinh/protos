@@ -36,6 +36,12 @@ class StructureLoader(BaseLoader):
     """
     
     loader_type = "structure"
+    canonical_metadata_keys = {
+        "content_hash",
+        "schema_version",
+        "saved_at",
+        "atom_count",
+    }
     
     def __init__(self, name: str = "structure_loader", *, processor: Optional[StructureProcessor] = None):
         """Initialize structure loader."""
@@ -367,7 +373,10 @@ class StructureLoader(BaseLoader):
         points at a canonical PKL which can immediately be loaded by the structure
         processor.
         """
-        registered = name or identifier
+        registered = name or self._default_registration_name(
+            identifier,
+            kwargs.get("source"),
+        )
         processor = self._get_processor()
         previous_info = self.entity_registry.find_entity(registered, self.loader_type)
 
@@ -433,17 +442,67 @@ class StructureLoader(BaseLoader):
                 exc,
             )
             processor._remove_frame(registered)
-            self._restore_registration(registered, previous_info)
-            if backup_path is not None:
-                shutil.move(str(backup_path), pkl_path)
-            elif not pkl_existed:
-                pkl_path.unlink(missing_ok=True)
-            return None
-        finally:
-            if backup_path is not None:
+
+            file_restored = False
+            try:
+                if backup_path is not None:
+                    shutil.copy2(backup_path, pkl_path)
+                elif not pkl_existed:
+                    pkl_path.unlink(missing_ok=True)
+                file_restored = True
+            except Exception as restore_exc:
+                self.logger.error(
+                    "Failed to restore PKL state for structure '%s': %s",
+                    registered,
+                    restore_exc,
+                )
+
+            registry_restored = False
+            try:
+                self._restore_registration(registered, previous_info)
+                registry_restored = self._registration_matches(
+                    registered,
+                    previous_info,
+                )
+                if not registry_restored:
+                    self.logger.error(
+                        "Registry restoration could not be confirmed for structure '%s'",
+                        registered,
+                    )
+            except Exception as restore_exc:
+                self.logger.error(
+                    "Failed to restore registry state for structure '%s': %s",
+                    registered,
+                    restore_exc,
+                )
+
+            if backup_path is not None and file_restored and registry_restored:
                 backup_path.unlink(missing_ok=True)
+            return None
+
+        if backup_path is not None:
+            backup_path.unlink(missing_ok=True)
 
         return registered
+
+    def _default_registration_name(
+        self,
+        identifier: str,
+        source: Optional[str],
+    ) -> str:
+        """Derive a path-free name for local structures without explicit names."""
+        parsed = self.parse_identifier(identifier)
+        normalized_source = (
+            self._normalize_source(source) if source else parsed.get("source")
+        )
+        if normalized_source != "local":
+            return identifier
+
+        filename = Path(identifier).name
+        stem = Path(filename).stem
+        if Path(filename).suffix.lower() in {".gz", ".bz2", ".xz"}:
+            stem = Path(stem).stem
+        return stem
 
     @staticmethod
     def _is_canonical_registration(file_path: str) -> bool:
@@ -490,6 +549,8 @@ class StructureLoader(BaseLoader):
         )
         if fetched or "download_date" not in combined:
             combined["download_date"] = datetime.now().isoformat()
+        for key in self.canonical_metadata_keys:
+            combined.pop(key, None)
         return combined
 
     def _restore_registration(self, name: str, previous_info: Any) -> None:
@@ -502,6 +563,16 @@ class StructureLoader(BaseLoader):
             format_type=self.loader_type,
             file_path=previous_info.file_path,
             metadata=dict(previous_info.metadata or {}),
+        )
+
+    def _registration_matches(self, name: str, previous_info: Any) -> bool:
+        current = self.entity_registry.find_entity(name, self.loader_type)
+        if previous_info is None:
+            return current is None
+        return bool(
+            current
+            and current.file_path == previous_info.file_path
+            and current.metadata == previous_info.metadata
         )
 
     def _resolve_registered_path(self, raw_path: str) -> Path:
