@@ -50,15 +50,21 @@ GPCRdb/Protwis and ProtOS solve related but different problems:
 | Behaviour | GPCRdb/Protwis | Current ProtOS |
 | --- | --- | --- |
 | Reference selection | Uses curated per-protein anchors; missing anchors are projected from a related-family template | Aligns the query against every row in the caller-selected reference table and chooses the best normalized score |
-| Alignment | Clustal Omega projects template anchor positions | `SequenceAlignmentEngine` performs pairwise alignment and projects every reference-table label |
+| Alignment | Clustal Omega projects template anchor positions | `SequenceAlignmentEngine` performs pairwise alignment with caller-configurable gap penalties and projects every reference-table label |
 | Family knowledge | Template search walks the GPCR family hierarchy | The table name constrains candidates; `protein_family` is currently reporting metadata only |
 | Structural anomalies | Scheme maps and explicit bulge/constriction handling adjust structure-based labels | Anomalies are preserved only when already encoded in the reference table |
-| Confidence | Curated anchors or family-template provenance | Reports score and coverage, but currently has no rejection threshold or best-vs-second-best margin |
+| Confidence | Curated anchors or family-template provenance | Reports score and coverage and supports caller thresholds; benchmark-derived defaults and a best-vs-second-best margin remain future work |
 | CGN/CAN | Imports curated residue mappings/alignments | Uses the same curated mappings as reference tables, then applies the generic projection algorithm to new sequences |
 
 The safe improvements implemented now are class-specific GPCR tables, explicit
-source provenance, current CGN lookup correction, and native CGN/CAN validation.
+source provenance, current CGN lookup correction, arbitrary segment identifiers,
+reference-derived segment ordering, native CGN/CAN validation, and explicit
+insertion/deletion diagnostics with conservative insertion assignment.
 Before changing scientific annotation behaviour, the next comparison should use
 a held-out benchmark to choose family filtering, score/coverage thresholds,
 best-hit margins, and explicit bulge/constriction tests. This avoids silently
 changing thesis-era results without measured evidence.
+
+The complete current ProtOS projection and numeric-expansion pseudocode,
+including insertion/deletion handling and exceptions, is in
+[the GRN annotation algorithm](grn-annotation-algorithm.md).

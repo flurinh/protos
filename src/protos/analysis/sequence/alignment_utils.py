@@ -18,8 +18,20 @@ class AlignmentResult:
     format: str = "human"
 
 
-def init_biopython_aligner(open_gap_score: int = -10):
-    return init_aligner(open_gap_score)
+def init_biopython_aligner(
+    open_gap_score: float = -10.0,
+    extend_gap_score: float = -0.05,
+    end_gap_score: float = 0.0,
+):
+    """Create the shared global aligner with explicit gap parameters."""
+
+    aligner = init_aligner(
+        open_gap_score=open_gap_score,
+        extend_gap_score=extend_gap_score,
+    )
+    aligner.end_insertion_score = end_gap_score
+    aligner.end_deletion_score = end_gap_score
+    return aligner
 
 
 def perform_pairwise_alignment(

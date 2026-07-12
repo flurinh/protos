@@ -24,8 +24,19 @@ class SequenceAlignmentResult:
 
 
 class SequenceAlignmentEngine:
-    def __init__(self) -> None:
-        self._aligner = init_biopython_aligner()
+    def __init__(
+        self,
+        *,
+        open_gap_score: float = -10.0,
+        extend_gap_score: float = -0.05,
+        end_gap_score: float = 0.0,
+    ) -> None:
+        self.gap_parameters = {
+            "open_gap_score": float(open_gap_score),
+            "extend_gap_score": float(extend_gap_score),
+            "end_gap_score": float(end_gap_score),
+        }
+        self._aligner = init_biopython_aligner(**self.gap_parameters)
 
     def align_pairwise(
         self,

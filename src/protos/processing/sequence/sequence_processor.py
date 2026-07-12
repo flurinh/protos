@@ -1251,6 +1251,12 @@ class SequenceProcessor(BaseProcessor):
         allow_create: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
         return_summary: bool = False,
+        open_gap_score: float = -10.0,
+        extend_gap_score: float = -0.05,
+        end_gap_score: float = 0.0,
+        min_normalized_score: Optional[float] = None,
+        min_coverage: Optional[float] = None,
+        assign_unambiguous_insertions: bool = False,
     ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, Any]]]:
         """Annotate sequences with GRN positions using the bundled references.
 
@@ -1265,6 +1271,13 @@ class SequenceProcessor(BaseProcessor):
             allow_create: Allow placeholder entities when linking relationships.
             metadata: Extra key/value pairs to attach to the saved dataset.
             return_summary: When ``True`` also return alignment metadata.
+            open_gap_score: Penalty for opening an internal alignment gap.
+            extend_gap_score: Penalty for extending an internal alignment gap.
+            end_gap_score: Penalty for an unaligned query/reference terminus.
+            min_normalized_score: Optional rejection threshold for reference fit.
+            min_coverage: Optional rejection threshold for mapped GRN coverage.
+            assign_unambiguous_insertions: Fill existing empty GRN columns only
+                when their count exactly matches an internal query insertion.
 
         Returns:
             Either the annotation dataframe or a tuple ``(df, summary)`` when
@@ -1301,6 +1314,12 @@ class SequenceProcessor(BaseProcessor):
             sequence_map,
             reference_table=reference_table,
             protein_family=protein_family,
+            open_gap_score=open_gap_score,
+            extend_gap_score=extend_gap_score,
+            end_gap_score=end_gap_score,
+            min_normalized_score=min_normalized_score,
+            min_coverage=min_coverage,
+            assign_unambiguous_insertions=assign_unambiguous_insertions,
         )
 
         if output_table:

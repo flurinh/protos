@@ -18,33 +18,47 @@ logger = logging.getLogger(__name__)
 
 # GRN format specifications
 GRN_PATTERNS = {
-    'standard': r'^(\d+)x(\d+)$',  # e.g., 1x50
-    'standard_dot': r'^([0-9])\.(\d+)$',  # e.g., 1.50, 0.00, 9.99 (dot notation)
-    'standard_insertion': r'^([0-9])\.(\d+)\.(\d+)$',
+    'standard': r'^([1-8])x(\d{1,2})$',  # e.g., 1x50
+    'standard_insertion_x': r'^([1-8])x(\d{3,})$',  # e.g., 5x461
+    'standard_dot': r'^([0-9])\.(\d{1,2})$',  # e.g., 1.50, 0.00, 9.99
+    'standard_insertion': r'^([0-9])\.(\d{3,})$',  # e.g., 5.461
     'n_term': r'^n\.(\d+)$',       # e.g., n.10
     'c_term': r'^c\.(\d+)$',       # e.g., c.5
     'loop': r'^([1-8])([1-8])\.(\d+)$',  # e.g., 12.003, 65.011, also 12.047
+    'loop_x': r'^([1-8])([1-8])x(\d+)$',
     # Common G-alpha Numbering (CGN) and Common Arrestin Numbering (CAN).
     'signal_protein': r'^[GHNC]\.[A-Za-z][A-Za-z0-9-]*\.([0-9]{2})$',
+    # Generic hierarchical dot notation.  Everything before the final dot is
+    # the segment/helix identifier; only the final component is positional.
+    # Examples: TM1.50, G.HN.03, A.H1.50, arrestin.N.S1.01.
+    'hierarchical_dot': (
+        r'^([A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)*)\.(\d+)$'
+    ),
 }
 
 # Documentation for GRN formats
 GRN_FORMAT_DOCS = {
     'standard': "Standard GRN format: <helix>x<position> (e.g., 1x50)",
     'standard_dot': "Standard GRN format with dot notation: <helix>.<position> (e.g., 1.50)",
-    'standard_insertion': "Standard GRN insertion format: <helix>x<position> (e.g., 1x521)",
+    'standard_insertion': "Standard GRN insertion format: <helix>.<encoded position> (e.g., 1.521)",
+    'standard_insertion_x': "Legacy x insertion format (e.g., 1x521)",
     'n_term': "N-terminal format: n.<position> (e.g., n.10)",
     'c_term': "C-terminal format: c.<position> (e.g., c.5)",
     'signal_protein': (
         "CGN/CAN dot notation: <domain>.<segment>.<position> "
         "(e.g., G.H5.26 or N.S1.01)"
     ),
+    'hierarchical_dot': (
+        "Hierarchical dot notation: <arbitrary segment path>.<position> "
+        "(e.g., TM1.50, G.HN.03, or A.H1.50)"
+    ),
     'loop': """Loop region format: <closer helix><further helix>.<distance> where:
             - First digit: Closer helix (1-8)
             - Second digit: Further helix (1-8)
             - Three-digit decimal: Distance from closer helix (001-999)
             Examples: 12.003 (between helix 1-2, closer to 1, distance 3)
-                     65.011 (between helix 5-6, closer to 6, distance 11)"""
+                     65.011 (between helix 5-6, closer to 6, distance 11)""",
+    'loop_x': "Legacy loop x notation (e.g., 12x003)",
 }
 
 # Symbol definitions
@@ -96,6 +110,8 @@ def parse_grn_str2float(grn: str) -> float:
         76.100
     """
     try:
+        if 'x' in grn:
+            grn = normalize_grn_format(grn)
         # N-terminal region
         if grn.startswith('n.'):
             # Parse position number - keep as negative for sorting
@@ -242,6 +258,28 @@ def normalize_grn_format(grn: str) -> str:
     # C-terminal (no normalization needed)
     elif grn.startswith('c.'):
         return grn
+
+    # Legacy x notation.  Preserve the established shorthand where a
+    # one-digit position means tens (1x5 -> 1.50).
+    loop_x_pattern = re.compile(r'^([1-8])([1-8])x(\d+)$')
+    match = loop_x_pattern.match(grn)
+    if match:
+        distance_str = match.group(3)
+        distance = int(distance_str)
+        if len(distance_str) == 1:
+            distance *= 100
+        elif len(distance_str) == 2:
+            distance *= 10
+        return f"{match.group(1)}{match.group(2)}.{distance:03d}"
+
+    standard_x_pattern = re.compile(r'^([0-9])x(\d+)$')
+    match = standard_x_pattern.match(grn)
+    if match:
+        position_str = match.group(2)
+        position = int(position_str)
+        if len(position_str) == 1:
+            position *= 10
+        return f"{match.group(1)}.{position:02d}"
     
     # Loop format with dot notation (e.g., '12.5' -> '12.500', '12.05' -> '12.050')
     loop_dot_pattern = re.compile(r'^([1-8])([1-8])\.(\d+)$')
@@ -315,14 +353,14 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
             
             # N-terminal rules
             if pattern_name == 'n_term':
-                if grn[2] == '0':  # n.01 not allowed (leading zero)
-                    return False, f"Invalid N-terminal GRN format: leading zero not allowed in {grn}"
+                if int(grn.split('.', 1)[1]) < 1:
+                    return False, f"Invalid N-terminal GRN position in {grn}"
                 return True, "Valid N-terminal GRN format"
                 
             # C-terminal rules
             elif pattern_name == 'c_term':
-                if grn[2] == '0':  # c.01 not allowed (leading zero)
-                    return False, f"Invalid C-terminal GRN format: leading zero not allowed in {grn}"
+                if int(grn.split('.', 1)[1]) < 1:
+                    return False, f"Invalid C-terminal GRN position in {grn}"
                 return True, "Valid C-terminal GRN format"
                 
             # Standard GRN rules
@@ -344,6 +382,17 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
                     return False, f"Non-numeric values in GRN: {grn}"
                 
                 return True, "Valid standard GRN format"
+
+            elif pattern_name in {'standard_insertion', 'standard_insertion_x'}:
+                separator = 'x' if 'x' in grn else '.'
+                helix_str, encoded_position = grn.split(separator, 1)
+                helix = int(helix_str)
+                base_position = int(encoded_position[:2])
+                if not (0 <= helix <= 9):
+                    return False, f"Invalid helix number in insertion GRN: {grn}"
+                if not (1 <= base_position <= 99):
+                    return False, f"Invalid base position in insertion GRN: {grn}"
+                return True, "Valid insertion/bulge GRN format"
                 
             # Standard dot notation rules
             elif pattern_name == 'standard_dot':
@@ -366,7 +415,7 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
                 return True, "Valid standard dot notation GRN format"
                 
             # Loop region rules  
-            elif pattern_name == 'loop':
+            elif pattern_name in {'loop', 'loop_x'}:
                 # Additional validation for loop format
                 match = pattern.match(grn)
                 helix1, helix2, distance = match.groups()
@@ -396,6 +445,12 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
                 if position < 1:
                     return False, f"Invalid CGN/CAN position in {grn}"
                 return True, "Valid CGN/CAN dot notation GRN format"
+
+            elif pattern_name == 'hierarchical_dot':
+                position = int(grn.rsplit('.', 1)[1])
+                if position < 1:
+                    return False, f"Invalid hierarchical GRN position in {grn}"
+                return True, "Valid hierarchical dot notation GRN format"
     
     # If no pattern matched
     return False, f"GRN string '{grn}' does not match any known pattern"
@@ -491,7 +546,11 @@ def sort_grns(grn_floats: List[float]) -> List[float]:
     return result
 
 
-def sort_grns_str(grn_strs: List[str], notation_type: str = None) -> List[str]:
+def sort_grns_str(
+    grn_strs: List[str],
+    notation_type: str = None,
+    segment_order: Optional[List[str]] = None,
+) -> List[str]:
     """Sort a list of GRN strings with proper helix-loop-helix ordering.
     
     Args:
@@ -499,7 +558,29 @@ def sort_grns_str(grn_strs: List[str], notation_type: str = None) -> List[str]:
         notation_type: If specified, convert output to this notation ('dot' or 'x').
                       If None, preserve original notation.
     """
-    # Convert to floats for sorting
+    # Hierarchical labels are deliberately not converted to floats: doing so
+    # would collapse every non-numeric segment to the legacy parser's 0.0
+    # fallback. Segment order is supplied by the reference table, or inferred
+    # from first appearance; it is never guessed alphabetically.
+    hierarchical = re.compile(GRN_PATTERNS['hierarchical_dot'])
+    if grn_strs and all(hierarchical.match(str(grn)) for grn in grn_strs):
+        if notation_type not in (None, 'dot'):
+            raise ValueError("Hierarchical GRNs cannot be converted to x notation")
+
+        observed_segments = list(
+            dict.fromkeys(str(label).rsplit('.', 1)[0] for label in grn_strs)
+        )
+        ordered_segments = segment_order or observed_segments
+        segment_rank = {segment: index for index, segment in enumerate(ordered_segments)}
+
+        def hierarchical_key(label: str):
+            prefix, position = label.rsplit('.', 1)
+            return segment_rank.get(prefix, len(segment_rank)), int(position), label
+
+        return sorted((str(grn) for grn in grn_strs), key=hierarchical_key)
+
+    # Convert legacy numeric labels to floats for their specialized
+    # helix-loop-tail ordering.
     grn_floats = [parse_grn_str2float(g) for g in grn_strs]
     
     # Sort using our custom sort function

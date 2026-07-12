@@ -1,0 +1,393 @@
+"""Behavioural tests for segment-based, gap-aware GRN annotation."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from protos.analysis.sequence.alignment_engine import (
+    SequenceAlignmentEngine,
+    SequenceAlignmentResult,
+)
+from protos.processing.grn.grn_processor import GRNProcessor
+from protos.processing.grn.assign_grns import assign_grns_to_sequences
+from protos.processing.grn.grn_utils import (
+    normalize_grn_format,
+    parse_grn_str2float,
+    sort_grns_str,
+    validate_grn_string,
+)
+
+
+BUNDLE = Path(__file__).parents[1] / "src" / "protos" / "reference_data" / "grn"
+MANIFEST = json.loads((BUNDLE / "manifest.json").read_text())
+REFERENCE_TABLES = sorted(MANIFEST["files"])
+
+
+def projection(
+    query: str,
+    reference: str,
+    labels: list[str],
+    columns: list[str] | None = None,
+    *,
+    assign_insertions: bool = False,
+):
+    result = SequenceAlignmentResult(
+        seq1_id="query",
+        seq2_id="reference",
+        score=0.0,
+        alignment=[query, "".join("|" if q == r else "-" for q, r in zip(query, reference)), reference],
+        method="test",
+    )
+    processor = object.__new__(GRNProcessor)
+    return processor._project_alignment(
+        "query",
+        result,
+        labels,
+        columns or labels,
+        sequence_grn_order=columns or labels,
+        assign_unambiguous_insertions=assign_insertions,
+    )
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "1.50",
+        "12.003",
+        "12x47",
+        "1.411",
+        "5x461",
+        "n.09",
+        "c.01",
+        "TM1.50",
+        "G.HN.03",
+        "H.ha-hb.01",
+        "A.H1.50",
+        "arrestin.N.S1.01",
+    ],
+)
+def test_segment_identifiers_can_be_numeric_or_arbitrary_strings(label: str) -> None:
+    assert validate_grn_string(label)[0]
+
+
+@pytest.mark.parametrize(
+    "label",
+    ["G..03", ".HN.03", "G.HN.", "G.HN.zero", "G.HN.00", "segment"],
+)
+def test_malformed_segment_labels_are_rejected(label: str) -> None:
+    assert not validate_grn_string(label)[0]
+
+
+def test_numeric_normalization_and_float_behaviour_are_unchanged() -> None:
+    assert normalize_grn_format("1x50") == "1.50"
+    assert normalize_grn_format("12x005") == "12.005"
+    assert parse_grn_str2float("1.50") == 1.5
+    assert parse_grn_str2float("1x50") == 1.5
+    assert parse_grn_str2float("12x001") == 12.001
+    assert sort_grns_str(["2.50", "12.001", "1.50"]) == [
+        "1.50",
+        "12.001",
+        "2.50",
+    ]
+    processor = object.__new__(GRNProcessor)
+    assert processor._normalize_columns(["1x50", "1x411", "12x001"]) == [
+        "1.50",
+        "1.411",
+        "12.001",
+    ]
+
+
+def test_hierarchical_sort_uses_reference_segment_order_not_lexical_order() -> None:
+    labels = ["Z.loop.02", "Z.loop.01", "A.helix.02", "A.helix.01"]
+    assert sort_grns_str(labels) == [
+        "Z.loop.01",
+        "Z.loop.02",
+        "A.helix.01",
+        "A.helix.02",
+    ]
+    assert sort_grns_str(labels, segment_order=["A.helix", "Z.loop"]) == [
+        "A.helix.01",
+        "A.helix.02",
+        "Z.loop.01",
+        "Z.loop.02",
+    ]
+
+
+def test_reference_order_is_inferred_from_sequence_positions() -> None:
+    table = pd.DataFrame(
+        [["B2", "A1", "C3", "D4"]],
+        index=["ref"],
+        columns=["Z.segment.02", "A.first.01", "Z.segment.03", "loop.named.01"],
+    )
+    assert GRNProcessor._infer_reference_grn_order(table) == [
+        "A.first.01",
+        "Z.segment.02",
+        "Z.segment.03",
+        "loop.named.01",
+    ]
+
+
+def test_empty_columns_inherit_segment_direction_and_gpcr_insertions_sort_locally() -> None:
+    reverse_segment = pd.DataFrame(
+        [["C3", "-", "A1"]],
+        index=["ref"],
+        columns=["named.01", "named.02", "named.03"],
+    )
+    assert GRNProcessor._infer_reference_grn_order(reverse_segment) == [
+        "named.03",
+        "named.02",
+        "named.01",
+    ]
+
+    gpcr_insert = pd.DataFrame(
+        [["A1", "B2", "C3"]],
+        index=["ref"],
+        columns=["1.41", "1.411", "1.42"],
+    )
+    assert GRNProcessor._infer_reference_grn_order(gpcr_insert) == [
+        "1.41",
+        "1.411",
+        "1.42",
+    ]
+
+
+def test_reference_sequence_reconstruction_uses_cell_positions_not_columns() -> None:
+    table = pd.DataFrame(
+        [["C3", "A1", "B2"]],
+        index=["ref"],
+        columns=["segment.03", "segment.01", "segment.02"],
+    )
+    processor = object.__new__(GRNProcessor)
+    sequences, mappings = processor._prepare_reference_sequences(table)
+    assert sequences == {"ref": "ABC"}
+    assert mappings == {"ref": ["segment.01", "segment.02", "segment.03"]}
+
+
+def test_reference_sequence_reconstruction_rejects_duplicate_positions() -> None:
+    table = pd.DataFrame(
+        [["A1", "B1"]], index=["broken"], columns=["one.01", "two.01"]
+    )
+    with pytest.raises(ValueError, match="duplicate sequence positions"):
+        GRNProcessor._prepare_reference_sequences(object.__new__(GRNProcessor), table)
+
+
+def test_internal_insertion_is_detected_and_downstream_positions_are_corrected() -> None:
+    row, coverage, assigned, indels = projection(
+        "ACXDE",
+        "AC-DE",
+        ["S.01", "S.02", "S.03", "S.04"],
+    )
+    assert row.to_dict() == {"S.01": "A1", "S.02": "C2", "S.03": "D4", "S.04": "E5"}
+    assert coverage == 1.0
+    assert assigned == 4
+    assert indels["insertion_residues"] == 1
+    assert indels["insertions"][0] == {
+        "after_grn": "S.02",
+        "before_grn": "S.03",
+        "query_start": 3,
+        "query_end": 3,
+        "residues": "X",
+        "candidate_grns": [],
+        "assignment": "unassigned",
+        "kind": "internal_insertion",
+    }
+
+
+def test_deletion_is_detected_and_deleted_grn_remains_empty() -> None:
+    row, coverage, assigned, indels = projection(
+        "AC-DE",
+        "ACXDE",
+        ["S.01", "S.02", "loop.01", "S.03", "S.04"],
+    )
+    assert row["loop.01"] == "-"
+    assert row["S.03"] == "D3"
+    assert row["S.04"] == "E4"
+    assert coverage == pytest.approx(4 / 5)
+    assert assigned == 4
+    assert indels["deletion_residues"] == 1
+    assert indels["deletions"] == [
+        {
+            "grns": ["loop.01"],
+            "reference_residues": "X",
+            "after_query_position": 2,
+        }
+    ]
+
+
+def test_unambiguous_insertion_can_fill_an_existing_empty_reference_column() -> None:
+    columns = ["S.01", "S.02", "loop.named.01", "S.03", "S.04"]
+    row, coverage, assigned, indels = projection(
+        "ACXDE",
+        "AC-DE",
+        ["S.01", "S.02", "S.03", "S.04"],
+        columns,
+        assign_insertions=True,
+    )
+    assert row["loop.named.01"] == "X3"
+    assert row["S.03"] == "D4"
+    assert coverage == 1.0
+    assert assigned == 5
+    assert indels["insertions"][0]["candidate_grns"] == ["loop.named.01"]
+    assert indels["insertions"][0]["assignment"] == "assigned_exact_candidate_count"
+
+
+def test_ambiguous_insertion_candidates_are_reported_but_not_guessed() -> None:
+    columns = ["S.01", "S.02", "loop.01", "loop.02", "S.03", "S.04"]
+    row, _, _, indels = projection(
+        "ACXDE",
+        "AC-DE",
+        ["S.01", "S.02", "S.03", "S.04"],
+        columns,
+        assign_insertions=True,
+    )
+    assert row["loop.01"] == row["loop.02"] == "-"
+    assert indels["insertions"][0]["candidate_grns"] == ["loop.01", "loop.02"]
+    assert indels["insertions"][0]["assignment"] == "unassigned"
+
+
+def test_terminal_overhang_is_not_counted_as_internal_insertion() -> None:
+    _, _, _, indels = projection("XXACDEYY", "--ACDE--", ["S.01", "S.02", "S.03", "S.04"])
+    assert indels["insertion_residues"] == 0
+    assert indels["terminal_overhang_residues"] == 4
+    assert [event["kind"] for event in indels["insertions"]] == [
+        "n_terminal_overhang",
+        "c_terminal_overhang",
+    ]
+
+
+def test_gap_parameters_are_actually_applied_to_biopython() -> None:
+    engine = SequenceAlignmentEngine(
+        open_gap_score=-7.0, extend_gap_score=-0.25, end_gap_score=-1.5
+    )
+    assert engine.gap_parameters == {
+        "open_gap_score": -7.0,
+        "extend_gap_score": -0.25,
+        "end_gap_score": -1.5,
+    }
+    assert engine._aligner.open_internal_gap_score == -7.0
+    assert engine._aligner.extend_internal_gap_score == -0.25
+    assert engine._aligner.end_insertion_score == -1.5
+    assert engine._aligner.end_deletion_score == -1.5
+
+
+def test_legacy_expansion_entry_point_bypasses_numeric_math_for_string_segments() -> None:
+    reference = pd.DataFrame(
+        [["A1", "C2", "D3", "E4"]],
+        index=["segment_reference"],
+        columns=["G.HN.01", "G.HN.02", "G.HN.03", "G.HN.04"],
+    )
+    annotations, metadata = assign_grns_to_sequences(
+        {"query": "ACDE"}, reference, protein_family="cgn", use_mmseqs=False
+    )
+    assert annotations.loc["query"].tolist() == ["A1", "C2", "D3", "E4"]
+    assert metadata["query"]["expansion_method"] == "segment_projection"
+
+
+def test_legacy_expansion_does_not_float_convert_gpcr_bulge_labels() -> None:
+    reference = pd.DataFrame(
+        [["A1", "C2", "D3"]],
+        index=["bulge_reference"],
+        columns=["1.41", "1.411", "1.42"],
+    )
+    annotations, metadata = assign_grns_to_sequences(
+        {"query": "ACD"}, reference, protein_family="gpcr_a", use_mmseqs=False
+    )
+    assert annotations.loc["query"].tolist() == ["A1", "C2", "D3"]
+    assert metadata["query"]["expansion_method"] == "segment_projection"
+
+
+def public_processor_with_table(table: pd.DataFrame) -> GRNProcessor:
+    processor = object.__new__(GRNProcessor)
+    processor.load_reference_table = lambda _name: table
+    return processor
+
+
+def test_public_annotation_reports_invalid_and_empty_sequences_without_crashing() -> None:
+    reference = pd.DataFrame(
+        [["A1", "C2"]], index=["ref"], columns=["segment.01", "segment.02"]
+    )
+    annotations, summary = public_processor_with_table(reference).annotate_sequences(
+        {"empty": "", "invalid": "AC?"},
+        reference_table="memory",
+        protein_family="arbitrary",
+    )
+    assert summary["per_sequence"]["empty"]["status"] == "empty_sequence"
+    assert summary["per_sequence"]["invalid"]["status"] == "invalid_sequence"
+    assert (annotations == "-").all(axis=None)
+
+
+def test_public_annotation_threshold_rejects_result_without_losing_diagnostics() -> None:
+    reference = pd.DataFrame(
+        [["A1", "C2"]], index=["ref"], columns=["segment.01", "segment.02"]
+    )
+    annotations, summary = public_processor_with_table(reference).annotate_sequences(
+        {"query": "AC"},
+        reference_table="memory",
+        protein_family="arbitrary",
+        min_coverage=1.01,
+    )
+    info = summary["per_sequence"]["query"]
+    assert info["status"] == "below_threshold"
+    assert info["coverage"] == 1.0
+    assert info["assigned_positions"] == 2
+    assert summary["global"]["annotated"] == 0
+    assert (annotations.loc["query"] == "-").all()
+
+
+def test_public_annotation_rejects_unknown_search_and_empty_reference() -> None:
+    reference = pd.DataFrame(
+        [["A1"]], index=["ref"], columns=["segment.01"]
+    )
+    with pytest.raises(ValueError, match="Unsupported GRN reference search"):
+        public_processor_with_table(reference).annotate_sequences(
+            {"query": "A"},
+            reference_table="memory",
+            protein_family="arbitrary",
+            search="magic",
+        )
+    with pytest.raises(ValueError, match="no usable reference sequences"):
+        public_processor_with_table(reference.iloc[:0]).annotate_sequences(
+            {"query": "A"},
+            reference_table="memory",
+            protein_family="arbitrary",
+        )
+
+
+@pytest.mark.parametrize("table_name", REFERENCE_TABLES)
+def test_a_real_member_round_trips_through_every_bundled_table(table_name: str) -> None:
+    table = pd.read_csv(BUNDLE / "reference" / table_name, index_col=0, dtype=str).fillna("-")
+    assert all(
+        validate_grn_string(str(column))[0] for column in table.columns
+    ), f"{table_name} contains a GRN rejected by the validator"
+    if table.empty:
+        assert table_name == "gpcrdb_class_d1.csv"
+        return
+
+    processor = object.__new__(GRNProcessor)
+    sequences, mappings = processor._prepare_reference_sequences(table)
+    assert sequences, f"{table_name} has no usable member sequences"
+    member = max(sequences, key=lambda name: len(sequences[name]))
+    engine = SequenceAlignmentEngine()
+    best_ref, alignment, score = processor._find_best_reference(
+        member, sequences[member], sequences, engine
+    )
+    assert alignment is not None
+    assert best_ref is not None
+    assert score > 0
+
+    row, coverage, assigned, indels = processor._project_alignment(
+        member,
+        alignment,
+        mappings[best_ref],
+        [str(column) for column in table.columns],
+        sequence_grn_order=processor._infer_reference_grn_order(table),
+    )
+    assert assigned == len(mappings[best_ref])
+    assert coverage == 1.0
+    assert indels["insertion_residues"] == 0
+    assert indels["deletion_residues"] == 0
+    assert sum(value != "-" for value in row) == assigned

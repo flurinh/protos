@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -27,6 +28,9 @@ from protos.processing.sequence.seq_alignment import mmseqs2_align2
 logger = logging.getLogger(__name__)
 
 _GAP_TOKENS = {GRN_GAP_SYMBOL, GRN_UNKNOWN_SYMBOL, '-', 'X', None}
+_NUMERIC_EXPANSION_LABEL = re.compile(
+    r"^(?:[1-8][x.][0-9]{1,2}|[1-8][1-8][x.][0-9]+|[nc]\.[0-9]+)$"
+)
 
 
 def _sanitize_sequence(sequence: str) -> str:
@@ -71,14 +75,28 @@ def _select_mmseqs_hits(hits: pd.DataFrame) -> Dict[str, Dict[str, float]]:
 
 def _build_reference_sequences(reference_table: pd.DataFrame) -> Dict[str, str]:
     sequences: Dict[str, str] = {}
-    for ref_id in reference_table.index:
-        seq = get_seq(ref_id, reference_table)
-        if not seq:
+    for ref_id, row in reference_table.iterrows():
+        mapped = _ordered_reference_items(row)
+        if not mapped:
             continue
-        sanitized = _sanitize_sequence(seq)
+        sanitized = _sanitize_sequence("".join(residue for _, residue, _ in mapped))
         if sanitized:
             sequences[ref_id] = sanitized
     return sequences
+
+
+def _ordered_reference_items(row: pd.Series) -> List[Tuple[int, str, str]]:
+    mapped: List[Tuple[int, str, str]] = []
+    for grn, value in row.items():
+        if not isinstance(value, str) or value in _GAP_TOKENS or len(value) < 2:
+            continue
+        try:
+            sequence_position = int(value[1:])
+        except ValueError:
+            continue
+        mapped.append((sequence_position, value[0], str(grn)))
+    mapped.sort(key=lambda item: item[0])
+    return mapped
 
 
 def _determine_strict_grns(
@@ -113,15 +131,11 @@ def _construct_seed_row(
     reference_row: pd.Series,
     alignment_lines: Sequence[str],
 ) -> pd.Series:
-    ref_dict = {
-        grn: val
-        for grn, val in reference_row.items()
-        if val not in _GAP_TOKENS
-    }
-    if not ref_dict:
+    mapped = _ordered_reference_items(reference_row)
+    if not mapped:
         return pd.Series(dtype=object)
 
-    seq_pos2grn = {idx + 1: grn for idx, grn in enumerate(ref_dict.keys())}
+    seq_pos2grn = {idx + 1: grn for idx, (_, _, grn) in enumerate(mapped)}
     seed_row = init_row_from_alignment(list(alignment_lines), seq_pos2grn)
     return seed_row.replace({None: '-'})
 
@@ -257,18 +271,31 @@ def assign_grns_to_sequences(
             filtered_seed = seed_row
 
         family = protein_family or 'gpcr_a'
-        try:
-            grn_list, rn_list = _expand_row(
-                filtered_seed,
-                sequence,
-                alignment_lines,
-                protein_family=family,
-                verbose=verbose,
-            )
-        except Exception as exc:  # pragma: no cover - defensive fallback
-            logger.warning("GRN expansion failed for %s (%s); using seed mapping", seq_id, exc)
+        expansion_method = "numeric_gap_loop_expansion"
+        supports_numeric_expansion = all(
+            _NUMERIC_EXPANSION_LABEL.fullmatch(str(grn))
+            for grn in filtered_seed.index
+        )
+        if supports_numeric_expansion:
+            try:
+                grn_list, rn_list = _expand_row(
+                    filtered_seed,
+                    sequence,
+                    alignment_lines,
+                    protein_family=family,
+                    verbose=verbose,
+                )
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                logger.warning("GRN expansion failed for %s (%s); using seed mapping", seq_id, exc)
+                grn_list = [grn for grn, value in filtered_seed.items() if value not in _GAP_TOKENS]
+                rn_list = [filtered_seed[grn] for grn in grn_list]
+                expansion_method = "seed_projection_after_expansion_error"
+        else:
+            # The legacy expansion code performs numeric helix/loop arithmetic.
+            # Arbitrary segment identifiers must never enter that path.
             grn_list = [grn for grn, value in filtered_seed.items() if value not in _GAP_TOKENS]
             rn_list = [filtered_seed[grn] for grn in grn_list]
+            expansion_method = "segment_projection"
 
         if not grn_list:
             logger.warning("No GRNs could be assigned for %s", seq_id)
@@ -293,6 +320,7 @@ def assign_grns_to_sequences(
                 if total_reference_positions > 0
                 else 0.0
             ),
+            "expansion_method": expansion_method,
         }
 
         if mmseqs_meta:
