@@ -925,7 +925,7 @@ class EmbeddingProcessor(BaseProcessor):
         )
         return True
 
-    # --- Migration helpers: ingest artifacts produced by ModelManager ---
+    # --- Import compact embedding artifacts from external tools ---
     def ingest_from_artifact(
         self,
         dataset_name: str,
@@ -991,48 +991,3 @@ class EmbeddingProcessor(BaseProcessor):
         self.create_dataset(dataset_name, entity_names, ds_meta)
 
         return dataset_name
-
-    def ingest_from_invocation(self, invocation: Any, dataset_name: Optional[str] = None) -> str:
-        """Create a dataset from a ModelInvocation that produced embeddings.
-
-        Looks for an output artifact with kind 'embedding' and format 'npz', and
-        uses its metadata for defaults.
-        """
-        try:
-            from protos.models.model_specs import ModelInvocation as _MI
-        except Exception:  # pragma: no cover - defensive import
-            _MI = Any  # type: ignore
-
-        inv = invocation  # do not type-check strictly to avoid import cycles
-        if not hasattr(inv, "outputs"):
-            raise ValueError("Invalid invocation: missing outputs")
-
-        artifact = None
-        for bundle in getattr(inv, "outputs", []) or []:
-            if getattr(bundle, "spec", None) and bundle.spec.kind == "embedding":
-                artifact = bundle
-                break
-        if artifact is None:
-            raise ValueError("No embedding artifact found in invocation outputs")
-
-        meta = artifact.metadata or {}
-        model_name = meta.get("model_name", self.model_name)
-        emb_type = meta.get("embedding_type", "per_residue")
-        sequences = None
-
-        # Determine target dataset name
-        final_name = dataset_name or meta.get("dataset")
-        if not final_name:
-            # Fallback: derive from file name
-            final_name = Path(artifact.path).stem
-
-        # Delegate to artifact-based ingest (may re-dispatch to a processor with
-        # matching model_name)
-        return self.ingest_from_artifact(
-            final_name,
-            artifact.path,
-            model_name=model_name,
-            embedding_type=emb_type,
-            sequences=sequences,
-            extra_metadata={k: v for k, v in meta.items() if k not in {"artifact_path"}},
-        )

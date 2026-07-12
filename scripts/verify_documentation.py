@@ -17,7 +17,6 @@ DOCS = [
     ROOT / "README.md",
     *sorted((ROOT / "docs").rglob("*.md")),
     ROOT / "src/protos/models/protein_design.md",
-    ROOT / "src/protos/models/remote.md",
     ROOT / "src/protos/reference_data/grn/README.md",
 ]
 

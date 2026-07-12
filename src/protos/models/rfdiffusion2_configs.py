@@ -368,7 +368,7 @@ class RFD2ConfigBuilder:
     def build(self) -> Dict[str, Any]:
         """Build the final configuration dict.
 
-        Returns config suitable for protos ModelManager.
+        Returns a configuration dictionary for RFdiffusion2 tooling.
         """
         config = {
             "job_name": self.job_name,
@@ -490,7 +490,7 @@ def partial_diffusion_config(
         **kwargs: Additional parameters for RFD2ConfigBuilder
 
     Returns:
-        Config dict for protos ModelManager
+        RFdiffusion2 configuration dictionary
     """
     builder = RFD2ConfigBuilder(
         input_pdb=input_pdb,
@@ -539,7 +539,7 @@ def scaffolding_config(
         **kwargs: Additional parameters
 
     Returns:
-        Config dict for protos ModelManager
+        RFdiffusion2 configuration dictionary
     """
     builder = RFD2ConfigBuilder(
         input_pdb=input_pdb,
@@ -614,7 +614,7 @@ def hybrid_scaffold_config(
         **kwargs: Additional parameters for RFD2ConfigBuilder
 
     Returns:
-        Config dict for protos ModelManager
+        RFdiffusion2 configuration dictionary
 
     Example:
         # Rhodozyme with 8 TM helices and connecting loops
@@ -720,7 +720,7 @@ def rhodozyme_config(
         **kwargs: Additional parameters
 
     Returns:
-        Config dict for protos ModelManager
+        RFdiffusion2 configuration dictionary
 
     Example:
         # Convert CIF to PDB first if needed

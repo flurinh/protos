@@ -1,7 +1,7 @@
-"""Protos Models - AI models integration for structural biology.
+"""Reusable model definitions and utilities for structural biology.
 
-This package provides a unified interface for integrating various AI models
-into the Protos framework, including:
+This package provides lightweight building blocks for integrating AI models
+with ProtOS, including:
 - Protein language models (ESM, ProtTrans, etc.)
 - Structure prediction models (AlphaFold, RoseTTAFold)
 - Property prediction models
@@ -14,11 +14,7 @@ The models system follows Protos design principles:
 - Automatic path management
 - Entity tracking and dataset support
 
-Key Features:
-- Docker-based models isolation (each models runs in its own container)
-- Automatic dependency management (no version conflicts)
-- Unified API regardless of backend (local or Docker)
-- Format validation and conversion
+The package intentionally does not provide model execution orchestration.
 """
 
 # Import lightweight components first (no heavy ML dependencies)
@@ -39,22 +35,12 @@ from protos.models.format_validators import (
     validate_model_compatibility, suggest_format_conversions
 )
 
-# Service components (Docker-based execution)
-from protos.models.model_service import (
-    ServiceStatus, ServiceConfig, RemoteModelService,
-    ModelServiceManager, MODEL_SERVICES
-)
-from protos.models.model_client import (
-    ModelBackend, UnifiedModelClient, predict
-)
-
 # Lazy imports for components with heavy dependencies
 _LAZY_IMPORTS = {
     "StandardModel": "protos.models.standard_model",
     "ModelRegistry": "protos.models.model_registry",
     "ModelDownloader": "protos.models.model_downloader",
     "ModelInstaller": "protos.models.model_installer",
-    "ModelManager": "protos.models.model_manager",
 }
 
 def __getattr__(name):
@@ -106,14 +92,8 @@ __all__ = [
     'validate_model_compatibility',
     'suggest_format_conversions',
     
-    # Service components
-    "ServiceStatus", "ServiceConfig", "RemoteModelService",
-    "ModelServiceManager", "MODEL_SERVICES",
-    "ModelBackend", "UnifiedModelClient", "predict",
-    
     # Lazy-loaded components
-    "StandardModel", "ModelRegistry", "ModelDownloader", "ModelInstaller",
-    "ModelManager"
+    "StandardModel", "ModelRegistry", "ModelDownloader", "ModelInstaller"
 ]
 
 # Model type registry for dynamic loading - populate lazily

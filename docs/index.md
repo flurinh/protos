@@ -23,9 +23,7 @@ state. Model inference and network-backed acquisition are marked explicitly.
 
 ## Models
 
-- [ModelManager](05_model_manager.md)
-- [Current protein-design integrations](../src/protos/models/protein_design.md)
-- [Job server and client](../src/protos/models/remote.md)
+- [Standalone protein-design utilities](../src/protos/models/protein_design.md)
 
 The model implementations under `src/protos/models/boltz`, `boltzgen`, and
 `lambda` are pinned external repositories. Their own documentation is not part

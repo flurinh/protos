@@ -5,7 +5,7 @@
   Structures, sequences, GRNs, properties, and ML embeddings — every piece of data is a named entity in one registry.
 </p>
 
-<p align="center"><img src="docs/architecture.svg" alt="ProtOS architecture: explicit loaders feed managed processors and the shared registry; ModelManager resolves managed artifacts into runtime results or prepared external jobs" width="900"></p>
+<p align="center"><img src="docs/architecture.svg" alt="ProtOS architecture: explicit loaders feed managed processors and the shared registry" width="900"></p>
 
 <p align="center"><a href="https://flurinh.github.io/aboutme">◆ Portfolio</a></p>
 
@@ -24,8 +24,8 @@
 ProtOS handles structural-biology data the way a good toolkit should: you work with
 **human-readable names** (`1ubq`, `EGFR_HUMAN`) and the framework manages its data paths,
 registered artifacts, and datasets. A modular **processor** handles each data
-type, a central **registry** tracks everything, **datasets** group entities for batch work,
-and a **Model Manager** prepares external jobs or invokes registered Python runtimes.
+type, a central **registry** tracks everything, and **datasets** group entities
+for batch work.
 
 It's the analysis engine the rest of my PhD work is built on.
 
@@ -64,14 +64,14 @@ Structures, sequences, GRNs, embeddings — all one tracked registry.
 - **Entity registry** — every structure / sequence / property / embedding is an entity with a name, linkable across formats.
 - **Datasets** — named collections for batch operations across any processor.
 - **Processors** — Structure, Sequence, GRN, Embedding, Graph, Property, and Molecule.
-- **Model Manager** — assemble model inputs and prepare or invoke registered adapters.
 
 ## What it powers
 
 | Project | What it adds |
 |---------|--------------|
 | **[MOGRN](https://github.com/flurinh/MOGRN)** | a generic residue numbering for type-I opsins, built on the GRN processor |
-| **[Lambda](https://github.com/flurinh/lambda)** | a model that predicts opsin absorption (λmax), registered as a Model-Manager backend |
+| **[Lambda](https://github.com/flurinh/lambda)** | a model that predicts opsin absorption (λmax) |
 | **[ProtOS-MCP](https://github.com/flurinh/Protos_MCP)** | exposes the whole toolkit to LLM agents over the Model Context Protocol |
 
-More detail lives in [`docs/`](docs/) — unified data access, the entity registry, zero-configuration design, and the Model Manager.
+More detail lives in [`docs/`](docs/) — unified data access, the entity registry,
+zero-configuration design, processors, and standalone model utilities.

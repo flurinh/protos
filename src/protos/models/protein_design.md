@@ -1,30 +1,12 @@
 # Protein-design integrations in this repository
 
-This page records implemented ProtOS integration points. It is not a general
-protein-design protocol and does not claim that a registered model card is
-installed or experimentally validated.
-
-## ModelManager integrations
-
-`ModelManager` currently registers these design-related external cards:
-
-| Card | Implemented result of `prepare()` | External requirement |
-| --- | --- | --- |
-| `boltz2` | Boltz prediction YAML/FASTA and `boltz predict` command | Boltz CLI or maintained container |
-| `boltzgen` | BoltzGen design configuration and `boltz design` command | pinned BoltzGen checkout/environment |
-| `ligand_mpnn` | command payload from a protein PDB, optional ligand, and constraints | LigandMPNN checkout/environment |
-| `pocket2mol` | command payload from a structure, optional ligand, and bounding box | Pocket2Mol checkout/environment |
-
-Other registered cards concern docking or property prediction; see
-`../../../docs/05_model_manager.md`.
-
-There are no `RFdiffusionAdapter`, `ProteinDesignWorkflow`, binder preset, or
-enzyme preset classes in ProtOS. Older examples using those names were design
-sketches, not executable API, and have been removed.
+This page records standalone protein-design utilities implemented in ProtOS.
+It is not a general protein-design protocol and does not claim that external
+models are installed or experimentally validated.
 
 ## RFdiffusion2 helper
 
-RFdiffusion2 is not a `ModelManager` card. The tracked helper module exposes:
+The tracked RFdiffusion2 helper modules expose:
 
 - `RFD2Config` and `run_rfdiffusion2()` in `rfdiffusion2_runner.py`;
 - CIF-to-PDB/ORI preparation helpers in `rfdiffusion2_utils.py`; and
