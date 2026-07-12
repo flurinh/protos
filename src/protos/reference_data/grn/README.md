@@ -32,8 +32,9 @@ SHA-256 checksum. `gpcrdb_provenance.json` records
 the pinned upstream commit, raw inputs, transformations, coverage, and output
 checksums. The reproducible command and the annotation-algorithm comparison are
 documented in [the upstream GRN pipeline](../../../../docs/grn-upstream.md).
-`opsin_provenance.json` records the exact-sequence selection of wild-type VPOD
-type-II opsins.
+`opsin_provenance.json` records the exact-sequence selection of the VPOD 1.3
+wild-type subset and replacement of opaque GRN row hashes with unique source
+accessions.
 
 Large future bundles may move to a versioned external release. Until a manifest
 and downloader are implemented, initialization remains entirely package-local.

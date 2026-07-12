@@ -100,9 +100,13 @@ def test_gpcrdb_tables_exclude_upstream_loop_and_terminal_numbering() -> None:
 def test_type_ii_opsins_are_wild_type_only_and_have_protos_loop_policy() -> None:
     table = load_reference("type_II_opsins.csv")
     assert len(table) == 364
+    assert "U57536.1" in table.index
+    assert "NM_001014890" in table.index
+    assert not any(re.fullmatch(r"O[0-9a-f]{9}", entity) for entity in table.index)
     assert not any(re.fullmatch(r"^[1-9][1-9]\.\d+$", column) for column in table.columns)
     provenance = json.loads((BUNDLE / "opsin_provenance.json").read_text())
     assert provenance["type_II"]["wt_rows"] == 364
+    assert provenance["type_II"]["source_subset"].startswith("VPOD_1.3 WT")
     assert "Exact ungapped" in provenance["type_II"]["selection"]
 
 

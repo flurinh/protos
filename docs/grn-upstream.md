@@ -1,4 +1,4 @@
-# GPCRdb, CGN, and CAN reference-data pipeline
+# GPCRdb, opsin, CGN, and CAN reference-data pipeline
 
 ProtOS does not use the GPCRdb API at runtime. The bundled tables are generated
 offline from a pinned checkout of
@@ -48,6 +48,35 @@ pseudo-segments `0.*`/`9.*`. Those labels do not have ProtOS structural
 semantics. ProtOS instead generates directional loop coordinates from the two
 flanking structural segments and assigns `n.<distance>`/`c.<distance>` from the
 nearest terminal structural segment.
+
+## Opsin tables
+
+`scripts/update_opsin_references.py` normalizes the type-I table and selects the
+type-II reference from an already annotated full VPOD table. The type-II rows
+are selected by exact ungapped sequence equality against VPOD's WT FASTA. The
+matching VPOD metadata must contain unique accessions and sequences and no
+non-empty `Mutations` values. The accessions replace the source table's opaque
+row hashes. The current bundle uses the VPOD 1.3 WT FASTA and metadata; these
+contain the same 364 WT protein sequences as VPOD 1.2.
+
+The command requires an unmodified, full type-II GRN source table because the
+distributed table is intentionally WT-only:
+
+```bash
+python scripts/update_opsin_references.py \
+  --type-i src/protos/reference_data/grn/reference/type_I_opsins.csv \
+  --type-ii-all /path/to/full_type_II_opsins.csv \
+  --type-ii-wt-fasta /path/to/VPOD_1.3/wt_aligned_VPOD_1.3_het.fasta \
+  --type-ii-wt-metadata /path/to/VPOD_1.3/wt_meta.tsv \
+  --source-version VPOD_1.3 \
+  --source-revision <vpod-git-commit> \
+  --output-dir src/protos/reference_data/grn/reference \
+  --provenance src/protos/reference_data/grn/opsin_provenance.json
+```
+
+The provenance records checksums for the full GRN source table, WT FASTA,
+metadata, and both output tables. GPCR-style directional loop columns are
+removed from type-II for the same reason they are removed from GPCRdb imports.
 
 ## Annotation-algorithm comparison
 

@@ -7,11 +7,13 @@
   },
   "type_II": {
     "source_repository": "https://github.com/VisualPhysiologyDB/visual-physiology-opsin-db",
-    "source_revision": "28b740d8b0fbfe9cf66df2761a597bb7543f283c",
-    "source_subset": "VPOD_1.2 WT heterologous aligned FASTA",
+    "source_revision": "e74547cdbc107b45e36e1b02d6f06f50a41e4ebd",
+    "source_subset": "VPOD_1.3 WT heterologous aligned FASTA",
     "source_license": "GPL-3.0",
     "wt_fasta_sha256": "d24e95ac5c72a7b8e3ea5cbd301b0008ffa9fab18c5302aaaf8cf4098934df27",
-    "selection": "Exact ungapped amino-acid sequence match to the upstream WT subset.",
+    "selection": "Exact ungapped amino-acid sequence match to the upstream WT subset; opaque GRN row hashes replaced by unique source accessions.",
+    "wt_metadata_sha256": "6c5ac3756525e3a1c59d1f9780359ed1dd62030460371d4195e38da805985849",
+    "source_table_sha256": "22c448ab296495009150e7f6b5941c9a86989911fa94c1a0a770a96531a64000",
     "input_rows": 1212,
     "wt_rows": 364,
     "excluded_directional_loop_columns": [
@@ -88,6 +90,6 @@
   },
   "files": {
     "type_I_opsins.csv": "3038b6c1a3a41c9e0585d3be8bee4eb7cb915c2b63e55a7bd2149a5a49852598",
-    "type_II_opsins.csv": "5b3ace6da7a7e9b225864186482252f10b6c5d7ead03dbf05fc8a9293a1246d2"
+    "type_II_opsins.csv": "ec47223ad383cc5eac2f1d96bba9781918594fff068fc959057db0a919dffe04"
   }
 }
