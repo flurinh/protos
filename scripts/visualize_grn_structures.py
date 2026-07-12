@@ -89,6 +89,7 @@ def main() -> None:
                 protein_family=protein_family,
                 chains=[chain],
                 residue_ranges={chain: residue_range} if residue_range else None,
+                assign_insertions=True,
                 save=True,
                 return_summary=True,
             )
@@ -98,6 +99,7 @@ def main() -> None:
                     "chain": chain,
                     "reference_table": reference_table,
                     "auth_residue_range": residue_range,
+                    "assign_insertions": True,
                     "status": info.get("status"),
                     "reference": info.get("reference"),
                     "coverage": info.get("coverage"),

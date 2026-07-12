@@ -44,7 +44,6 @@ OFFLINE_UNIPROT_CASES = [
     ("Q9NYV8|TAS2R14_HUMAN", "gpcrdb_class_t2", "TAS2R14-Human"),
     ("P51810|GPR143_HUMAN", "gpcrdb_unclassified", "GPR143-Human"),
     ("P07550|ADRB2_HUMAN", "gpcrdb_ref", "beta2-adrenoceptor-Human"),
-    ("P07550|ADRB2_HUMAN", "gpcr_a_core", "beta2-adrenoceptor-Human"),
     ("P63092|GNAS2_HUMAN", "cgn_galpha_gs_human", "GNAS2_HUMAN"),
     ("P63096|GNAI1_HUMAN", "cgn_galpha_gio_human", "GNAI1_HUMAN"),
     ("P50148|GNAQ_HUMAN", "cgn_galpha_gq11_human", "GNAQ_HUMAN"),
@@ -462,14 +461,23 @@ def test_non_exact_candidate_set_is_preserved_while_new_insertion_column_is_crea
     assert indels["insertions"][0]["assignment"] == "assigned_generated_coordinates"
 
 
-def test_terminal_overhang_is_not_counted_as_internal_insertion() -> None:
-    _, _, _, indels = projection("XXACDEYY", "--ACDE--", ["S.01", "S.02", "S.03", "S.04"])
+def test_terminal_overhang_uses_protos_distance_coordinates() -> None:
+    row, coverage, assigned, indels = projection(
+        "XXACDEYY", "--ACDE--", ["S.01", "S.02", "S.03", "S.04"]
+    )
+    assert row[["n.2", "n.1", "c.1", "c.2"]].tolist() == ["X1", "X2", "Y7", "Y8"]
+    assert assigned == 8
+    assert coverage == 1.0
     assert indels["insertion_residues"] == 0
     assert indels["terminal_overhang_residues"] == 4
     assert [event["kind"] for event in indels["insertions"]] == [
         "n_terminal_overhang",
         "c_terminal_overhang",
     ]
+    assert all(
+        event["assignment"] == "assigned_terminal_coordinates"
+        for event in indels["insertions"]
+    )
 
 
 def test_gap_parameters_are_actually_applied_to_biopython() -> None:

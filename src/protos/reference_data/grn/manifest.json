@@ -3,38 +3,30 @@
   "bundle_version": "2026.07.12",
   "distribution": "bundled",
   "files": {
-    "bistable_ao.csv": "b07b7b518790025934694866ca7dff5a2ba47bab0e5ca0c144994130299de7c4",
     "can_arrestin_human.csv": "b6641a01a803713c3d454b860c1d62e5e727e5b6aa5f85c3a2b0362db9f800e8",
     "cgn_galpha_g1213_human.csv": "8df569c5cb1a59359a9d468b749abbd2947759c189060bb7a571fad8f183fe5c",
     "cgn_galpha_gio_human.csv": "ba731fef88ed34736c27b32f9801b59aac48b2080fd19358447a1a46f234f7e5",
     "cgn_galpha_gq11_human.csv": "a788ab02a58a6e5dfa53a5fe753861e166cacf2418afca4d0761911ae256766a",
     "cgn_galpha_gs_human.csv": "acdb5cd7eb4e1d29dfa8aac296266b03933a8009b127b6f101ae9673500f176b",
     "cgn_galpha_human.csv": "b434a9cb78e64061d1ef30724f3d6ecb527a5d426974f7afde0df4daa47a75b7",
-    "gpcr_a_core.csv": "ebe73181d7122d399ccb7bbcf13841ced8f960cf433cbf9f593fb174e49b69c5",
-    "gpcrdb_class_a.csv": "841ef1644a23e271b430f7a6de422eb765ce53adefac8445efecab8ce4215dea",
-    "gpcrdb_class_b1.csv": "8a6581b62d0698bbbf85fb4e3d83c041cfa891719fdccf8ba470ebc0edff07c5",
-    "gpcrdb_class_b2.csv": "ba2eaa4000a5cbacbd8fcc9659ff5bac4671b05c10462dbb176f44057d786f28",
-    "gpcrdb_class_c.csv": "319a25430a8372c884b7d78b1f2ee1a0265072c68e396ef2083c1f9f7932ac9b",
-    "gpcrdb_class_d1.csv": "94a1c52e02f5d42d1d3b01c2c392069f3e0dcfaf2d2ae3089fbfa1860d17931a",
-    "gpcrdb_class_f.csv": "8e37af33063073add53888702fb0780200dad6ec06eb3932862db61b337f6717",
-    "gpcrdb_class_o1.csv": "f12a0d2fff7ae6b5b43b964a810ace2d990d0ae55ec6c2d5e72c1996da68cca6",
-    "gpcrdb_class_o2.csv": "2978275e7242fe47b505f84052f22e374e472456387c3e838cdfdb1cac037c65",
-    "gpcrdb_class_t2.csv": "73a4f15c151e26df0b899a61f2aa45264340959ff1921a5e18f572c46c597085",
-    "gpcrdb_ref.csv": "63b740f2188cca152203f777294e01b65d65ec8bd8e7c1c58ffff9c34953773a",
-    "gpcrdb_unclassified.csv": "4501ad465981dacd68ddd20277d4cd33ec98dc9c65dcb259876bdd1fee855b05",
-    "hCRBPII.csv": "5eb8d0a9e0f3ee6046ca7d3420d3b9fc2dcdd500269c20d70ee93d49d92a4b1a",
-    "inoue.csv": "514512b2851c741dda0b233518eb70ac4d3a89dc35993de902a7a88e09ada74b",
-    "mo_ref.csv": "a4456ed674b20563ffdf8832ebead1a8bba90ecf187f9ee423a6a8bb771a1229",
-    "ref.csv": "d0eff20dcf2a1a5b9a0835da987691d6132ffed610681b0756522c01cc409b63",
-    "type_II_opsins.csv": "22c448ab296495009150e7f6b5941c9a86989911fa94c1a0a770a96531a64000",
-    "type_I_opsins.csv": "3038b6c1a3a41c9e0585d3be8bee4eb7cb915c2b63e55a7bd2149a5a49852598",
-    "vpod1_2.csv": "22c448ab296495009150e7f6b5941c9a86989911fa94c1a0a770a96531a64000"
+    "gpcrdb_class_a.csv": "8418963f83adae2a0df67538b73b70ed0d8402a37b64bec6ffbecf7bea0d956c",
+    "gpcrdb_class_b1.csv": "415fbf7fb3f8bfee0d101be519ddef418f57669b74ec1c80582e71bf82457672",
+    "gpcrdb_class_b2.csv": "d36e59080f728d1fca092bd16d005a6ccf06c9a098050de57b50db559002b040",
+    "gpcrdb_class_c.csv": "f1cf461a03dfe34a565227a1652c5855caad51cb06752ed43204c56dc6d79163",
+    "gpcrdb_class_d1.csv": "550b0ddd6f174290c0cf9013c950e927a400ac83190e2b6b1576ab73350e8011",
+    "gpcrdb_class_f.csv": "d3f5f6a0a528c9536661d157fea0e408f3059f646043fd26da21225fc7e0fb2b",
+    "gpcrdb_class_o1.csv": "55f074b6d62d55a9f3d0cf9863d6debaf5a48e9274e9e9f0e5aeaabe0047176b",
+    "gpcrdb_class_o2.csv": "f2f9033c357305be071b4feb47982b8d2663ae8c966d4a2d39dfed16e110fa5d",
+    "gpcrdb_class_t2.csv": "3be8dbefa0e6843e3df8ace64b8594428e808dadec6bbb7dda898a92148831bd",
+    "gpcrdb_ref.csv": "96a500d68317933974e7182c082606e574b100af831b675ba3d8db3bde4b1c26",
+    "gpcrdb_unclassified.csv": "45325f67abe4d15a7cc720839c9be2a982d8d3f8191cb0fc90cc7e16417ccef4",
+    "type_II_opsins.csv": "5b3ace6da7a7e9b225864186482252f10b6c5d7ead03dbf05fc8a9293a1246d2",
+    "type_I_opsins.csv": "3038b6c1a3a41c9e0585d3be8bee4eb7cb915c2b63e55a7bd2149a5a49852598"
   },
-  "aliases": {
-    "vpod1_2.csv": "type_II_opsins.csv"
-  },
+  "aliases": {},
   "provenance": {
     "gpcrdb": "gpcrdb_provenance.json",
-    "policy": "No runtime API or network fetch; regenerate from pinned raw sources."
+    "policy": "No runtime API or network fetch; regenerate from pinned raw sources.",
+    "opsins": "opsin_provenance.json"
   }
 }

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +14,28 @@ from protos.io.paths.path_config import ProtosPaths
 
 
 BUNDLE = Path(__file__).parents[1] / "src" / "protos" / "reference_data" / "grn"
+MANIFEST = json.loads((BUNDLE / "manifest.json").read_text(encoding="utf-8"))
+SUPPORTED_TABLES = {
+    "can_arrestin_human.csv",
+    "cgn_galpha_g1213_human.csv",
+    "cgn_galpha_gio_human.csv",
+    "cgn_galpha_gq11_human.csv",
+    "cgn_galpha_gs_human.csv",
+    "cgn_galpha_human.csv",
+    "gpcrdb_class_a.csv",
+    "gpcrdb_class_b1.csv",
+    "gpcrdb_class_b2.csv",
+    "gpcrdb_class_c.csv",
+    "gpcrdb_class_d1.csv",
+    "gpcrdb_class_f.csv",
+    "gpcrdb_class_o1.csv",
+    "gpcrdb_class_o2.csv",
+    "gpcrdb_class_t2.csv",
+    "gpcrdb_ref.csv",
+    "gpcrdb_unclassified.csv",
+    "type_I_opsins.csv",
+    "type_II_opsins.csv",
+}
 
 
 def load_reference(name: str) -> pd.DataFrame:
@@ -60,6 +84,28 @@ def test_receptor_class_tables_partition_the_export() -> None:
     assert provenance["source"]["runtime_api_used"] is False
 
 
+def test_bundle_contains_only_supported_current_tables() -> None:
+    present = {path.name for path in (BUNDLE / "reference").glob("*.csv")}
+    assert present == SUPPORTED_TABLES
+
+
+def test_gpcrdb_tables_exclude_upstream_loop_and_terminal_numbering() -> None:
+    forbidden = re.compile(r"^(?:0|9)\.\d+$|^[1-9][1-9]\.\d+$")
+    for path in (BUNDLE / "reference").glob("gpcrdb_*.csv"):
+        table = load_reference(path.name)
+        assert table.shape[1] == 424
+        assert not any("x" in column or forbidden.fullmatch(column) for column in table.columns)
+
+
+def test_type_ii_opsins_are_wild_type_only_and_have_protos_loop_policy() -> None:
+    table = load_reference("type_II_opsins.csv")
+    assert len(table) == 364
+    assert not any(re.fullmatch(r"^[1-9][1-9]\.\d+$", column) for column in table.columns)
+    provenance = json.loads((BUNDLE / "opsin_provenance.json").read_text())
+    assert provenance["type_II"]["wt_rows"] == 364
+    assert "Exact ungapped" in provenance["type_II"]["selection"]
+
+
 def test_fresh_data_root_installs_and_annotates_without_network(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -74,6 +120,8 @@ def test_fresh_data_root_installs_and_annotates_without_network(
     assert (installed / "reference" / "gpcrdb_class_b2.csv").is_file()
     assert (installed / "reference" / "cgn_galpha_human.csv").is_file()
     assert (installed / "reference" / "can_arrestin_human.csv").is_file()
+    assert not (installed / "reference" / "gpcr_a_core.csv").exists()
+    assert not (installed / "reference" / "vpod1_2.csv").exists()
 
     monkeypatch.setattr(path_config, "_paths_instance", paths)
     monkeypatch.setattr(ProtosPaths, "_instance", paths)
@@ -86,3 +134,36 @@ def test_fresh_data_root_installs_and_annotates_without_network(
     )
     assert summary["per_sequence"]["P07550|ADRB2_HUMAN"]["status"] == "ok"
     assert (annotations.loc["P07550|ADRB2_HUMAN"] != "-").any()
+
+
+def test_reference_install_repairs_damage_and_force_removes_unbundled_csvs(
+    tmp_path: Path,
+) -> None:
+    paths = ProtosPaths(str(tmp_path))
+    paths.get_processor_path("grn")
+    reference = tmp_path / "grn" / "reference"
+    damaged = reference / "gpcrdb_class_a.csv"
+    damaged.write_text("damaged\n", encoding="utf-8")
+    custom = reference / "custom.csv"
+    custom.write_text("entity_name,custom.01\n", encoding="utf-8")
+
+    paths._install_reference_data()  # pylint: disable=protected-access
+    assert hashlib.sha256(damaged.read_bytes()).hexdigest() == MANIFEST["files"][damaged.name]
+    assert custom.exists(), "automatic repair must preserve an unrelated custom table"
+
+    paths._install_reference_data(force=True)  # pylint: disable=protected-access
+    assert not custom.exists(), "explicit refresh is authoritative"
+    marker = (tmp_path / ".protos_initialized").read_text(encoding="utf-8")
+    assert f"bundle={MANIFEST['bundle_version']}" in marker
+
+
+def test_reinitialize_honours_reference_install_switch(tmp_path: Path) -> None:
+    paths = ProtosPaths(str(tmp_path))
+    paths.get_processor_path("grn")
+    reference = tmp_path / "grn" / "reference" / "gpcrdb_class_a.csv"
+    reference.unlink()
+
+    paths.reinitialize(reinstall_reference=False)
+    assert not reference.exists()
+    paths.reinitialize(reinstall_reference=True)
+    assert reference.is_file()

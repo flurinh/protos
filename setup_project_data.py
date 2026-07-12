@@ -16,11 +16,8 @@ PROJECT_DATA_DIR = project_root / "data"
 
 
 def reinstall_reference_data(paths, reason: str) -> None:
-    marker_file = Path(paths.data_root) / ".protos_initialized"
-    if marker_file.exists():
-        marker_file.unlink()
     print(f"  ↻ Reinstalling GRN reference data ({reason})")
-    paths._install_reference_data()  # pylint: disable=protected-access
+    paths._install_reference_data(force=True)  # pylint: disable=protected-access
 
 
 def setup_project_data(refresh: bool = False) -> bool:

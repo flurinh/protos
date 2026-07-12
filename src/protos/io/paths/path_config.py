@@ -3,6 +3,7 @@ Simplified path configuration for the Protos framework.
 """
 
 import os
+import hashlib
 import json
 import re
 import shutil
@@ -149,15 +150,15 @@ class ProtosPaths:
         # Mark the instance as uninitialized so subsequent calls rebuild layout
         self._initialized = False
 
-        if wipe or not root_path.exists():
-            self._initialize_directory_structure()
-        else:
-            self._ensure_complete_structure()
+        # Directory creation is idempotent. Do not call _ensure_complete_structure
+        # here because that method repairs references, which would violate
+        # reinstall_reference=False.
+        self._initialize_directory_structure()
 
         self._initialize_registry()
 
         if reinstall_reference:
-            self._install_reference_data()
+            self._install_reference_data(force=True)
 
         self._initialized = True
 
@@ -191,59 +192,121 @@ class ProtosPaths:
             with open(registry_path, 'w') as f:
                 json.dump(registry_data, f, indent=2)
     
-    def _install_reference_data(self):
-        """Copy reference data from package to data directory if not present."""
-        # Only install if this is a fresh data directory
-        marker_file = Path(self.data_root) / '.protos_initialized'
-        if marker_file.exists():
-            return  # Already initialized
-        
-        # Find reference data in package
+    @staticmethod
+    def _sha256(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _bundled_grn_path(self) -> Path:
+        import protos
+
+        path = Path(protos.__file__).parent / "reference_data" / "grn"
+        if not path.is_dir():
+            raise FileNotFoundError(f"Bundled GRN reference data not found: {path}")
+        return path
+
+    @staticmethod
+    def _read_manifest(path: Path) -> Dict[str, object]:
         try:
-            import protos
-            package_dir = Path(protos.__file__).parent
-            ref_data_src = package_dir / 'reference_data'
-            
-            if ref_data_src.exists():
-                # Copy GRN reference data
-                grn_src = ref_data_src / 'grn'
-                if grn_src.exists():
-                    grn_dest = Path(self.data_root) / 'grn'
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Invalid GRN reference manifest: {path}") from exc
+        if not isinstance(manifest.get("files"), dict):
+            raise ValueError(f"GRN reference manifest has no file map: {path}")
+        return manifest
 
-                    # Preserve bundle provenance alongside the installed data.
-                    # The manifest records the exact curated table release and
-                    # checksums; it is intentionally local package data rather
-                    # than a runtime network dependency.
-                    for metadata_name in (
-                        'README.md',
-                        'manifest.json',
-                        'gpcrdb_provenance.json',
-                    ):
-                        metadata_src = grn_src / metadata_name
-                        if metadata_src.exists():
-                            grn_dest.mkdir(parents=True, exist_ok=True)
-                            shutil.copy2(metadata_src, grn_dest / metadata_name)
+    def _reference_data_complete(self) -> bool:
+        """Return whether data/grn exactly contains the current bundled release."""
 
-                    configs_src = grn_src / 'configs'
-                    if configs_src.exists():
-                        shutil.copytree(configs_src, grn_dest / 'configs', dirs_exist_ok=True)
+        try:
+            bundled = self._read_manifest(self._bundled_grn_path() / "manifest.json")
+            installed_root = Path(self.data_root) / "grn"
+            installed = self._read_manifest(installed_root / "manifest.json")
+            if installed.get("bundle_version") != bundled.get("bundle_version"):
+                return False
+            if installed.get("files") != bundled.get("files"):
+                return False
+            for name, expected_hash in bundled["files"].items():
+                destination = installed_root / "reference" / str(name)
+                if not destination.is_file() or self._sha256(destination) != expected_hash:
+                    return False
+            return (installed_root / "configs" / "config.json").is_file()
+        except (FileNotFoundError, TypeError, ValueError):
+            return False
 
-                    reference_dest = grn_dest / 'reference'
-                    reference_candidates = [grn_src / 'reference', grn_src / 'ref']
-                    copied_reference = False
-                    for candidate in reference_candidates:
-                        if candidate.exists():
-                            shutil.copytree(candidate, reference_dest, dirs_exist_ok=True)
-                            copied_reference = True
+    def _install_reference_data(self, *, force: bool = False) -> None:
+        """Install or repair the package-local, manifest-authenticated GRN bundle."""
 
-                    if not copied_reference:
-                        reference_dest.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            # Reference data not available, skip
-            pass
-        
-        # Mark as initialized
-        marker_file.write_text(f"Initialized on {datetime.now().isoformat()}\n")
+        marker_file = Path(self.data_root) / ".protos_initialized"
+        if not force and marker_file.exists() and self._reference_data_complete():
+            return
+
+        grn_src = self._bundled_grn_path()
+        manifest_src = grn_src / "manifest.json"
+        manifest = self._read_manifest(manifest_src)
+        reference_src = grn_src / "reference"
+        if not reference_src.is_dir():
+            reference_src = grn_src / "ref"
+        if not reference_src.is_dir():
+            raise FileNotFoundError("Bundled GRN reference CSV directory is missing")
+
+        expected_files = {str(name): value for name, value in manifest["files"].items()}
+        bundled_names = {path.name for path in reference_src.glob("*.csv")}
+        if bundled_names != set(expected_files):
+            raise ValueError("Bundled GRN manifest and reference CSV directory disagree")
+        for name, expected_hash in expected_files.items():
+            if self._sha256(reference_src / name) != expected_hash:
+                raise ValueError(f"Bundled GRN checksum mismatch: {name}")
+
+        grn_dest = Path(self.data_root) / "grn"
+        reference_dest = grn_dest / "reference"
+        grn_dest.mkdir(parents=True, exist_ok=True)
+        reference_dest.mkdir(parents=True, exist_ok=True)
+
+        previous_files: set[str] = set()
+        previous_manifest = grn_dest / "manifest.json"
+        if previous_manifest.is_file():
+            try:
+                previous_files = set(self._read_manifest(previous_manifest)["files"])
+            except (TypeError, ValueError):
+                previous_files = set()
+        stale_names = (
+            {path.name for path in reference_dest.glob("*.csv")}
+            if force
+            else previous_files - bundled_names
+        )
+        for stale_name in stale_names:
+            (reference_dest / stale_name).unlink(missing_ok=True)
+
+        for metadata_name in (
+            "README.md",
+            "manifest.json",
+            "gpcrdb_provenance.json",
+            "opsin_provenance.json",
+        ):
+            metadata_src = grn_src / metadata_name
+            if metadata_src.exists():
+                shutil.copy2(metadata_src, grn_dest / metadata_name)
+
+        configs_src = grn_src / "configs"
+        if not configs_src.is_dir():
+            raise FileNotFoundError("Bundled GRN configuration directory is missing")
+        configs_dest = grn_dest / "configs"
+        if force and configs_dest.exists():
+            shutil.rmtree(configs_dest)
+        shutil.copytree(configs_src, configs_dest, dirs_exist_ok=True)
+        shutil.copytree(reference_src, reference_dest, dirs_exist_ok=True)
+
+        if not self._reference_data_complete():
+            raise RuntimeError("Installed GRN reference bundle failed verification")
+        marker_file.write_text(
+            f"bundle={manifest.get('bundle_version')}\n"
+            f"installed={datetime.now().isoformat()}\n",
+            encoding="utf-8",
+        )
     
     def _ensure_complete_structure(self):
         """Ensure existing directory has all required subdirectories."""
@@ -264,9 +327,8 @@ class ProtosPaths:
         if not registry_path.exists():
             self._initialize_registry()
         
-        # Install reference data if missing
-        grn_config = Path(self.data_root) / 'grn' / 'configs' / 'config.json'
-        if not grn_config.exists():
+        # Install or repair reference data if missing, damaged, or outdated.
+        if not self._reference_data_complete():
             self._install_reference_data()
 
     def get_processor_path(self, processor_type: str) -> str:

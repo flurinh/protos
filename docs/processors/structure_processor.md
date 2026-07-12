@@ -71,8 +71,10 @@ Experimental constructs often include T4 lysozyme, endolysin, antibodies, or
 other fusion partners. Consequently, generated insertion coordinates are
 disabled by default for structure annotation. Use `residue_ranges={"A":
 (start, end)}` to isolate a biological component when multiple components share
-one author chain. `return_summary=True` returns the selected reference,
-coverage, indel counts, and status for each chain.
+one author chain, then pass `assign_insertions=True` to assign genuine
+intra-segment insertions and directional flexible-region labels inside that
+component. `return_summary=True` returns the selected reference, coverage,
+indel counts, and status for each chain.
 
 `plot_grn_ca_structure()` produces a Plotly figure with one marker per C-alpha,
 GRN hover text, and edges between sequential C-alpha atoms within each chain.

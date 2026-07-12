@@ -189,6 +189,7 @@ class GRNProcessor(BaseProcessor):
         Insertions and deletions are reported in the per-sequence summary.
         Insertions inside a segment create ``position + .001`` columns, while
         residues between segments receive directional flexible-region labels.
+        Terminal overhangs receive ``n.<distance>`` and ``c.<distance>`` labels.
         Deletion columns remain ``-``.  Alignment gaps larger than
         ``max_alignment_gap`` are compressed only when both anchors are inside
         the same configured strict non-flexible region.
@@ -226,6 +227,8 @@ class GRNProcessor(BaseProcessor):
         )
         strict_regions = configured_strict if strict_regions is None else strict_regions
         generated_after: Dict[str, List[str]] = {}
+        generated_n_terminal: List[str] = []
+        generated_c_terminal: List[str] = []
 
         for seq_name, raw_sequence in sequences.items():
             try:
@@ -280,6 +283,16 @@ class GRNProcessor(BaseProcessor):
             )
 
             for event in indels["insertions"]:
+                if event.get("kind") == "n_terminal_overhang":
+                    self._merge_ordered_labels(
+                        generated_n_terminal, event.get("generated_grns", [])
+                    )
+                    continue
+                if event.get("kind") == "c_terminal_overhang":
+                    self._merge_ordered_labels(
+                        generated_c_terminal, event.get("generated_grns", [])
+                    )
+                    continue
                 anchor = event.get("after_grn")
                 if anchor is None:
                     continue
@@ -316,13 +329,16 @@ class GRNProcessor(BaseProcessor):
         annotations = pd.DataFrame(rows)
         annotations.index.name = GRN_INDEX
         annotations = annotations.fillna('-')
-        output_columns: List[str] = []
+        output_columns: List[str] = list(generated_n_terminal)
         for column in column_order:
             output_columns.append(column)
             output_columns.extend(generated_after.get(column, []))
         output_columns.extend(
-            column for column in annotations.columns if column not in output_columns
+            column
+            for column in annotations.columns
+            if column not in output_columns and column not in generated_c_terminal
         )
+        output_columns.extend(generated_c_terminal)
         annotations = annotations.reindex(columns=output_columns, fill_value='-')
 
         summary = {
@@ -638,11 +654,15 @@ class GRNProcessor(BaseProcessor):
     ) -> Tuple[Dict[str, Tuple[str, str]], Dict[str, Tuple[str, str]]]:
         """Load optional standard/strict non-flexible extents for a family."""
 
+        family_aliases = {
+            "gpcrdb_class_a": "gpcr_a",
+        }
+        config_family = family_aliases.get(protein_family, protein_family)
         try:
             config_path = self.configs_dir / "config.json"
             if not config_path.exists():
                 return {}, {}
-            family = json.loads(config_path.read_text()).get(protein_family, {})
+            family = json.loads(config_path.read_text()).get(config_family, {})
         except (AttributeError, OSError, TypeError, ValueError):
             return {}, {}
 
@@ -800,6 +820,7 @@ class GRNProcessor(BaseProcessor):
             )
         )
         insertion_assignments = 0
+        terminal_assignments = 0
         for event in insertion_events:
             after = event["after_grn"]
             before = event["before_grn"]
@@ -862,8 +883,28 @@ class GRNProcessor(BaseProcessor):
                 event["assignment"] = "assigned_exact_candidate_count"
                 continue
 
+            if event["kind"] == "n_terminal_overhang":
+                length = len(event["residues"])
+                generated = [f"n.{distance}" for distance in range(length, 0, -1)]
+                for offset, (grn, residue) in enumerate(zip(generated, event["residues"])):
+                    row_data[grn] = f"{residue}{event['query_start'] + offset}"
+                event["generated_grns"] = generated
+                event["assignment"] = "assigned_terminal_coordinates"
+                assigned += length
+                terminal_assignments += length
+                continue
+            if event["kind"] == "c_terminal_overhang":
+                length = len(event["residues"])
+                generated = [f"c.{distance}" for distance in range(1, length + 1)]
+                for offset, (grn, residue) in enumerate(zip(generated, event["residues"])):
+                    row_data[grn] = f"{residue}{event['query_start'] + offset}"
+                event["generated_grns"] = generated
+                event["assignment"] = "assigned_terminal_coordinates"
+                assigned += length
+                terminal_assignments += length
+                continue
             if event["kind"] != "internal_insertion":
-                event["unassigned_reason"] = "terminal_or_unaligned_run"
+                event["unassigned_reason"] = "unaligned_run"
                 continue
             if not assign_unambiguous_insertions:
                 event["unassigned_reason"] = "insertion_annotation_disabled"
@@ -913,7 +954,7 @@ class GRNProcessor(BaseProcessor):
             else:
                 event["unassigned_reason"] = "coordinate_capacity_or_segment_mapping"
 
-        projectable_positions = total_reference + insertion_assignments
+        projectable_positions = total_reference + insertion_assignments + terminal_assignments
         coverage = assigned / projectable_positions if projectable_positions else 0.0
         series = pd.Series(row_data, name=seq_name)
         indels = {

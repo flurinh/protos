@@ -35,7 +35,6 @@ UNIPROT_CASES = [
     ("P51810", "GPR143_HUMAN", "gpcrdb_unclassified", "GPR143-Human"),
     # Aggregate/compatibility GPCR tables.
     ("P07550", "ADRB2_ALL_HUMAN", "gpcrdb_ref", "beta2-adrenoceptor-Human"),
-    ("P07550", "ADRB2_CORE_HUMAN", "gpcr_a_core", "beta2-adrenoceptor-Human"),
     # Every G-alpha family plus the aggregate table.
     ("P63092", "GNAS2_HUMAN", "cgn_galpha_gs_human", "GNAS2_HUMAN"),
     ("P63096", "GNAI1_HUMAN", "cgn_galpha_gio_human", "GNAI1_HUMAN"),

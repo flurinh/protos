@@ -49,6 +49,23 @@ ARRESTINS = {
     "P10523": "ARRS_HUMAN",
 }
 
+# GPCRdb assigns generic numbers to selected loop motifs and represents the
+# termini as segments 0 and 9.  ProtOS deliberately does neither: loops are
+# generated from proximity to their flanking structural segments, while the
+# termini use n.<distance> and c.<distance> coordinates.
+GPCRDB_NON_STRUCTURAL_GRN = re.compile(r"^(?:0|9)\.\d+$|^[1-9][1-9]\.\d+$")
+
+
+def strip_gpcrdb_non_structural_columns(
+    table: pd.DataFrame,
+) -> tuple[pd.DataFrame, list[str]]:
+    excluded = [
+        str(column)
+        for column in table.columns
+        if GPCRDB_NON_STRUCTURAL_GRN.fullmatch(str(column))
+    ]
+    return table.drop(columns=excluded), excluded
+
 
 def source_revision(root: Path) -> str:
     result = subprocess.run(
@@ -123,6 +140,7 @@ def build_receptor_tables(
 ) -> tuple[list[Path], dict[str, object]]:
     table = pd.read_csv(export_path, index_col=0, dtype=str).fillna("-")
     table.index.name = "entity_name"
+    table, excluded_columns = strip_gpcrdb_non_structural_columns(table)
     index = receptor_name_index(hierarchy_path)
     assignments: dict[str, list[str]] = defaultdict(list)
     unmatched: list[str] = []
@@ -143,7 +161,9 @@ def build_receptor_tables(
             f"unmatched={unmatched}, ambiguous={ambiguous}"
         )
 
-    written: list[Path] = []
+    aggregate = output_dir / "gpcrdb_ref.csv"
+    table.to_csv(aggregate)
+    written: list[Path] = [aggregate]
     counts: dict[str, int] = {}
     for class_name, filename in CLASS_FILES.items():
         rows = assignments.get(class_name, [])
@@ -156,6 +176,8 @@ def build_receptor_tables(
         "input_rows": len(table),
         "class_rows": counts,
         "empty_classes": [name for name, count in counts.items() if count == 0],
+        "excluded_non_structural_columns": excluded_columns,
+        "excluded_non_structural_column_count": len(excluded_columns),
     }
 
 
@@ -248,6 +270,17 @@ def validate_tables(paths: Iterable[Path]) -> None:
         table = pd.read_csv(path, index_col=0, dtype=str).fillna("-")
         if table.index.has_duplicates or table.columns.has_duplicates:
             raise ValueError(f"Duplicate rows or GRNs in {path.name}")
+        if path.name.startswith("gpcrdb_"):
+            invalid = [
+                str(column)
+                for column in table.columns
+                if "x" in str(column)
+                or GPCRDB_NON_STRUCTURAL_GRN.fullmatch(str(column))
+            ]
+            if invalid:
+                raise ValueError(
+                    f"Non-ProtOS GPCR coordinates remain in {path.name}: {invalid}"
+                )
         for entity, row in table.iterrows():
             positions: list[int] = []
             for value in row:
@@ -335,9 +368,16 @@ def main() -> int:
             "arrestin": "arrestin_data/CAN_aln.csv",
         },
         "notation": {
-            "gpcr": "existing ProtOS numeric dot notation",
+            "gpcr": "ProtOS structural-segment dot notation",
             "cgn": "G.<segment>.<two-digit-position>",
             "can": "<domain>.<segment>.<two-digit-position>",
+        },
+        "transformations": {
+            "gpcr": (
+                "Drop GPCRdb loop-motif coordinates <segment><segment>.<position> "
+                "and terminal pseudo-segments 0.<position>/9.<position>. ProtOS "
+                "generates proximity loop and n./c. terminal coordinates during annotation."
+            )
         },
         "statistics": {
             "receptors": receptor_stats,

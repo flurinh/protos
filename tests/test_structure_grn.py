@@ -174,9 +174,13 @@ def test_direct_structure_annotation_maps_modified_residue_atoms(monkeypatch) ->
     processor.logger = logging.getLogger("test_structure_grn")
     processor.load_entity = lambda _structure_id: structure
 
-    def fake_annotation(_self, sequences, **_kwargs):
+    observed_options = {}
+
+    def fake_annotation(_self, sequences, **kwargs):
+        observed_options.update(kwargs)
         name = next(iter(sequences))
         columns = [f"S.{position:02d}" for position in range(1, 11)]
+        columns[1] = "12.001"
         values = [f"M1"] + [f"A{position}" for position in range(2, 11)]
         return (
             pd.DataFrame([values], index=[name], columns=columns),
@@ -190,10 +194,13 @@ def test_direct_structure_annotation_maps_modified_residue_atoms(monkeypatch) ->
         reference_table="memory",
         protein_family="test",
         chains=["A"],
+        assign_insertions=True,
         save=False,
         return_summary=True,
     )
     result = annotated.reset_index()
     mse = result[result["label_seq_id"] == 1]
     assert set(mse["grn"]) == {"S.01"}
+    assert result.loc[result["label_seq_id"] == 2, "grn"].iloc[0] == "12.001"
+    assert observed_options["assign_unambiguous_insertions"] is True
     assert summary["chains"]["A"]["status"] == "ok"

@@ -11,7 +11,7 @@ The three numbering systems have different upstream representations:
 
 | Numbering | Raw Git inputs | ProtOS output |
 | --- | --- | --- |
-| GPCR | `protein_data/proteins_and_families.txt`, `residue_data/generic_numbers/`, and `residue_data/reference_positions/` plus an explicit generated receptor export | One table per top-level class and the retained all-receptor `gpcrdb_ref.csv` |
+| GPCR | `protein_data/proteins_and_families.txt`, `residue_data/generic_numbers/`, and `residue_data/reference_positions/` plus an explicit generated receptor export | One table per top-level class and normalized all-receptor `gpcrdb_ref.csv`; upstream loop motifs and 0/9 terminal pseudo-segments are removed |
 | CGN | `g_protein_data/PDB_UNIPROT_ENSEMBLE_ALL.txt` and `CGN_lookup.csv` | All 16 human G-alpha proteins and Gs, Gi/o, Gq/11, and G12/13 subsets |
 | CAN | `arrestin_data/CAN_aln.csv` | The four human arrestins |
 
@@ -32,7 +32,7 @@ Use a clean checkout at the commit recorded in `gpcrdb_provenance.json`:
 ```bash
 python scripts/update_gpcrdb_references.py \
   --gpcrdb-data /path/to/gpcrdb_data \
-  --receptor-export src/protos/reference_data/grn/reference/gpcrdb_ref.csv \
+  --receptor-export /path/to/generated/unmodified_gpcrdb_export.csv \
   --output-dir src/protos/reference_data/grn/reference \
   --provenance src/protos/reference_data/grn/gpcrdb_provenance.json \
   --manifest src/protos/reference_data/grn/manifest.json
@@ -43,6 +43,12 @@ the raw hierarchy, refreshes CGN labels from `CGN_lookup.csv` by `sortColumn`
 (as Protwis does), converts CGN/CAN labels to two-digit ProtOS dot notation,
 checks residue/sequence-position integrity, and writes SHA-256 checksums.
 
+The importer rejects GPCRdb loop-motif labels such as `45.50` and terminal
+pseudo-segments `0.*`/`9.*`. Those labels do not have ProtOS structural
+semantics. ProtOS instead generates directional loop coordinates from the two
+flanking structural segments and assigns `n.<distance>`/`c.<distance>` from the
+nearest terminal structural segment.
+
 ## Annotation-algorithm comparison
 
 GPCRdb/Protwis and ProtOS solve related but different problems:
@@ -52,14 +58,14 @@ GPCRdb/Protwis and ProtOS solve related but different problems:
 | Reference selection | Uses curated per-protein anchors; missing anchors are projected from a related-family template | Aligns the query against every row in the caller-selected reference table and chooses the best normalized score |
 | Alignment | Clustal Omega projects template anchor positions | `SequenceAlignmentEngine` performs pairwise alignment with caller-configurable gap penalties and projects every reference-table label |
 | Family knowledge | Template search walks the GPCR family hierarchy | The table name constrains candidates; `protein_family` is currently reporting metadata only |
-| Structural anomalies | Scheme maps and explicit bulge/constriction handling adjust structure-based labels | Anomalies are preserved only when already encoded in the reference table |
+| Structural anomalies | Scheme maps and explicit bulge/constriction handling adjust structure-based labels | Encoded segment insertions are preserved; new insertions and flexible regions are detected from the alignment |
 | Confidence | Curated anchors or family-template provenance | Reports score and coverage and supports caller thresholds; benchmark-derived defaults and a best-vs-second-best margin remain future work |
 | CGN/CAN | Imports curated residue mappings/alignments | Uses the same curated mappings as reference tables, then applies the generic projection algorithm to new sequences |
 
 The safe improvements implemented now are class-specific GPCR tables, explicit
 source provenance, current CGN lookup correction, arbitrary segment identifiers,
-reference-derived segment ordering, native CGN/CAN validation, and explicit
-insertion/deletion diagnostics with conservative insertion assignment.
+reference-derived segment ordering, native CGN/CAN validation, ProtOS-native
+loop/terminal coordinates, and explicit insertion/deletion diagnostics.
 Before changing scientific annotation behaviour, the next comparison should use
 a held-out benchmark to choose family filtering, score/coverage thresholds,
 best-hit margins, and explicit bulge/constriction tests. This avoids silently
