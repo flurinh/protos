@@ -23,7 +23,9 @@ GRN_PATTERNS = {
     'standard_insertion': r'^([0-9])\.(\d+)\.(\d+)$',
     'n_term': r'^n\.(\d+)$',       # e.g., n.10
     'c_term': r'^c\.(\d+)$',       # e.g., c.5
-    'loop': r'^([1-8])([1-8])\.(\d+)$'  # e.g., 12.003, 65.011, also 12.047
+    'loop': r'^([1-8])([1-8])\.(\d+)$',  # e.g., 12.003, 65.011, also 12.047
+    # Common G-alpha Numbering (CGN) and Common Arrestin Numbering (CAN).
+    'signal_protein': r'^[GHNC]\.[A-Za-z][A-Za-z0-9-]*\.([0-9]{2})$',
 }
 
 # Documentation for GRN formats
@@ -33,6 +35,10 @@ GRN_FORMAT_DOCS = {
     'standard_insertion': "Standard GRN insertion format: <helix>x<position> (e.g., 1x521)",
     'n_term': "N-terminal format: n.<position> (e.g., n.10)",
     'c_term': "C-terminal format: c.<position> (e.g., c.5)",
+    'signal_protein': (
+        "CGN/CAN dot notation: <domain>.<segment>.<position> "
+        "(e.g., G.H5.26 or N.S1.01)"
+    ),
     'loop': """Loop region format: <closer helix><further helix>.<distance> where:
             - First digit: Closer helix (1-8)
             - Second digit: Further helix (1-8)
@@ -384,6 +390,12 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
                     return False, f"Non-numeric values in loop GRN: {grn}"
                 
                 return True, "Valid loop GRN format"
+
+            elif pattern_name == 'signal_protein':
+                position = int(grn.rsplit('.', 1)[1])
+                if position < 1:
+                    return False, f"Invalid CGN/CAN position in {grn}"
+                return True, "Valid CGN/CAN dot notation GRN format"
     
     # If no pattern matched
     return False, f"GRN string '{grn}' does not match any known pattern"

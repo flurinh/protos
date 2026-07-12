@@ -13,13 +13,15 @@ first be normalized to the ProtOS dot-notation schema and reviewed, then added
 to `reference/` and recorded in `manifest.json`.
 
 The July 2026 bundle contains the latest curated tables available at the thesis
-handoff. `type_II_opsins.csv` and `vpod1_2.csv` are identical; the latter is
+handoff plus reproducible GPCR class, human G-alpha CGN, and human arrestin CAN
+tables. `type_II_opsins.csv` and `vpod1_2.csv` are identical; the latter is
 retained as a compatibility alias for existing analyses.
 
 `manifest.json` records the bundle version, every distributed CSV filename and
-SHA-256 checksum, and compatibility aliases. It does not currently contain
-upstream release identifiers or URLs; those must be added when the planned
-GPCRdb multi-family import pipeline is implemented.
+SHA-256 checksum, and compatibility aliases. `gpcrdb_provenance.json` records
+the pinned upstream commit, raw inputs, transformations, coverage, and output
+checksums. The reproducible command and the annotation-algorithm comparison are
+documented in [the upstream GRN pipeline](../../../../docs/grn-upstream.md).
 
 Large future bundles may move to a versioned external release. Until a manifest
 and downloader are implemented, initialization remains entirely package-local.

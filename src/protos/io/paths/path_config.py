@@ -214,7 +214,11 @@ class ProtosPaths:
                     # The manifest records the exact curated table release and
                     # checksums; it is intentionally local package data rather
                     # than a runtime network dependency.
-                    for metadata_name in ('README.md', 'manifest.json'):
+                    for metadata_name in (
+                        'README.md',
+                        'manifest.json',
+                        'gpcrdb_provenance.json',
+                    ):
                         metadata_src = grn_src / metadata_name
                         if metadata_src.exists():
                             grn_dest.mkdir(parents=True, exist_ok=True)
