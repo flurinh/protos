@@ -24,8 +24,15 @@ GRN_PATTERNS = {
     'standard_insertion': r'^([0-9])\.(\d{3,})$',  # e.g., 5.461
     'n_term': r'^n\.(\d+)$',       # e.g., n.10
     'c_term': r'^c\.(\d+)$',       # e.g., c.5
-    'loop': r'^([1-8])([1-8])\.(\d+)$',  # e.g., 12.003, 65.011, also 12.047
-    'loop_x': r'^([1-8])([1-8])x(\d+)$',
+    # Directional coordinates in a flexible region between two intrinsically
+    # ordered segments.  The first digit is the nearer segment and the second
+    # is the farther segment: 12.003 and 21.003 describe opposite ends of the
+    # same region.  These coordinates are not GPCR-specific.
+    'flexible_region': r'^([1-9])([1-9])\.(\d+)$',
+    'flexible_region_x': r'^([1-9])([1-9])x(\d+)$',
+    # Compatibility aliases for callers that used the thesis-era key names.
+    'loop': r'^([1-9])([1-9])\.(\d+)$',
+    'loop_x': r'^([1-9])([1-9])x(\d+)$',
     # Common G-alpha Numbering (CGN) and Common Arrestin Numbering (CAN).
     'signal_protein': r'^[GHNC]\.[A-Za-z][A-Za-z0-9-]*\.([0-9]{2})$',
     # Generic hierarchical dot notation.  Everything before the final dot is
@@ -52,18 +59,74 @@ GRN_FORMAT_DOCS = {
         "Hierarchical dot notation: <arbitrary segment path>.<position> "
         "(e.g., TM1.50, G.HN.03, or A.H1.50)"
     ),
-    'loop': """Loop region format: <closer helix><further helix>.<distance> where:
-            - First digit: Closer helix (1-8)
-            - Second digit: Further helix (1-8)
-            - Three-digit decimal: Distance from closer helix (001-999)
-            Examples: 12.003 (between helix 1-2, closer to 1, distance 3)
-                     65.011 (between helix 5-6, closer to 6, distance 11)""",
-    'loop_x': "Legacy loop x notation (e.g., 12x003)",
+    'flexible_region': """Directional flexible-region format:
+            <nearer segment index><farther segment index>.<distance>
+            Examples: 12.003 (between segments 1 and 2, distance 3 from 1)
+                     21.003 (the same region, distance 3 from segment 2)""",
+    'flexible_region_x': "Legacy flexible-region x notation (e.g., 12x003)",
+    'loop': "Deprecated alias for directional flexible-region notation",
+    'loop_x': "Deprecated alias for legacy directional x notation",
 }
 
 # Symbol definitions
 GRN_GAP_SYMBOL = '-'
 GRN_UNKNOWN_SYMBOL = 'X'
+
+
+def parse_directional_flexible_grn(grn: str) -> Optional[Tuple[int, int, int]]:
+    """Return ``(nearer_segment, farther_segment, distance)`` for ``12.003``.
+
+    Segment numbers are ordinal positions in the protein's intrinsically
+    ordered segment list.  They therefore also work when the actual segment
+    identifiers are strings such as ``G.HN``.  The compact notation supports
+    ordinal segment indices 1--9.
+    """
+
+    match = re.fullmatch(GRN_PATTERNS['flexible_region'], str(grn))
+    if not match:
+        return None
+    nearer, farther, distance = (int(value) for value in match.groups())
+    if nearer == farther or distance < 1:
+        return None
+    return nearer, farther, distance
+
+
+def make_insertion_grn(anchor_grn: str, insertion_index: int) -> str:
+    """Create the GPCRdb-style ``position + .001`` insertion coordinate.
+
+    Examples are ``1.41 -> 1.411`` and ``G.HN.03 -> G.HN.031``.  The compact
+    decimal notation has one unambiguous insertion digit, hence indices above
+    nine are rejected instead of silently producing a colliding coordinate.
+    """
+
+    if not 1 <= insertion_index <= 9:
+        raise ValueError("Insertion coordinates support indices 1 through 9")
+    if parse_directional_flexible_grn(anchor_grn) is not None:
+        raise ValueError("Insertion coordinates require a non-flexible segment anchor")
+    if "." not in anchor_grn:
+        raise ValueError(f"Invalid insertion anchor: {anchor_grn!r}")
+    segment, position = anchor_grn.rsplit(".", 1)
+    if not segment or not position.isdigit() or len(position) != 2:
+        raise ValueError(
+            f"Insertion anchor must end in a two-digit position: {anchor_grn!r}"
+        )
+    return f"{segment}.{position}{insertion_index}"
+
+
+def make_directional_flexible_grn(
+    nearer_segment: int,
+    farther_segment: int,
+    distance: int,
+) -> str:
+    """Create a directional flexible-region coordinate such as ``12.003``."""
+
+    if not (1 <= nearer_segment <= 9 and 1 <= farther_segment <= 9):
+        raise ValueError("Flexible-region segment indices must be between 1 and 9")
+    if nearer_segment == farther_segment:
+        raise ValueError("A flexible region must connect two different segments")
+    if not 1 <= distance <= 999:
+        raise ValueError("Flexible-region distance must be between 1 and 999")
+    return f"{nearer_segment}{farther_segment}.{distance:03d}"
 
 # ---------------------------------------------------------------------------
 #   1. String to Float Parser (Updated version with improved handling)
@@ -261,7 +324,7 @@ def normalize_grn_format(grn: str) -> str:
 
     # Legacy x notation.  Preserve the established shorthand where a
     # one-digit position means tens (1x5 -> 1.50).
-    loop_x_pattern = re.compile(r'^([1-8])([1-8])x(\d+)$')
+    loop_x_pattern = re.compile(r'^([1-9])([1-9])x(\d+)$')
     match = loop_x_pattern.match(grn)
     if match:
         distance_str = match.group(3)
@@ -282,7 +345,7 @@ def normalize_grn_format(grn: str) -> str:
         return f"{match.group(1)}.{position:02d}"
     
     # Loop format with dot notation (e.g., '12.5' -> '12.500', '12.05' -> '12.050')
-    loop_dot_pattern = re.compile(r'^([1-8])([1-8])\.(\d+)$')
+    loop_dot_pattern = re.compile(r'^([1-9])([1-9])\.(\d+)$')
     match = loop_dot_pattern.match(grn)
     if match:
         helix_pair = match.group(1) + match.group(2)
@@ -415,30 +478,22 @@ def validate_grn_string(grn: str) -> Tuple[bool, str]:
                 return True, "Valid standard dot notation GRN format"
                 
             # Loop region rules  
-            elif pattern_name in {'loop', 'loop_x'}:
-                # Additional validation for loop format
+            elif pattern_name in {'flexible_region', 'flexible_region_x'}:
+                # Additional validation for directional flexible regions.
                 match = pattern.match(grn)
-                helix1, helix2, distance = match.groups()
+                segment1, segment2, distance = match.groups()
                 try:
-                    helix1_int = int(helix1)
-                    helix2_int = int(helix2)
+                    segment1_int = int(segment1)
+                    segment2_int = int(segment2)
                     distance_int = int(distance)
-                    
-                    # Check helix range
-                    if not (1 <= helix1_int <= 8) or not (1 <= helix2_int <= 8):
-                        return False, f"Invalid helix numbers in loop: {helix1}, {helix2} (expected 1-8)"
-                        
-                    # Helices should be adjacent or at least make sense
-                    if abs(helix1_int - helix2_int) > 1 and not (helix1_int == 1 and helix2_int == 8):
-                        return False, f"Non-adjacent helices in loop: {helix1}, {helix2}"
-                        
-                    # Check distance range (typically 1-999)
+                    if segment1_int == segment2_int:
+                        return False, f"Flexible region must connect different segments: {grn}"
                     if not (1 <= distance_int <= 999):
-                        return False, f"Invalid distance in loop: {distance} (expected 1-999)"
+                        return False, f"Invalid flexible-region distance: {distance} (expected 1-999)"
                 except ValueError:
-                    return False, f"Non-numeric values in loop GRN: {grn}"
-                
-                return True, "Valid loop GRN format"
+                    return False, f"Non-numeric values in flexible-region GRN: {grn}"
+
+                return True, "Valid directional flexible-region GRN format"
 
             elif pattern_name == 'signal_protein':
                 position = int(grn.rsplit('.', 1)[1])

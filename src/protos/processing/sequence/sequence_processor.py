@@ -1256,7 +1256,10 @@ class SequenceProcessor(BaseProcessor):
         end_gap_score: float = 0.0,
         min_normalized_score: Optional[float] = None,
         min_coverage: Optional[float] = None,
-        assign_unambiguous_insertions: bool = False,
+        assign_unambiguous_insertions: bool = True,
+        standard_regions: Optional[Dict[str, Tuple[str, str]]] = None,
+        strict_regions: Optional[Dict[str, Tuple[str, str]]] = None,
+        max_alignment_gap: int = 1,
     ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Dict[str, Any]]]:
         """Annotate sequences with GRN positions using the bundled references.
 
@@ -1276,8 +1279,14 @@ class SequenceProcessor(BaseProcessor):
             end_gap_score: Penalty for an unaligned query/reference terminus.
             min_normalized_score: Optional rejection threshold for reference fit.
             min_coverage: Optional rejection threshold for mapped GRN coverage.
-            assign_unambiguous_insertions: Fill existing empty GRN columns only
-                when their count exactly matches an internal query insertion.
+            assign_unambiguous_insertions: Annotate internal insertions. Existing
+                exact-fit columns are reused; otherwise Protos creates
+                ``position + .001`` or directional flexible-region columns.
+            standard_regions: Optional general non-flexible extents by segment.
+            strict_regions: Optional minimum non-flexible extents by segment;
+                these are the trusted anchors for long-gap compression.
+            max_alignment_gap: Largest insertion-like alignment gap retained
+                without strict-region compression.
 
         Returns:
             Either the annotation dataframe or a tuple ``(df, summary)`` when
@@ -1320,6 +1329,9 @@ class SequenceProcessor(BaseProcessor):
             min_normalized_score=min_normalized_score,
             min_coverage=min_coverage,
             assign_unambiguous_insertions=assign_unambiguous_insertions,
+            standard_regions=standard_regions,
+            strict_regions=strict_regions,
+            max_alignment_gap=max_alignment_gap,
         )
 
         if output_table:
