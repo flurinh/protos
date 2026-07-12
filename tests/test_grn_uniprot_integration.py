@@ -6,8 +6,11 @@ Run with ``PROTOS_RUN_NETWORK_TESTS=1 pytest -m network``.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
+
+from protos.io.formats.fasta_utils import read_fasta
 
 
 pytestmark = [
@@ -42,6 +45,14 @@ UNIPROT_CASES = [
     # Arrestin CAN.
     ("P49407", "ARRB1_HUMAN", "can_arrestin_human", "ARRB1_HUMAN"),
 ]
+
+FROZEN_RECORDS = read_fasta(
+    str(Path(__file__).parent / "fixtures" / "uniprot_grn_sequences.fasta")
+)
+FROZEN_BY_ACCESSION = {
+    record_id.split("|", 1)[0]: sequence
+    for record_id, sequence in FROZEN_RECORDS.items()
+}
 
 
 @pytest.fixture(scope="module")
@@ -80,6 +91,7 @@ def test_uniprot_fetch_register_and_annotate_all_biological_tables(
     assert saved == entity
     sequence = sequence_processor.load_entity(entity)
     assert isinstance(sequence, str) and sequence
+    assert sequence == FROZEN_BY_ACCESSION[accession]
 
     annotations, summary = sequence_processor.annotate_with_grn(
         sequences={entity: sequence},

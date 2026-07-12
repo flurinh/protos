@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from protos.analysis.sequence.alignment_engine import (
     SequenceAlignmentEngine,
     SequenceAlignmentResult,
 )
+from protos.io.formats.fasta_utils import read_fasta
 from protos.processing.grn.grn_processor import GRNProcessor
 from protos.processing.grn.assign_grns import assign_grns_to_sequences
 from protos.processing.grn.grn_utils import (
@@ -23,8 +25,30 @@ from protos.processing.grn.grn_utils import (
 
 
 BUNDLE = Path(__file__).parents[1] / "src" / "protos" / "reference_data" / "grn"
+FIXTURES = Path(__file__).parent / "fixtures"
 MANIFEST = json.loads((BUNDLE / "manifest.json").read_text())
 REFERENCE_TABLES = sorted(MANIFEST["files"])
+FROZEN_UNIPROT = read_fasta(str(FIXTURES / "uniprot_grn_sequences.fasta"))
+
+OFFLINE_UNIPROT_CASES = [
+    ("P07550|ADRB2_HUMAN", "gpcrdb_class_a", "beta2-adrenoceptor-Human"),
+    ("P43220|GLP1R_HUMAN", "gpcrdb_class_b1", "GLP-1-receptor-Human"),
+    ("Q9Y653|ADGRG1_HUMAN", "gpcrdb_class_b2", "ADGRG1-Human"),
+    ("P41180|CASR_HUMAN", "gpcrdb_class_c", "CaS-receptor-Human"),
+    ("Q9UP38|FZD1_HUMAN", "gpcrdb_class_f", "FZD1-Human"),
+    ("Q8TCB6|OR51E1_HUMAN", "gpcrdb_class_o1", "OR51E1-Human"),
+    ("Q9P1Q5|OR1A1_HUMAN", "gpcrdb_class_o2", "Olfactory-receptor-1A1-Human"),
+    ("Q9NYV8|TAS2R14_HUMAN", "gpcrdb_class_t2", "TAS2R14-Human"),
+    ("P51810|GPR143_HUMAN", "gpcrdb_unclassified", "GPR143-Human"),
+    ("P07550|ADRB2_HUMAN", "gpcrdb_ref", "beta2-adrenoceptor-Human"),
+    ("P07550|ADRB2_HUMAN", "gpcr_a_core", "beta2-adrenoceptor-Human"),
+    ("P63092|GNAS2_HUMAN", "cgn_galpha_gs_human", "GNAS2_HUMAN"),
+    ("P63096|GNAI1_HUMAN", "cgn_galpha_gio_human", "GNAI1_HUMAN"),
+    ("P50148|GNAQ_HUMAN", "cgn_galpha_gq11_human", "GNAQ_HUMAN"),
+    ("Q03113|GNA12_HUMAN", "cgn_galpha_g1213_human", "GNA12_HUMAN"),
+    ("P63092|GNAS2_HUMAN", "cgn_galpha_human", "GNAS2_HUMAN"),
+    ("P49407|ARRB1_HUMAN", "can_arrestin_human", "ARRB1_HUMAN"),
+]
 
 
 def projection(
@@ -51,6 +75,13 @@ def projection(
         sequence_grn_order=columns or labels,
         assign_unambiguous_insertions=assign_insertions,
     )
+
+
+def test_manifest_covers_and_authenticates_every_bundled_reference_table() -> None:
+    reference_paths = sorted((BUNDLE / "reference").glob("*.csv"))
+    assert REFERENCE_TABLES == [path.name for path in reference_paths]
+    for path in reference_paths:
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == MANIFEST["files"][path.name]
 
 
 @pytest.mark.parametrize(
@@ -355,6 +386,28 @@ def test_public_annotation_rejects_unknown_search_and_empty_reference() -> None:
             reference_table="memory",
             protein_family="arbitrary",
         )
+
+
+@pytest.mark.parametrize("fixture_id,table_name,expected_reference", OFFLINE_UNIPROT_CASES)
+def test_frozen_full_length_uniprot_member_annotates_each_biological_table(
+    fixture_id: str,
+    table_name: str,
+    expected_reference: str,
+) -> None:
+    table = pd.read_csv(
+        BUNDLE / "reference" / f"{table_name}.csv", index_col=0, dtype=str
+    ).fillna("-")
+    annotations, summary = public_processor_with_table(table).annotate_sequences(
+        {fixture_id: FROZEN_UNIPROT[fixture_id]},
+        reference_table=table_name,
+        protein_family=table_name,
+    )
+    info = summary["per_sequence"][fixture_id]
+    assert info["status"] == "ok"
+    assert info["reference"] == expected_reference
+    assert info["coverage"] == 1.0
+    assert info["deletion_residues"] == 0
+    assert (annotations.loc[fixture_id] != "-").any()
 
 
 @pytest.mark.parametrize("table_name", REFERENCE_TABLES)

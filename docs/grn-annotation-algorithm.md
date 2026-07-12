@@ -340,8 +340,9 @@ without loss and cannot be generalized merely by relaxing a regular expression.
 `tests/test_grn_annotation.py` covers notation compatibility, segment ordering,
 scrambled columns, configurable gap penalties, insertions, deletions, terminal
 overhangs, exact and ambiguous insertion correction, invalid inputs, thresholds,
-the numeric-expansion safety boundary, and one stored member from every bundled
-table.
+the numeric-expansion safety boundary, manifest/checksum coverage, one stored
+member from every bundled table, and accession-traceable frozen full-length
+UniProt fixtures for every biological table.
 
 `tests/test_grn_uniprot_integration.py` uses ProtOS's own `SequenceLoader` to
 fetch, register, and annotate live UniProt entries. It covers GPCR A, B1, B2, C,

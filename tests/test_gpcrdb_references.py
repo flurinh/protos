@@ -60,7 +60,13 @@ def test_receptor_class_tables_partition_the_export() -> None:
     assert provenance["source"]["runtime_api_used"] is False
 
 
-def test_fresh_data_root_installs_tables_and_provenance(tmp_path: Path) -> None:
+def test_fresh_data_root_installs_and_annotates_without_network(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import protos.io.paths.path_config as path_config
+    from protos.io.formats.fasta_utils import read_fasta
+    from protos.processing.grn.grn_processor import GRNProcessor
+
     paths = ProtosPaths(str(tmp_path))
     paths.get_processor_path("grn")
     installed = tmp_path / "grn"
@@ -68,3 +74,15 @@ def test_fresh_data_root_installs_tables_and_provenance(tmp_path: Path) -> None:
     assert (installed / "reference" / "gpcrdb_class_b2.csv").is_file()
     assert (installed / "reference" / "cgn_galpha_human.csv").is_file()
     assert (installed / "reference" / "can_arrestin_human.csv").is_file()
+
+    monkeypatch.setattr(path_config, "_paths_instance", paths)
+    monkeypatch.setattr(ProtosPaths, "_instance", paths)
+    fixture = Path(__file__).parent / "fixtures" / "uniprot_grn_sequences.fasta"
+    sequences = read_fasta(str(fixture))
+    annotations, summary = GRNProcessor().annotate_sequences(
+        {"P07550|ADRB2_HUMAN": sequences["P07550|ADRB2_HUMAN"]},
+        reference_table="gpcrdb_class_a",
+        protein_family="gpcrdb_class_a",
+    )
+    assert summary["per_sequence"]["P07550|ADRB2_HUMAN"]["status"] == "ok"
+    assert (annotations.loc["P07550|ADRB2_HUMAN"] != "-").any()
