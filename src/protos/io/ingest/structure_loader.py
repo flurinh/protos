@@ -14,6 +14,8 @@ import gzip
 import re
 import requests
 import shutil
+import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from Bio.PDB import PDBList
@@ -358,46 +360,149 @@ class StructureLoader(BaseLoader):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs,
     ) -> Optional[str]:
-        registered = super().download_and_register(
-            identifier,
-            name=name,
-            metadata=metadata,
-            **kwargs,
-        )
+        """Fetch, canonicalize, persist, and register a structure atomically.
 
-        if not registered:
+        Unlike the generic loader path, structures are not usable from their raw
+        CIF payload alone.  A successful return therefore means that the registry
+        points at a canonical PKL which can immediately be loaded by the structure
+        processor.
+        """
+        registered = name or identifier
+        processor = self._get_processor()
+        previous_info = self.entity_registry.find_entity(registered, self.loader_type)
+
+        if previous_info and self._is_canonical_registration(previous_info.file_path):
+            loaded = processor.load_entity(registered)
+            if loaded is not None and not loaded.empty:
+                return registered
+
+        raw_path = self._registered_source_path(previous_info)
+        fetched = False
+        if raw_path is None:
+            raw_path = self.fetch_entity(identifier, **kwargs)
+            fetched = True
+        if raw_path is None:
+            self.logger.error("Failed to fetch entity: %s", identifier)
             return None
 
+        raw_path = Path(raw_path)
+        pkl_path = processor.path_pkl_dir / f"{registered}.pkl"
+        pkl_existed = pkl_path.exists()
+        backup_path: Optional[Path] = None
+        if pkl_existed:
+            with tempfile.NamedTemporaryFile(
+                dir=pkl_path.parent,
+                prefix=f".{registered}.",
+                suffix=".pkl.bak",
+                delete=False,
+            ) as backup:
+                backup_path = Path(backup.name)
+            shutil.copy2(pkl_path, backup_path)
+
         try:
-            processor = self._get_processor()
-            entity_info = self.entity_registry.find_entity(registered, self.loader_type)
-            if not entity_info:
-                return registered
+            df = load_structure_from_cif(str(raw_path), structure_id=registered)
+            if df.empty:
+                raise ValueError("CIF parsing produced an empty structure")
 
-            file_path = self._resolve_registered_path(entity_info.file_path)
-
-            # Skip canonicalization if the registered artifact is not a CIF payload
-            suffixes = ''.join(file_path.suffixes).lower()
-            if not any(suffixes.endswith(ext) for ext in ('.cif', '.mmcif', '.cif.gz', '.mmcif.gz')):
-                return registered
-
-            df = load_structure_from_cif(str(file_path), structure_id=registered)
-            combined_metadata = dict(entity_info.metadata or {})
-            combined_metadata.update(
-                {
-                    "source": combined_metadata.get("source", "cif_ingest"),
-                    "source_file": str(file_path),
-                }
+            combined_metadata = self._build_registration_metadata(
+                identifier,
+                raw_path,
+                previous_info,
+                metadata,
+                fetched=fetched,
             )
             processor.save_entity(registered, df, metadata=combined_metadata)
+
+            entity_info = self.entity_registry.find_entity(registered, self.loader_type)
+            if not entity_info or not self._is_canonical_registration(entity_info.file_path):
+                raise RuntimeError("structure registry does not point to a canonical PKL")
+
+            registered_path = self._resolve_registered_path(entity_info.file_path)
+            if not registered_path.is_file():
+                raise RuntimeError(f"canonical PKL was not persisted: {registered_path}")
+
+            # Force the success check through disk rather than the processor's frame cache.
+            processor._remove_frame(registered)
+            loaded = processor.load_entity(registered)
+            if loaded is None or loaded.empty:
+                raise RuntimeError("canonical PKL could not be loaded after registration")
         except Exception as exc:
             self.logger.warning(
                 "Failed to canonicalize structure '%s': %s",
                 registered,
                 exc,
             )
+            processor._remove_frame(registered)
+            self._restore_registration(registered, previous_info)
+            if backup_path is not None:
+                shutil.move(str(backup_path), pkl_path)
+            elif not pkl_existed:
+                pkl_path.unlink(missing_ok=True)
+            return None
+        finally:
+            if backup_path is not None:
+                backup_path.unlink(missing_ok=True)
 
         return registered
+
+    @staticmethod
+    def _is_canonical_registration(file_path: str) -> bool:
+        return Path(file_path).suffix.lower() == ".pkl"
+
+    def _registered_source_path(self, entity_info: Any) -> Optional[Path]:
+        """Return a usable CIF from an existing raw or repaired registration."""
+        if not entity_info:
+            return None
+
+        candidates = [entity_info.file_path]
+        source_file = (entity_info.metadata or {}).get("source_file")
+        if source_file:
+            candidates.append(source_file)
+
+        for candidate in candidates:
+            path = self._resolve_registered_path(candidate)
+            suffixes = "".join(path.suffixes).lower()
+            if path.is_file() and any(
+                suffixes.endswith(ext)
+                for ext in (".cif", ".mmcif", ".cif.gz", ".mmcif.gz")
+            ):
+                return path
+        return None
+
+    def _build_registration_metadata(
+        self,
+        identifier: str,
+        raw_path: Path,
+        previous_info: Any,
+        metadata: Optional[Dict[str, Any]],
+        *,
+        fetched: bool,
+    ) -> Dict[str, Any]:
+        combined = dict(previous_info.metadata or {}) if previous_info else {}
+        combined.update(metadata or {})
+        combined.update(self.parse_identifier(identifier))
+        combined.update(
+            {
+                "source_id": identifier,
+                "loader": self.__class__.__name__,
+                "source_file": str(raw_path),
+            }
+        )
+        if fetched or "download_date" not in combined:
+            combined["download_date"] = datetime.now().isoformat()
+        return combined
+
+    def _restore_registration(self, name: str, previous_info: Any) -> None:
+        """Restore the registry entry that existed before canonicalization."""
+        if previous_info is None:
+            self.entity_registry.remove_format(name, self.loader_type)
+            return
+        self.entity_registry.register_entity(
+            name=name,
+            format_type=self.loader_type,
+            file_path=previous_info.file_path,
+            metadata=dict(previous_info.metadata or {}),
+        )
 
     def _resolve_registered_path(self, raw_path: str) -> Path:
         """Resolve a registered file path across platforms."""
