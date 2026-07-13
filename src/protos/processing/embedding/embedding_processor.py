@@ -104,6 +104,23 @@ class EmbeddingProcessor(BaseProcessor):
             "hub_name": "ElnaggarLab/ankh-large", 
             "embedding_dim": 1536,
             "description": "Ankh large models"
+        },
+        "esmc_6b": {
+            "hub_name": "biohub/ESMC-6B",
+            "model_revision": "45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a",
+            "code_revision": "ba4d7124864eed323a93bf3cfefcd958f573b75a",
+            "embedding_dim": 2560,
+            "layers": 80,
+            "loader": "AutoModelForMaskedLM",
+            "output_field": "embeddings",
+            "token_policy": "esmc-residue-bos-eos-padding-v1",
+            "load_policy": "esmc-6b-bfloat16-device-map-v1",
+            "inference_dtype": "bfloat16",
+            "cuda_device_map": "auto",
+            "cuda_max_memory": "28GiB",
+            "transformers_repository": "https://github.com/Biohub/transformers.git",
+            "transformers_revision": "ef32577f55da19a4989cd7b22e004dc43a4998cb",
+            "description": "Pinned Biohub ESMC-6B final-layer residue embeddings",
         }
     }
 
@@ -111,13 +128,35 @@ class EmbeddingProcessor(BaseProcessor):
     def available_models(cls) -> Dict[str, Dict[str, Any]]:
         """Return the registry of available transformer models."""
 
-        return {
+        models = {
             name: {
                 "embedding_dim": config["embedding_dim"],
                 "description": config.get("description", "")
             }
             for name, config in cls.MODEL_REGISTRY.items()
         }
+        esmc_config = cls.MODEL_REGISTRY["esmc_6b"]
+        models["esmc_6b"].update(
+            {
+                key: esmc_config[key]
+                for key in (
+                    "hub_name",
+                    "model_revision",
+                    "code_revision",
+                    "layers",
+                    "loader",
+                    "output_field",
+                    "token_policy",
+                    "load_policy",
+                    "inference_dtype",
+                    "cuda_device_map",
+                    "cuda_max_memory",
+                    "transformers_repository",
+                    "transformers_revision",
+                )
+            }
+        )
+        return models
     
     def __init__(self,
                  name: str = "embedding_processor",
@@ -231,6 +270,11 @@ class EmbeddingProcessor(BaseProcessor):
     
     def _load_model(self):
         """Load the models and tokenizer."""
+        if self.model_name == "esmc_6b":
+            raise RuntimeError(
+                "ESMC uses the provenance-validating embed_esmc_sequences() adapter; "
+                "generic model/tokenizer access is intentionally disabled"
+            )
         if not self.dependencies_available:
             raise RuntimeError("Cannot load models without torch and transformers installed.")
         
@@ -285,6 +329,11 @@ class EmbeddingProcessor(BaseProcessor):
         Raises:
             RuntimeError: If dependencies are not installed
         """
+        if self.model_name == "esmc_6b":
+            raise ValueError(
+                "Use embed_esmc_sequences() for ESMC so BOS/EOS removal and "
+                "artifact provenance are validated"
+            )
         if not self.dependencies_available:
             raise RuntimeError(
                 "Cannot generate embeddings - missing dependencies.\n"
@@ -323,6 +372,49 @@ class EmbeddingProcessor(BaseProcessor):
         
         # Return appropriate format
         return embeddings["seq_0"] if is_single else embeddings
+
+    def embed_esmc_sequences(
+        self,
+        sequences: Any,
+        *,
+        backend: Optional[Any] = None,
+        token_policy: Optional[Any] = None,
+        source_lineage: Optional[Dict[str, Any]] = None,
+        resume: bool = True,
+        force_recompute: bool = False,
+    ) -> Dict[str, Any]:
+        """Generate pinned ESMC-6B final-layer residue embeddings.
+
+        This path is intentionally model-specific. It validates exact BOS/EOS
+        and padding identity, rejects truncation, emits only float32 ``[L,2560]``
+        arrays, and persists provenance-complete artifacts that can be resumed
+        only on an exact identity match. ``backend`` is an injectable
+        :class:`ESMCBackend` used by deterministic tests; omitting it loads the
+        pinned Hugging Face model directly.
+        """
+
+        if self.model_name != "esmc_6b":
+            raise ValueError(
+                "embed_esmc_sequences() requires model_name='esmc_6b'"
+            )
+        from .esmc_adapter import ESMCEmbeddingAdapter, ESMCTokenPolicy
+
+        policy = token_policy or ESMCTokenPolicy()
+        adapter = ESMCEmbeddingAdapter(
+            embeddings_dir=self.embeddings_dir,
+            data_root=Path(self.paths.data_root),
+            entity_registry=self.entity_registry,
+            batch_size=self.batch_size,
+            device=self.device,
+            backend=backend,
+            token_policy=policy,
+        )
+        return adapter.embed(
+            sequences,
+            source_lineage=source_lineage,
+            resume=resume,
+            force_recompute=force_recompute,
+        )
     
     def _generate_embeddings(
         self,
