@@ -112,7 +112,7 @@ class EmbeddingProcessor(BaseProcessor):
             "embedding_dim": 2560,
             "layers": 80,
             "loader": "AutoModelForMaskedLM",
-            "output_field": "embeddings",
+            "output_field": "last_hidden_state",
             "token_policy": "esmc-residue-bos-eos-padding-v1",
             "load_policy": "esmc-6b-bfloat16-device-map-v1",
             "inference_dtype": "bfloat16",

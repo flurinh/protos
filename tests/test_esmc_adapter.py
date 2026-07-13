@@ -182,6 +182,12 @@ def test_registry_and_two_sequence_padded_batch_contract(isolated_processor) -> 
     model = EmbeddingProcessor.available_models()["esmc_6b"]
     assert model["embedding_dim"] == 2560
     assert model["layers"] == 80
+    assert model["output_field"] == "last_hidden_state"
+    assert (
+        EmbeddingProcessor.MODEL_REGISTRY["esmc_6b"]["output_field"]
+        == ESMCOutputProvenance().output_field
+        == "last_hidden_state"
+    )
     assert model["inference_dtype"] == "bfloat16"
     assert model["cuda_device_map"] == "auto"
     assert model["cuda_max_memory"] == "28GiB"
