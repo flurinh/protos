@@ -95,7 +95,7 @@ class FakeESMCBackend:
             special_tokens_mask=special,
             token_mapping=mapping,
             truncated=tuple(self.mode == "truncated" for _ in sequences),
-            output_field="last_hidden_state" if self.mode == "wrong_output" else "embeddings",
+            output_field="embeddings" if self.mode == "wrong_output" else "last_hidden_state",
             final_layer=self.mode != "not_final",
         )
 

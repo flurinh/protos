@@ -73,7 +73,7 @@ The public model configuration is intentionally pinned:
 - Biohub source-lineage commit
   `ba4d7124864eed323a93bf3cfefcd958f573b75a`;
 - 80 layers and `d_model=2560`;
-- `output.embeddings` from the final encoder layer;
+- `output.last_hidden_state` from the final post-layernorm encoder state;
 - bfloat16 inference, float32 artifact storage, and the exact PEP 508 VCS pin
   `transformers @ git+https://github.com/Biohub/transformers.git@ef32577f55da19a4989cd7b22e004dc43a4998cb`.
 

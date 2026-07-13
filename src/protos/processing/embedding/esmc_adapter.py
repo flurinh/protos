@@ -140,7 +140,7 @@ class ESMCTokenPolicy:
 class ESMCOutputProvenance:
     """Required final-layer output contract."""
 
-    output_field: str = "embeddings"
+    output_field: str = "last_hidden_state"
     layer: str = "final"
     embedding_type: str = "per_residue"
     dimension: int = ESMC_EMBEDDING_DIMENSION
@@ -445,19 +445,10 @@ class HuggingFaceESMCBackend:
         input_device = next(self._model.parameters()).device
         model_inputs = {key: value.to(input_device) for key, value in encoded.items()}
         with torch.inference_mode():
-            output = self._model(
-                **model_inputs,
-                output_hidden_states=True,
-                return_dict=True,
-            )
-        embeddings = getattr(output, "embeddings", None)
-        hidden_states = getattr(output, "hidden_states", None)
+            output = self._model(**model_inputs, return_dict=True)
+        embeddings = getattr(output, "last_hidden_state", None)
         if embeddings is None:
-            raise ESMCShapeError("ESMC output is missing the required 'embeddings' field")
-        if not hidden_states or tuple(embeddings.shape) != tuple(hidden_states[-1].shape):
-            raise ESMCShapeError(
-                "ESMC output.embeddings is not the explicitly requested final encoder state"
-            )
+            raise ESMCShapeError("ESMC output is missing the required 'last_hidden_state' field")
 
         bos_token_id = getattr(self._tokenizer, "bos_token_id", None)
         if bos_token_id is None:
@@ -475,6 +466,8 @@ class HuggingFaceESMCBackend:
             special_tokens_mask=special_tokens_mask.cpu().numpy(),
             token_mapping=mapping,
             truncated=tuple(False for _ in sequences),
+            output_field="last_hidden_state",
+            final_layer=True,
         )
 
 
@@ -517,7 +510,7 @@ class ESMCEmbeddingAdapter:
                 "Model and output provenance declare different embedding dimensions"
             )
         if (
-            self.output_provenance.output_field != "embeddings"
+            self.output_provenance.output_field != "last_hidden_state"
             or self.output_provenance.layer != "final"
             or self.output_provenance.embedding_type != "per_residue"
             or self.output_provenance.storage_dtype != "float32"
@@ -635,7 +628,7 @@ class ESMCEmbeddingAdapter:
     ) -> Tuple[List[np.ndarray], ESMCTokenMapping]:
         bos_id, eos_id, pad_id, unk_id = _validate_token_mapping(output.token_mapping)
         if output.output_field != self.output_provenance.output_field or not output.final_layer:
-            raise ESMCShapeError("Backend did not return final-layer output.embeddings")
+            raise ESMCShapeError("Backend did not return final-layer output.last_hidden_state")
         if len(output.truncated) != len(sequences) or any(output.truncated):
             raise ESMCTruncationError("Backend reported truncated ESMC tokenization")
 
