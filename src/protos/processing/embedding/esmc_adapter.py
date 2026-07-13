@@ -64,6 +64,21 @@ class ESMCModelProvenance:
     layer_count: int = ESMC_LAYER_COUNT
     embedding_dimension: int = ESMC_EMBEDDING_DIMENSION
 
+    def __post_init__(self) -> None:
+        expected = {
+            "adapter_id": "protos.embedding.esmc.v1",
+            "model_id": ESMC_MODEL_ID,
+            "model_revision": ESMC_MODEL_REVISION,
+            "code_revision": ESMC_CODE_REVISION,
+            "layer_count": ESMC_LAYER_COUNT,
+            "embedding_dimension": ESMC_EMBEDDING_DIMENSION,
+        }
+        for field, value in expected.items():
+            if getattr(self, field) != value:
+                raise ESMCValidationError(
+                    f"ESMC canonical {field} must remain {value!r}"
+                )
+
 
 @dataclass(frozen=True)
 class ESMCTransformersProvenance:
@@ -79,8 +94,8 @@ class ESMCTransformersProvenance:
             raise ESMCValidationError("ESMC runtime distribution must be transformers")
         if self.repository != ESMC_TRANSFORMERS_REPOSITORY:
             raise ESMCValidationError("ESMC requires the pinned Biohub Transformers fork")
-        if not re.fullmatch(r"[0-9a-f]{40}", self.revision):
-            raise ESMCValidationError("Transformers revision must be a 40-character Git SHA")
+        if self.revision != ESMC_TRANSFORMERS_REVISION:
+            raise ESMCValidationError("ESMC requires the exact pinned Transformers commit")
         if self.install_contract != "pep508-vcs-direct-url-v1":
             raise ESMCValidationError("Unsupported Transformers installation contract")
 

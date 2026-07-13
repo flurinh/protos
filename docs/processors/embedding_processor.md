@@ -10,7 +10,8 @@ inference is first requested.
 
 The generic `embedding` extra installs Transformers for ESM-2 and Ankh but does
 not install PyTorch. ESMC has a separate `esmc` extra with the exact Biohub
-fork and `accelerate`.
+fork and `accelerate`. The `[all]` extra deliberately uses that Biohub fork as
+the union including ESMC; generic `embedding` and `gpu` remain stock-compatible.
 Install a PyTorch build suitable for the machine, then install ProtOS with the
 extra:
 
@@ -104,13 +105,13 @@ results = processor.embed_esmc_sequences(
             source_kind="fasta",
             source_id="training.fasta",
             source_revision="release-v2",
-            source_sha256="...",
+            source_sha256="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         ),
         "protein-b": ESMCSourceLineage(
             source_kind="fasta",
             source_id="training.fasta",
             source_revision="release-v2",
-            source_sha256="...",
+            source_sha256="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         ),
     },
     resume=True,

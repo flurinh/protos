@@ -27,6 +27,7 @@ from protos.processing.embedding import (
     ESMCTokenPolicy,
     ESMCTokenPolicyError,
     ESMCTruncationError,
+    ESMCValidationError,
     EmbeddingProcessor,
     sequence_sha256,
 )
@@ -317,16 +318,8 @@ def test_no_reuse_across_ankh_600m_revision_adapter_or_policy(
     ankh_dir.mkdir(parents=True)
     (ankh_dir / "protein.pkl").write_bytes(b"legacy-ankh-artifact")
 
-    old_600m_model = replace(
-        ESMCModelProvenance(),
-        model_id="biohub/ESMC-600M",
-        model_revision="a7e82012c83126b9eedb055fea9fa84b6c02f094",
-        layer_count=36,
-        embedding_dimension=1152,
-    )
-    with pytest.raises(ESMCShapeError):
-        _direct_adapter(processor, FakeESMCBackend(dimension=1152), model=old_600m_model,
-                        output=replace(ESMCOutputProvenance(), dimension=1152))
+    with pytest.raises(ESMCValidationError):
+        replace(ESMCModelProvenance(), model_id="biohub/ESMC-600M")
 
     production_backend = FakeESMCBackend()
     production = processor.embed_esmc_sequences(
@@ -336,27 +329,12 @@ def test_no_reuse_across_ankh_600m_revision_adapter_or_policy(
     assert "esmc_6b" in production.artifact_path.parts
     assert "ankh_large" not in production.artifact_path.parts
 
-    variants = [
-        (
-            replace(
-                ESMCModelProvenance(),
-                model_revision="0000000000000000000000000000000000000000",
-            ),
-            ESMCTokenPolicy(),
-        ),
-        (
-            replace(ESMCModelProvenance(), adapter_id="foreign.esmc.adapter.v1"),
-            ESMCTokenPolicy(),
-        ),
-        (ESMCModelProvenance(), ESMCTokenPolicy(max_residues=2045)),
-    ]
-    for index, (model, policy) in enumerate(variants):
-        backend = FakeESMCBackend()
-        result = _direct_adapter(
-            processor, backend, model=model, token_policy=policy
-        ).embed({"protein": "ACD"})["protein"]
-        assert backend.calls == [("ACD",)], index
-        assert result.artifact_path != production.artifact_path
+    with pytest.raises(ESMCValidationError):
+        replace(ESMCModelProvenance(), model_revision="0" * 40)
+    with pytest.raises(ESMCValidationError):
+        replace(ESMCModelProvenance(), adapter_id="foreign.esmc.adapter.v1")
+    with pytest.raises(ESMCValidationError):
+        replace(ESMCTransformersProvenance(), revision="0" * 40)
 
     cuda_processor = isolated_processor(device="cuda")
     cuda_result = cuda_processor.embed_esmc_sequences(
