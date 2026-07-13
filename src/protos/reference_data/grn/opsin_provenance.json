@@ -2,8 +2,11 @@
   "schema_version": 1,
   "type_I": {
     "policy": "Retain the curated microbial type-I opsin table unchanged.",
-    "rows": 129,
-    "columns": 1910
+    "source_repository": "https://github.com/flurinh/MOGRN",
+    "source_revision": "d071a46",
+    "source_table_sha256": "4530e60719773e015c69b08293a83aa1730598197fb7a56ea7bfe35dcc6a1f8b",
+    "rows": 130,
+    "columns": 1911
   },
   "type_II": {
     "source_repository": "https://github.com/VisualPhysiologyDB/visual-physiology-opsin-db",
@@ -89,7 +92,7 @@
     ]
   },
   "files": {
-    "type_I_opsins.csv": "3038b6c1a3a41c9e0585d3be8bee4eb7cb915c2b63e55a7bd2149a5a49852598",
+    "type_I_opsins.csv": "4530e60719773e015c69b08293a83aa1730598197fb7a56ea7bfe35dcc6a1f8b",
     "type_II_opsins.csv": "ec47223ad383cc5eac2f1d96bba9781918594fff068fc959057db0a919dffe04"
   }
 }

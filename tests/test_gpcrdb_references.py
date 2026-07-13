@@ -110,6 +110,21 @@ def test_type_ii_opsins_are_wild_type_only_and_have_protos_loop_policy() -> None
     assert "Exact ungapped" in provenance["type_II"]["selection"]
 
 
+def test_type_i_opsins_include_separate_tara_domains_and_pi_bulge() -> None:
+    table = load_reference("type_I_opsins.csv")
+    assert table.shape == (130, 1911)
+    assert "7pl9" not in table.index
+    assert {"TARA_A", "TARA_B"} <= set(table.index)
+    assert table.loc["TARA_A", ["5.43", "5.44", "5.45", "5.451", "5.46"]].to_dict() == {
+        "5.43": "-",
+        "5.44": "Y187",
+        "5.45": "A188",
+        "5.451": "I189",
+        "5.46": "F190",
+    }
+    assert table.loc["TARA_B", "5.451"] == "-"
+
+
 def test_fresh_data_root_installs_and_annotates_without_network(
     tmp_path: Path, monkeypatch
 ) -> None:

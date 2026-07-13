@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "bundle_version": "2026.07.12",
+  "bundle_version": "2026.07.13",
   "distribution": "bundled",
   "files": {
     "can_arrestin_human.csv": "b6641a01a803713c3d454b860c1d62e5e727e5b6aa5f85c3a2b0362db9f800e8",
@@ -21,7 +21,7 @@
     "gpcrdb_ref.csv": "96a500d68317933974e7182c082606e574b100af831b675ba3d8db3bde4b1c26",
     "gpcrdb_unclassified.csv": "45325f67abe4d15a7cc720839c9be2a982d8d3f8191cb0fc90cc7e16417ccef4",
     "type_II_opsins.csv": "ec47223ad383cc5eac2f1d96bba9781918594fff068fc959057db0a919dffe04",
-    "type_I_opsins.csv": "3038b6c1a3a41c9e0585d3be8bee4eb7cb915c2b63e55a7bd2149a5a49852598"
+    "type_I_opsins.csv": "4530e60719773e015c69b08293a83aa1730598197fb7a56ea7bfe35dcc6a1f8b"
   },
   "aliases": {},
   "provenance": {
