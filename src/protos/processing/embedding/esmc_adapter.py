@@ -146,6 +146,14 @@ class ESMCOutputProvenance:
     dimension: int = ESMC_EMBEDDING_DIMENSION
     storage_dtype: str = "float32"
 
+    def __post_init__(self) -> None:
+        if self.output_field != "last_hidden_state" or self.layer != "final":
+            raise ESMCShapeError("ESMC output must be final last_hidden_state")
+        if self.embedding_type != "per_residue" or self.dimension != ESMC_EMBEDDING_DIMENSION:
+            raise ESMCShapeError("ESMC output must be per-residue dimension 2560")
+        if self.storage_dtype != "float32":
+            raise ESMCShapeError("ESMC artifacts must use float32 storage")
+
 
 @dataclass(frozen=True)
 class ESMCSourceLineage:
@@ -185,7 +193,7 @@ class ESMCBatchOutput:
     special_tokens_mask: np.ndarray
     token_mapping: ESMCTokenMapping
     truncated: Tuple[bool, ...]
-    output_field: str = "embeddings"
+    output_field: str = "last_hidden_state"
     final_layer: bool = True
 
 
@@ -502,6 +510,7 @@ class ESMCEmbeddingAdapter:
         self.load_policy = load_policy
         self.token_policy = token_policy
         self.output_provenance = output_provenance
+        self.execution_device = self._normalize_device(device)
         if (
             self.model_provenance.embedding_dimension
             != self.output_provenance.dimension
@@ -531,6 +540,13 @@ class ESMCEmbeddingAdapter:
             ).encode("utf-8")
         )[:12]
         return self.embeddings_dir / model_namespace / f"artifacts-v1-{namespace_hash}"
+
+    @staticmethod
+    def _normalize_device(device: str) -> str:
+        normalized = str(device).strip().lower()
+        if not normalized:
+            raise ESMCValidationError("ESMC execution device must be non-empty")
+        return normalized
 
     def embed(
         self,
@@ -609,6 +625,7 @@ class ESMCEmbeddingAdapter:
             "token_policy": asdict(self.token_policy),
             "output": asdict(self.output_provenance),
             "source_lineage": asdict(lineage),
+            "execution_device": self.execution_device,
         }
         return {
             **provenance,
@@ -720,6 +737,7 @@ class ESMCEmbeddingAdapter:
             "code_revision": self.model_provenance.code_revision,
             "transformers_repository": self.transformers_provenance.repository,
             "transformers_revision": self.transformers_provenance.revision,
+            "execution_device": self.execution_device,
             "embedding_dimension": self.output_provenance.dimension,
             "inference_dtype": self.load_policy.inference_dtype,
             "dtype": self.output_provenance.storage_dtype,
@@ -777,6 +795,7 @@ class ESMCEmbeddingAdapter:
             "code_revision": self.model_provenance.code_revision,
             "transformers_repository": self.transformers_provenance.repository,
             "transformers_revision": self.transformers_provenance.revision,
+            "execution_device": self.execution_device,
             "embedding_dimension": self.output_provenance.dimension,
             "inference_dtype": self.load_policy.inference_dtype,
             "dtype": self.output_provenance.storage_dtype,

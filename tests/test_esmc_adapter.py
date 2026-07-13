@@ -324,21 +324,15 @@ def test_no_reuse_across_ankh_600m_revision_adapter_or_policy(
         layer_count=36,
         embedding_dimension=1152,
     )
-    old_600m_output = replace(ESMCOutputProvenance(), dimension=1152)
-    old_backend = FakeESMCBackend(dimension=1152)
-    old_result = _direct_adapter(
-        processor,
-        old_backend,
-        model=old_600m_model,
-        output=old_600m_output,
-    ).embed({"protein": "ACD"})["protein"]
+    with pytest.raises(ESMCShapeError):
+        _direct_adapter(processor, FakeESMCBackend(dimension=1152), model=old_600m_model,
+                        output=replace(ESMCOutputProvenance(), dimension=1152))
 
     production_backend = FakeESMCBackend()
     production = processor.embed_esmc_sequences(
         {"protein": "ACD"}, backend=production_backend
     )["protein"]
     assert production_backend.calls == [("ACD",)]
-    assert production.artifact_path != old_result.artifact_path
     assert "esmc_6b" in production.artifact_path.parts
     assert "ankh_large" not in production.artifact_path.parts
 
@@ -363,6 +357,14 @@ def test_no_reuse_across_ankh_600m_revision_adapter_or_policy(
         ).embed({"protein": "ACD"})["protein"]
         assert backend.calls == [("ACD",)], index
         assert result.artifact_path != production.artifact_path
+
+    cuda_processor = isolated_processor(device="cuda")
+    cuda_result = cuda_processor.embed_esmc_sequences(
+        {"protein": "ACD"}, backend=FakeESMCBackend()
+    )["protein"]
+    assert cuda_result.artifact_path != production.artifact_path
+    assert cuda_result.metadata["execution_device"] == "cuda"
+    assert production.metadata["execution_device"] == "cpu"
 
 
 def test_generic_embedding_path_is_not_used_for_esmc(isolated_processor) -> None:

@@ -15,7 +15,9 @@ command -v "$PYTHON311" >/dev/null || PYTHON311=/data/fast/envs/lambda/bin/pytho
   'transformers @ git+https://github.com/Biohub/transformers.git@ef32577f55da19a4989cd7b22e004dc43a4998cb' \
   'huggingface_hub>=0.20'
 "$VENV/bin/python" -m pip install --no-deps 'accelerate>=1.0.0'
-PYTHONPATH="$ROOT/src" ROOT="$ROOT" "$VENV/bin/python" - <<'PY'
+mkdir -p "$VENV/hf"
+unset TRANSFORMERS_CACHE
+HF_HOME="$VENV/hf" PYTHONPATH="$ROOT/src" ROOT="$ROOT" "$VENV/bin/python" - <<'PY'
 import json, os
 import sys
 import torch
@@ -46,3 +48,7 @@ assert hasattr(tiny_output, "last_hidden_state") and tiny_output.last_hidden_sta
 assert not hasattr(tiny_output, "embeddings")
 print(json.dumps({"python": os.sys.version.split()[0], "transformers": version("transformers"), "accelerate": version("accelerate"), "transformers_module": __import__("transformers").__file__, "host_torch": version("torch"), "model_type": config.model_type, "registered_model": model_class.__name__, "tiny_output_field": "last_hidden_state", "tiny_shape": list(tiny_output.last_hidden_state.shape), "weights": "production weights not loaded", "loader_kwargs": kwargs}, sort_keys=True))
 PY
+if find "$VENV/hf" -type f \( -name '*.safetensors' -o -name '*.bin' \) -print -quit | grep -q .; then
+  echo "production weight file found in isolated HF_HOME" >&2
+  exit 1
+fi
