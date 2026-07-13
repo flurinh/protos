@@ -116,6 +116,10 @@ setup(
         "embedding": [
             "transformers>=4.20.0",
         ],
+        "esmc": [
+            "transformers @ git+https://github.com/Biohub/transformers.git@ef32577f55da19a4989cd7b22e004dc43a4998cb",
+            "accelerate>=1.0.0",
+        ],
         "gpu": [
             "transformers>=4.20.0",
             "accelerate>=0.20.0",
@@ -128,7 +132,7 @@ setup(
             "flake8>=4.0.0",
         ],
         "all": [
-            "transformers>=4.20.0",
+            "transformers @ git+https://github.com/Biohub/transformers.git@ef32577f55da19a4989cd7b22e004dc43a4998cb",
             "accelerate>=0.20.0",
             "sentencepiece>=0.1.96",
             "black>=22.0.0",
