@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export PYTHONNOUSERSITE=1
 
 # Disposable, no-weight production registration check.  Config metadata is
 # fetched, but no model/tokenizer weights are downloaded or allocated.
