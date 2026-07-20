@@ -8,6 +8,7 @@ from typing import List, Optional
 from protos.processing.sequence.seq_alignment import (
     init_aligner,
     align_blosum62,
+    set_end_gap_score,
 )
 
 
@@ -29,8 +30,7 @@ def init_biopython_aligner(
         open_gap_score=open_gap_score,
         extend_gap_score=extend_gap_score,
     )
-    aligner.end_insertion_score = end_gap_score
-    aligner.end_deletion_score = end_gap_score
+    set_end_gap_score(aligner, end_gap_score)
     return aligner
 
 

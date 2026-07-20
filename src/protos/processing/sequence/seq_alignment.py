@@ -153,6 +153,27 @@ def get_best_alignment(msa, score_type='restricted'):
     return best_name, alignment
 
 
+def set_end_gap_score(aligner, score):
+    """Set free-end penalties across supported Biopython naming schemes."""
+
+    if hasattr(aligner, "end_insertion_score"):
+        aligner.end_insertion_score = score
+        aligner.end_deletion_score = score
+    else:
+        # Biopython 1.85 removed the insertion/deletion aliases in favor of
+        # explicit target/query end-gap attributes.
+        aligner.target_end_gap_score = score
+        aligner.query_end_gap_score = score
+
+
+def get_end_gap_scores(aligner):
+    """Return target/query terminal gap scores across Biopython versions."""
+
+    if hasattr(aligner, "end_insertion_score"):
+        return aligner.end_insertion_score, aligner.end_deletion_score
+    return aligner.target_end_gap_score, aligner.query_end_gap_score
+
+
 def init_aligner(match_score=2, mismatch_score=-2, extend_gap_score=-.05, open_gap_score=-10):
     # Load the original BLOSUM62 matrix
     blosum62 = substitution_matrices.load("BLOSUM62")
@@ -192,11 +213,7 @@ def init_aligner(match_score=2, mismatch_score=-2, extend_gap_score=-.05, open_g
     aligner.mismatch_score = mismatch_score
     aligner.open_gap_score = open_gap_score
     aligner.extend_gap_score = extend_gap_score
-    # Use new attribute names (Biopython >= 1.82)
-    # Old names: target_end_gap_score, query_end_gap_score
-    # New names: end_insertion_score, end_deletion_score
-    aligner.end_insertion_score = 0.0
-    aligner.end_deletion_score = 0.0
+    set_end_gap_score(aligner, 0.0)
     aligner.substitution_matrix = updated_matrix
     return aligner
 

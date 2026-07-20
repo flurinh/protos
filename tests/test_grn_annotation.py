@@ -481,6 +481,8 @@ def test_terminal_overhang_uses_protos_distance_coordinates() -> None:
 
 
 def test_gap_parameters_are_actually_applied_to_biopython() -> None:
+    from protos.processing.sequence.seq_alignment import get_end_gap_scores
+
     engine = SequenceAlignmentEngine(
         open_gap_score=-7.0, extend_gap_score=-0.25, end_gap_score=-1.5
     )
@@ -489,10 +491,19 @@ def test_gap_parameters_are_actually_applied_to_biopython() -> None:
         "extend_gap_score": -0.25,
         "end_gap_score": -1.5,
     }
-    assert engine._aligner.open_internal_gap_score == -7.0
-    assert engine._aligner.extend_internal_gap_score == -0.25
-    assert engine._aligner.end_insertion_score == -1.5
-    assert engine._aligner.end_deletion_score == -1.5
+    internal_open = (
+        engine._aligner.open_internal_gap_score
+        if hasattr(engine._aligner, "open_internal_gap_score")
+        else engine._aligner.internal_open_gap_score
+    )
+    internal_extend = (
+        engine._aligner.extend_internal_gap_score
+        if hasattr(engine._aligner, "extend_internal_gap_score")
+        else engine._aligner.internal_extend_gap_score
+    )
+    assert internal_open == -7.0
+    assert internal_extend == -0.25
+    assert get_end_gap_scores(engine._aligner) == (-1.5, -1.5)
 
 
 def test_legacy_expansion_entry_point_bypasses_numeric_math_for_string_segments() -> None:

@@ -3,8 +3,8 @@
   "type_I": {
     "policy": "Retain the curated microbial type-I opsin table unchanged.",
     "source_repository": "https://github.com/flurinh/MOGRN",
-    "source_revision": "d071a46",
-    "source_table_sha256": "4530e60719773e015c69b08293a83aa1730598197fb7a56ea7bfe35dcc6a1f8b",
+    "source_revision": "4f8b0c41e38811836e9da53805dfb46775164b0a",
+    "source_table_sha256": "b882534b49a898c47cd974ad7c050174c923770a289d9f19f33ac5883ef94134",
     "rows": 130,
     "columns": 1911
   },
@@ -92,7 +92,7 @@
     ]
   },
   "files": {
-    "type_I_opsins.csv": "4530e60719773e015c69b08293a83aa1730598197fb7a56ea7bfe35dcc6a1f8b",
+    "type_I_opsins.csv": "b882534b49a898c47cd974ad7c050174c923770a289d9f19f33ac5883ef94134",
     "type_II_opsins.csv": "ec47223ad383cc5eac2f1d96bba9781918594fff068fc959057db0a919dffe04"
   }
 }

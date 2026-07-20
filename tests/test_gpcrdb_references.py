@@ -116,7 +116,7 @@ def test_type_i_opsins_include_separate_tara_domains_and_pi_bulge() -> None:
     assert "7pl9" not in table.index
     assert {"TARA_A", "TARA_B"} <= set(table.index)
     assert table.loc["TARA_A", ["5.43", "5.44", "5.45", "5.451", "5.46"]].to_dict() == {
-        "5.43": "-",
+        "5.43": "W186",
         "5.44": "Y187",
         "5.45": "A188",
         "5.451": "I189",
